@@ -35,6 +35,45 @@ SOFTWARE.
 // #include <sys/wait.h>
 // #include <unistd.h>
 
+
+ void *get_mm_tag(bam1_t *record, uint32_t *len_ptr){
+
+    const char* tag = "MM";
+    // get the mm
+    uint8_t *data = bam_aux_get(record, tag);
+    if(data == NULL){
+        WARNING("%s tag not found in read %s",tag, bam_get_qname(record));
+        return NULL;
+        //exit(EXIT_FAILURE);
+    }
+
+    const char *mm_str = bam_aux2Z(data);
+    if(mm_str == NULL){
+        WARNING("%s tag could not be decoded for %s. Is it type Z?",tag, bam_get_qname(record));
+        exit(EXIT_FAILURE);
+    }
+
+    fprintf(stdout, "%s\t%s\t%s\n", bam_get_qname(record), tag, mm_str);
+
+    // // get the actual stuff
+    // uint8_t *array = (uint8_t *)malloc(sizeof(uint8_t)*len); //can be optimised for premalloced array as arg
+    // MALLOC_CHK(array);
+
+    // //fprintf(stderr,"%s: ",tag);
+    // for(int i=0;i<len;i++){
+    //     array[i] = bam_auxB2i(data,i);
+    //     //fprintf(stderr, "%d,", array[i]);
+    // }
+    // //fprintf(stderr, "\n");
+
+    // //set the length
+    // *len_ptr = len;
+
+    return NULL;
+
+}
+
+
 uint8_t *get_ml_tag(bam1_t *record, uint32_t *len_ptr){
 
     const char* tag = "ML";
@@ -95,7 +134,7 @@ uint8_t *get_ml_tag(bam1_t *record, uint32_t *len_ptr){
 
 static void print_ml_array(uint8_t *array, uint32_t len, bam1_t *record){
 
-    fprintf(stdout, "%s\t%s\t", bam_get_qname(record),"ml");
+    fprintf(stdout, "%s\t%s\t", bam_get_qname(record),"ML");
     for(int i=0;i<len;i++){
         fprintf(stdout, "%d,", array[i]);
     }
@@ -110,8 +149,9 @@ void simple_meth_view(core_t* core){
     while(sam_itr_next(core->bam_fp, core->itr, record) >= 0){
 
         uint32_t len;
-        //uint16_t *mm = get_mm_tag(record, &len);
+        uint16_t *mm = get_mm_tag(record, &len);
         uint8_t *ml = get_ml_tag(record, &len);
+
 
 
         if(ml==NULL){
