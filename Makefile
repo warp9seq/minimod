@@ -3,14 +3,15 @@ CFLAGS   += -g -Wall -O2  -std=c99
 LDFLAGS  += $(LIBS) -lz -lm -lpthread
 BUILD_DIR = build
 
-BINARY = invar
+BINARY = minimod
 OBJ = $(BUILD_DIR)/main.o \
-      $(BUILD_DIR)/invar.o \
-      $(BUILD_DIR)/depth_main.o \
+      $(BUILD_DIR)/minimod.o \
+      $(BUILD_DIR)/view_main.o \
       $(BUILD_DIR)/thread.o \
 	  $(BUILD_DIR)/misc.o \
 	  $(BUILD_DIR)/misc_p.o \
 	  $(BUILD_DIR)/error.o \
+	  $(BUILD_DIR)/mod.o \
 
 ifdef asan
 	CFLAGS += -fsanitize=address -fno-omit-frame-pointer
@@ -25,13 +26,13 @@ $(BINARY): htslib/libhts.a $(OBJ)
 $(BUILD_DIR)/main.o: src/main.c
 	$(CC) $(CFLAGS) $(CPPFLAGS) $< -c -o $@
 
-$(BUILD_DIR)/invar.o: src/invar.c src/misc.h src/error.h src/invar.h
+$(BUILD_DIR)/minimod.o: src/minimod.c src/misc.h src/error.h src/minimod.h
 	$(CC) $(CFLAGS) $(CPPFLAGS) $< -c -o $@
 
-$(BUILD_DIR)/depth_main.o: src/depth_main.c src/error.h
+$(BUILD_DIR)/view_main.o: src/view_main.c src/error.h
 	$(CC) $(CFLAGS) $(CPPFLAGS) $< -c -o $@
 
-$(BUILD_DIR)/thread.o: src/thread.c src/invar.h
+$(BUILD_DIR)/thread.o: src/thread.c src/minimod.h
 	$(CC) $(CFLAGS) $(CPPFLAGS) $< -c -o $@
 
 $(BUILD_DIR)/misc.o: src/misc.c src/misc.h
@@ -42,6 +43,10 @@ $(BUILD_DIR)/misc_p.o: src/misc_p.c src/misc.h
 
 $(BUILD_DIR)/error.o: src/error.c src/error.h
 	$(CC) $(CFLAGS) $(CPPFLAGS) $< -c -o $@
+
+$(BUILD_DIR)/mod.o: src/mod.c src/mod.h
+	$(CC) $(CFLAGS) $(CPPFLAGS) $< -c -o $@
+
 
 htslib/libhts.a:
 	@if test -e $(BUILD_DIR)/lib/libhts.a; then \

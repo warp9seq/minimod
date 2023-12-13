@@ -35,15 +35,15 @@ SOFTWARE.
 
 #include "error.h"
 #include "misc.h"
-#include "invar.h"
+#include "minimod.h"
 
-int depth_main(int argc, char* argv[]);
+int view_main(int argc, char* argv[]);
 
 int print_usage(FILE *fp_help){
 
-    fprintf(fp_help,"Usage: invar <command> [options]\n\n");
+    fprintf(fp_help,"Usage: minimod <command> [options]\n\n");
     fprintf(fp_help,"command:\n");
-    fprintf(fp_help,"         depth      do something\n");
+    fprintf(fp_help,"         view      do something\n");
     fprintf(fp_help,"         subtool2      do something\n");
 
     if(fp_help==stderr){
@@ -64,21 +64,21 @@ int main(int argc, char* argv[]){
 
     if(argc<2){
         return print_usage(stderr);
-    } else if (strcmp(argv[1],"depth")==0){
-        ret=depth_main(argc-1, argv+1);
+    } else if (strcmp(argv[1],"view")==0){
+        ret=view_main(argc-1, argv+1);
     } else if (strcmp(argv[1],"subtool2")==0){
-        ret=depth_main(argc-1, argv+1);
+        ret=view_main(argc-1, argv+1);
     } else if(strcmp(argv[1],"--version")==0 || strcmp(argv[1],"-V")==0){
-        fprintf(stdout,"invar %s\n",INVAR_VERSION);
+        fprintf(stdout,"minimod %s\n",MINIMOD_VERSION);
         exit(EXIT_SUCCESS);
     } else if(strcmp(argv[1],"--help")==0 || strcmp(argv[1],"-h")==0){
         return print_usage(stdout);
     } else{
-        fprintf(stderr,"[invar] Unrecognised command %s\n",argv[1]);
+        fprintf(stderr,"[minimod] Unrecognised command %s\n",argv[1]);
         return print_usage(stderr);
     }
 
-    fprintf(stderr,"[%s] Version: %s\n", __func__, INVAR_VERSION);
+    fprintf(stderr,"[%s] Version: %s\n", __func__, MINIMOD_VERSION);
     fprintf(stderr, "[%s] CMD:", __func__);
     for (int i = 0; i < argc; ++i) fprintf(stderr, " %s", argv[i]);
     fprintf(stderr, "\n[%s] Real time: %.3f sec; CPU time: %.3f sec; Peak RAM: %.3f GB\n\n",

@@ -41,4 +41,5 @@ Thumbs.db
 /.vscode
 
 # binaries
-/tool
+/minimod
+/htslib

@@ -22,7 +22,7 @@ ex() {
 }
 
 echo "Test 1"
-ex  ./invar depth test/example.bam > test/tmp.txt  || die "Running the tool failed"
+ex  ./minimod view test/r84088_20230609_025659_1_A01_fmr1.bam > test/tmp.txt  || die "Running the tool failed"
 # diff -q test/example.exp test/tmp.txt || die "diff failed"
 
 
