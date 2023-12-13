@@ -134,7 +134,7 @@ uint8_t *get_ml_tag(bam1_t *record, uint32_t *len_ptr){
 
 static void print_ml_array(uint8_t *array, uint32_t len, bam1_t *record){
 
-    fprintf(stdout, "%s\t%s\t", bam_get_qname(record),"ML");
+    fprintf(stdout, "%s\t%d\t%s\t", bam_get_qname(record),record->core.pos, "ML");
     for(int i=0;i<len;i++){
         fprintf(stdout, "%d,", array[i]);
     }
