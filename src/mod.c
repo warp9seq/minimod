@@ -70,6 +70,8 @@ void extractModifications(const char *mm_string) {
     const char * delim_comma = ",";
     char *token_semi, *token_comma;
 
+    int num_mods = 0;
+
     for(token_semi = strtok(mm_string, delim_semi); token_semi != NULL; token_semi = strtok(NULL, delim_semi)) {
         Modification current_mod;
         memset(&current_mod, 0, sizeof(Modification));
@@ -129,6 +131,14 @@ void extractModifications(const char *mm_string) {
             }
 
             token_comma = strtok(NULL, delim_comma);
+        }
+
+        if (num_mods < MAX_MODIFICATIONS) {
+            mods[num_mods] = current_mod;
+            num_mods++;
+        } else {
+            printf("Error: Too many modifications.\n");
+            return;
         }
                 
     }   
