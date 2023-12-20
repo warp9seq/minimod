@@ -31,12 +31,111 @@ SOFTWARE.
 // #include "misc.h"
 #include "error.h"
 #include <assert.h>
+#include <string.h>
+#include <stdio.h>
+#include <ctype.h>
 
 // #include <sys/wait.h>
 // #include <unistd.h>
 
+#define MAX_MODIFICATIONS 100
+#define MAX_SKIP_COUNTS 256
+#define MAX_MODIFICATIONS_TYPES 3
 
- void *get_mm_tag(bam1_t *record, uint32_t *len_ptr){
+typedef struct {
+    char base; 
+    char strand;
+    char modification_type[MAX_MODIFICATIONS_TYPES];
+    int skip_counts[MAX_SKIP_COUNTS];
+    int num_skips;
+    char status_flag;
+} Modification;
+
+Modification mods[MAX_MODIFICATIONS];
+
+// Function to check if a character is a valid base (A, C, G, T, U, N)
+int isValidBase(char ch) {
+    ch = toupper(ch);
+    return (ch == 'A' || ch == 'C' || ch == 'G' || ch == 'T' || ch == 'U' || ch == 'N');
+}
+
+// Function to extract methylated C base modification regions from MM string
+void extractModifications(const char *mm_string) {
+    if (mm_string == NULL || strlen(mm_string) == 0) {
+        printf("Error: Empty MM string.\n");
+        return;
+    }
+
+    const char * delim_semi = ";";
+    const char * delim_comma = ",";
+    char *token_semi, *token_comma;
+
+    for(token_semi = strtok(mm_string, delim_semi); token_semi != NULL; token_semi = strtok(NULL, delim_semi)) {
+        Modification current_mod;
+        memset(&current_mod, 0, sizeof(Modification));
+
+        // get first token
+        token_comma = strtok(token_semi, delim_comma);
+        if (token_comma == NULL) {
+            printf("Error: Invalid modification.\n");
+            return;
+        }
+
+        if (strlen(token_comma) < 3) {
+            printf("Error: Invalid modification.\n");
+            return;
+        }
+
+        if (token_comma[3] == '?' || token_comma[3] == '.') {
+            current_mod.status_flag = token_comma[3];
+            token_comma[3] = '\0';
+        } else {
+            current_mod.status_flag = '\0';
+        }
+
+        // scan base, strand and modification type
+        int parsed = sscanf(token_comma, "%c%c%s", &current_mod.base, &current_mod.strand, current_mod.modification_type);
+        if (parsed != 3) {
+            printf("Error: Invalid modification.\n");
+            return;
+        }
+
+        // check base
+        if (isValidBase(current_mod.base) == 0) {
+            printf("Error: Invalid base.\n");
+            return;
+        }
+
+        // check strand
+        if (current_mod.strand != '+' && current_mod.strand != '-') {
+            printf("Error: Invalid strand.\n");
+            return;
+        }
+
+        // get skip counts
+        token_comma = strtok(NULL, delim_comma);
+        while(token_comma != NULL) {
+
+            if (isdigit(token_comma[0]) == 0) {
+                printf("Error: Invalid skip count.\n");
+                return;
+            }
+
+            if (current_mod.num_skips < MAX_SKIP_COUNTS) {
+                current_mod.skip_counts[current_mod.num_skips] = atoi(token_comma);
+            } else {
+                printf("Error: Too many skip counts.\n");
+                return;
+            }
+
+            token_comma = strtok(NULL, delim_comma);
+        }
+                
+    }   
+
+}
+
+void *get_mm_tag(bam1_t *record, uint32_t *len_ptr){
 
     const char* tag = "MM";
     // get the mm
@@ -55,19 +154,8 @@ SOFTWARE.
 
     fprintf(stdout, "%s\t%s\t%s\n", bam_get_qname(record), tag, mm_str);
 
-    // // get the actual stuff
-    // uint8_t *array = (uint8_t *)malloc(sizeof(uint8_t)*len); //can be optimised for premalloced array as arg
-    // MALLOC_CHK(array);
+    extractModifications(mm_str);
 
-    // //fprintf(stderr,"%s: ",tag);
-    // for(int i=0;i<len;i++){
-    //     array[i] = bam_auxB2i(data,i);
-    //     //fprintf(stderr, "%d,", array[i]);
-    // }
-    // //fprintf(stderr, "\n");
-
-    // //set the length
-    // *len_ptr = len;
 
     return NULL;
 
