@@ -33,19 +33,20 @@ SOFTWARE.
 #include <assert.h>
 #include <string.h>
 #include <stdio.h>
+#include <stdarg.h>
 #include <ctype.h>
 
 // #include <sys/wait.h>
 // #include <unistd.h>
 
 #define MAX_MODIFICATIONS 100
-#define MAX_SKIP_COUNTS 256
-#define MAX_MODIFICATIONS_TYPES 3
+#define MAX_SKIP_COUNTS 1000
+#define MAX_MODIFICATIONS_CODES 3
 
 typedef struct {
     char base; 
     char strand;
-    char modification_type[MAX_MODIFICATIONS_TYPES];
+    char modification_codes[MAX_MODIFICATIONS_CODES];
     int skip_counts[MAX_SKIP_COUNTS];
     int num_skips;
     char status_flag;
@@ -53,10 +54,26 @@ typedef struct {
 
 Modification mods[MAX_MODIFICATIONS];
 
-// Function to check if a character is a valid base (A, C, G, T, U, N)
 int isValidBase(char ch) {
     ch = toupper(ch);
     return (ch == 'A' || ch == 'C' || ch == 'G' || ch == 'T' || ch == 'U' || ch == 'N');
+}
+
+int isValidStrand(char ch) {
+    return (ch == '+' || ch == '-');
+}
+
+int isValidModificationCode(char ch) {
+    return (ch >= '0' && ch <= '9') || (ch >= 'a' && ch <= 'z');
+}
+
+int die(const char *format, ...) {
+    va_list args;
+    va_start(args, format);
+    vfprintf(stderr, format, args);
+    va_end(args);
+
+    exit(EXIT_FAILURE);
 }
 
 // Function to extract methylated C base modification regions from MM string
@@ -65,83 +82,91 @@ void extractModifications(const char *mm_string) {
         printf("Error: Empty MM string.\n");
         return;
     }
-
-    const char * delim_semi = ";";
-    const char * delim_comma = ",";
-    char *token_semi, *token_comma;
-
+    
     int num_mods = 0;
 
-    for(token_semi = strtok(mm_string, delim_semi); token_semi != NULL; token_semi = strtok(NULL, delim_semi)) {
+    int mm_str_len = strlen(mm_string);
+    int i = 0;
+    while (i < mm_str_len) {
+
+        (num_mods < MAX_MODIFICATIONS) || die("Error: Too many modifications than MAX_MODIFICATIONS=%d.\n", MAX_MODIFICATIONS);
+
         Modification current_mod;
         memset(&current_mod, 0, sizeof(Modification));
 
-        // get first token
-        token_comma = strtok(token_semi, delim_comma);
-        if (token_comma == NULL) {
-            printf("Error: Invalid modification.\n");
-            return;
-        }
+        // set default status flag to '.' (when not present or '.' in the MM string)
+        current_mod.status_flag = '.';
 
-        if (strlen(token_comma) < 3) {
-            printf("Error: Invalid modification.\n");
-            return;
-        }
+        // get base
+        current_mod.base = mm_string[i];
+        isValidBase(current_mod.base) || die("Error: Invalid base:%c\n", current_mod.base);
+        i++;
 
-        if (token_comma[3] == '?' || token_comma[3] == '.') {
-            current_mod.status_flag = token_comma[3];
-            token_comma[3] = '\0';
-        } else {
-            current_mod.status_flag = '\0';
-        }
+        // get strand
+        current_mod.strand = mm_string[i];
+        isValidStrand(current_mod.strand) || die("Error: Invalid strand:%c\n", current_mod.strand);
+        i++;
 
-        // scan base, strand and modification type
-        int parsed = sscanf(token_comma, "%c%c%s", &current_mod.base, &current_mod.strand, current_mod.modification_type);
-        if (parsed != 3) {
-            printf("Error: Invalid modification.\n");
-            return;
-        }
+        // get base modification codes
+        int j = 0;
+        while (i < mm_str_len && mm_string[i] != ',' && mm_string[i] != ';') {
 
-        // check base
-        if (isValidBase(current_mod.base) == 0) {
-            printf("Error: Invalid base.\n");
-            return;
-        }
+            (j < MAX_MODIFICATIONS_CODES) || die("Error: Too many modification codes than MAX_MODIFICATIONS_CODES=.\n", MAX_MODIFICATIONS_CODES);
 
-        // check strand
-        if (current_mod.strand != '+' && current_mod.strand != '-') {
-            printf("Error: Invalid strand.\n");
-            return;
+            if (j>0 && (mm_string[i] == '?' || mm_string[i] == '.')) {
+                current_mod.status_flag = mm_string[i];
+                i+=2; // skip the comma
+                j++;
+                current_mod.modification_codes[j] = '\0';
+                break;
+            }
+            
+            isValidModificationCode(mm_string[i]) || die("Error: Invalid base modification code:%c\n", mm_string[i]);
+            current_mod.modification_codes[j] = mm_string[i];
+            
+            i++;
+            j++;
         }
 
         // get skip counts
-        token_comma = strtok(NULL, delim_comma);
-        while(token_comma != NULL) {
+        int k = 0;
+        while (i < mm_str_len && mm_string[i] != ';') {
 
-            if (isdigit(token_comma[0]) == 0) {
-                printf("Error: Invalid skip count.\n");
-                return;
+            (k < MAX_SKIP_COUNTS) || die("Error: Too many skip counts than MAXMAX_SKIP_COUNTS=%d.\n", MAX_SKIP_COUNTS);
+
+            char skip_count_str[10];
+            int l = 0;
+            while (i < mm_str_len && mm_string[i] != ',' && mm_string[i] != ';') {
+                // printf("mm_string[%d]: %c\n", i, mm_string[i]);
+                skip_count_str[l] = mm_string[i];
+                i++;
+                l++;
             }
-
-            if (current_mod.num_skips < MAX_SKIP_COUNTS) {
-                current_mod.skip_counts[current_mod.num_skips] = atoi(token_comma);
-            } else {
-                printf("Error: Too many skip counts.\n");
-                return;
-            }
-
-            token_comma = strtok(NULL, delim_comma);
+            skip_count_str[l] = '\0';
+            // printf("skip_count_str: %s\n", skip_count_str);
+            current_mod.skip_counts[k] = atoi(skip_count_str);
+            i++;
+            k++;
         }
+        current_mod.num_skips = k;
 
-        if (num_mods < MAX_MODIFICATIONS) {
-            mods[num_mods] = current_mod;
-            num_mods++;
-        } else {
-            printf("Error: Too many modifications.\n");
-            return;
+        mods[num_mods] = current_mod;
+        num_mods++;
+
+        /*
+        printf("Base: %c\n", current_mod.base);
+        printf("Strand: %c\n", current_mod.strand);
+        printf("Modification codes: %s\n", current_mod.modification_codes);
+        printf("Status flag: %c\n", current_mod.status_flag);
+        printf("Skip counts: ");
+        for (int m = 0; m < current_mod.num_skips; m++) {
+            printf("%d ", current_mod.skip_counts[m]);
         }
-                
-    }   
+        printf("\n");
+        */
+        
+
+    }
 
 }
 
