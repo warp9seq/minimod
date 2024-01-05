@@ -39,20 +39,20 @@ SOFTWARE.
 // #include <sys/wait.h>
 // #include <unistd.h>
 
-#define MAX_MODIFICATIONS 100
-#define MAX_SKIP_COUNTS 1000
-#define MAX_MODIFICATIONS_CODES 3
+#define INIT_MODIFICATIONS 100
+#define INIT_SKIP_COUNTS 100
+#define INIT_MODIFICATIONS_CODES 3
 
 typedef struct {
     char base; 
     char strand;
-    char modification_codes[MAX_MODIFICATIONS_CODES];
-    int skip_counts[MAX_SKIP_COUNTS];
+    char * modification_codes;
+    int modification_codes_cap;
+    int * skip_counts;
+    int skip_counts_cap;
     int num_skips;
     char status_flag;
 } Modification;
-
-Modification mods[MAX_MODIFICATIONS];
 
 int isValidBase(char ch) {
     ch = toupper(ch);
@@ -83,36 +83,61 @@ void extractModifications(const char *mm_string) {
         return;
     }
     
+    // allocate initial memory for modifications
+    int mods_cap = INIT_MODIFICATIONS;
+    Modification * mods = (Modification *) malloc(mods_cap * sizeof(Modification));
     int num_mods = 0;
 
     int mm_str_len = strlen(mm_string);
     int i = 0;
     while (i < mm_str_len) {
 
-        (num_mods < MAX_MODIFICATIONS) || die("Error: Too many modifications than MAX_MODIFICATIONS=%d.\n", MAX_MODIFICATIONS);
+        if (num_mods >= INIT_MODIFICATIONS) {
+            mods_cap *= 2;
+            mods = (Modification *) realloc(mods, mods_cap * sizeof(Modification));
+            MALLOC_CHK(mods);
+            // die("Error: Too many modifications than INIT_MODIFICATIONS=%d.\n", INIT_MODIFICATIONS);
+        }
 
         Modification current_mod;
         memset(&current_mod, 0, sizeof(Modification));
+
+        // allocate initial memory for skip counts
+        current_mod.skip_counts_cap = INIT_SKIP_COUNTS;
+        current_mod.skip_counts = (int *) malloc(current_mod.skip_counts_cap * sizeof(int));
+        MALLOC_CHK(current_mod.skip_counts);
+
+        // allocate initial memory for modification codes
+        current_mod.modification_codes_cap = INIT_MODIFICATIONS_CODES;
+        current_mod.modification_codes = (char *) malloc(current_mod.modification_codes_cap * sizeof(char));
+        MALLOC_CHK(current_mod.modification_codes);
 
         // set default status flag to '.' (when not present or '.' in the MM string)
         current_mod.status_flag = '.';
 
         // get base
         current_mod.base = mm_string[i];
-        isValidBase(current_mod.base) || die("Error: Invalid base:%c\n", current_mod.base);
+        if (!isValidBase(current_mod.base))
+            die("Error: Invalid base:%c\n", current_mod.base);
         i++;
 
         // get strand
         current_mod.strand = mm_string[i];
-        isValidStrand(current_mod.strand) || die("Error: Invalid strand:%c\n", current_mod.strand);
+        if (!isValidStrand(current_mod.strand))
+            die("Error: Invalid strand:%c\n", current_mod.strand);
         i++;
 
         // get base modification codes
         int j = 0;
         while (i < mm_str_len && mm_string[i] != ',' && mm_string[i] != ';') {
 
-            (j < MAX_MODIFICATIONS_CODES) || die("Error: Too many modification codes than MAX_MODIFICATIONS_CODES=.\n", MAX_MODIFICATIONS_CODES);
-
+            if (j >= current_mod.modification_codes_cap) {
+                current_mod.modification_codes_cap *= 2;
+                current_mod.modification_codes = (char *) realloc(current_mod.modification_codes, current_mod.modification_codes_cap * sizeof(char));
+                MALLOC_CHK(current_mod.modification_codes);
+                // die("Error: Too many modification codes than INIT_MODIFICATIONS_CODES=.\n", INIT_MODIFICATIONS_CODES);
+            }
+                
             if (j>0 && (mm_string[i] == '?' || mm_string[i] == '.')) {
                 current_mod.status_flag = mm_string[i];
                 i+=2; // skip the comma
@@ -121,7 +146,8 @@ void extractModifications(const char *mm_string) {
                 break;
             }
             
-            isValidModificationCode(mm_string[i]) || die("Error: Invalid base modification code:%c\n", mm_string[i]);
+            if (!isValidModificationCode(mm_string[i]))
+                die("Error: Invalid base modification code:%c\n", mm_string[i]);
             current_mod.modification_codes[j] = mm_string[i];
             
             i++;
@@ -132,7 +158,13 @@ void extractModifications(const char *mm_string) {
         int k = 0;
         while (i < mm_str_len && mm_string[i] != ';') {
 
-            (k < MAX_SKIP_COUNTS) || die("Error: Too many skip counts than MAXMAX_SKIP_COUNTS=%d.\n", MAX_SKIP_COUNTS);
+            if (k >= current_mod.skip_counts_cap) {
+                current_mod.skip_counts_cap *= 2;
+                current_mod.skip_counts = (int *) realloc(current_mod.skip_counts, current_mod.skip_counts_cap * sizeof(int));
+                MALLOC_CHK(current_mod.skip_counts);
+                // die("Error: Too many skip counts than INIT_SKIP_COUNTS=%d.\n", INIT_SKIP_COUNTS);
+            }
+                
 
             char skip_count_str[10];
             int l = 0;
