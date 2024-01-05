@@ -4,7 +4,8 @@
 
 MIT License
 
-Copyright (c) 2023 Hasindu Gamaarachchi (hasindu@unsw.edu.au)
+Copyright (c) 2023 Hasindu Gamaarachchi
+Copyright (c) 2023 Suneth Samarasinghe
 
 Permission is hereby granted, free of charge, to any person obtaining a copy
 of this software and associated documentation files (the "Software"), to deal
@@ -39,35 +40,35 @@ SOFTWARE.
 // #include <sys/wait.h>
 // #include <unistd.h>
 
-#define INIT_MODIFICATIONS 100
+#define INIT_MODS 100
 #define INIT_SKIP_COUNTS 100
-#define INIT_MODIFICATIONS_CODES 3
+#define INIT_MODS_CODES 3
 
 typedef struct {
-    char base; 
+    char base;
     char strand;
-    char * modification_codes;
-    int modification_codes_cap;
+    char * mod_codes;
+    int mod_codes_cap;
     int * skip_counts;
     int skip_counts_cap;
     int num_skips;
     char status_flag;
-} Modification;
+} mod_t;
 
-int isValidBase(char ch) {
+static inline int isValidBase(char ch) {
     ch = toupper(ch);
     return (ch == 'A' || ch == 'C' || ch == 'G' || ch == 'T' || ch == 'U' || ch == 'N');
 }
 
-int isValidStrand(char ch) {
+static inline int isValidStrand(char ch) {
     return (ch == '+' || ch == '-');
 }
 
-int isValidModificationCode(char ch) {
+static inline int isValidModificationCode(char ch) {
     return (ch >= '0' && ch <= '9') || (ch >= 'a' && ch <= 'z');
 }
 
-int die(const char *format, ...) {
+static inline int die(const char *format, ...) {
     va_list args;
     va_start(args, format);
     vfprintf(stderr, format, args);
@@ -77,30 +78,31 @@ int die(const char *format, ...) {
 }
 
 // Function to extract methylated C base modification regions from MM string
-void extractModifications(const char *mm_string) {
+static mod_t *extract_mods(const char *mm_string, uint32_t *len_mods) {
     if (mm_string == NULL || strlen(mm_string) == 0) {
-        printf("Error: Empty MM string.\n");
-        return;
+        ERROR("%s","Error: Empty MM string.\n");
+        return NULL;
     }
-    
+
     // allocate initial memory for modifications
-    int mods_cap = INIT_MODIFICATIONS;
-    Modification * mods = (Modification *) malloc(mods_cap * sizeof(Modification));
+    int mods_cap = INIT_MODS;
+    mod_t * mods = (mod_t *) malloc(mods_cap * sizeof(mod_t));
+    MALLOC_CHK(mods);
     int num_mods = 0;
 
     int mm_str_len = strlen(mm_string);
     int i = 0;
     while (i < mm_str_len) {
 
-        if (num_mods >= INIT_MODIFICATIONS) {
+        if (num_mods >= INIT_MODS) {
             mods_cap *= 2;
-            mods = (Modification *) realloc(mods, mods_cap * sizeof(Modification));
+            mods = (mod_t *) realloc(mods, mods_cap * sizeof(mod_t));
             MALLOC_CHK(mods);
-            // die("Error: Too many modifications than INIT_MODIFICATIONS=%d.\n", INIT_MODIFICATIONS);
+            // die("Error: Too many modifications than INIT_MODS=%d.\n", INIT_MODS);
         }
 
-        Modification current_mod;
-        memset(&current_mod, 0, sizeof(Modification));
+        mod_t current_mod;
+        memset(&current_mod, 0, sizeof(mod_t));
 
         // allocate initial memory for skip counts
         current_mod.skip_counts_cap = INIT_SKIP_COUNTS;
@@ -108,9 +110,9 @@ void extractModifications(const char *mm_string) {
         MALLOC_CHK(current_mod.skip_counts);
 
         // allocate initial memory for modification codes
-        current_mod.modification_codes_cap = INIT_MODIFICATIONS_CODES;
-        current_mod.modification_codes = (char *) malloc(current_mod.modification_codes_cap * sizeof(char));
-        MALLOC_CHK(current_mod.modification_codes);
+        current_mod.mod_codes_cap = INIT_MODS_CODES;
+        current_mod.mod_codes = (char *) malloc(current_mod.mod_codes_cap * sizeof(char));
+        MALLOC_CHK(current_mod.mod_codes);
 
         // set default status flag to '.' (when not present or '.' in the MM string)
         current_mod.status_flag = '.';
@@ -131,25 +133,25 @@ void extractModifications(const char *mm_string) {
         int j = 0;
         while (i < mm_str_len && mm_string[i] != ',' && mm_string[i] != ';') {
 
-            if (j >= current_mod.modification_codes_cap) {
-                current_mod.modification_codes_cap *= 2;
-                current_mod.modification_codes = (char *) realloc(current_mod.modification_codes, current_mod.modification_codes_cap * sizeof(char));
-                MALLOC_CHK(current_mod.modification_codes);
-                // die("Error: Too many modification codes than INIT_MODIFICATIONS_CODES=.\n", INIT_MODIFICATIONS_CODES);
+            if (j >= current_mod.mod_codes_cap) {
+                current_mod.mod_codes_cap *= 2;
+                current_mod.mod_codes = (char *) realloc(current_mod.mod_codes, current_mod.mod_codes_cap * sizeof(char));
+                MALLOC_CHK(current_mod.mod_codes);
+                // die("Error: Too many mod codes than INIT_MODS_CODES=.\n", INIT_MODS_CODES);
             }
-                
+
             if (j>0 && (mm_string[i] == '?' || mm_string[i] == '.')) {
                 current_mod.status_flag = mm_string[i];
                 i+=2; // skip the comma
                 j++;
-                current_mod.modification_codes[j] = '\0';
+                current_mod.mod_codes[j] = '\0';
                 break;
             }
-            
+
             if (!isValidModificationCode(mm_string[i]))
                 die("Error: Invalid base modification code:%c\n", mm_string[i]);
-            current_mod.modification_codes[j] = mm_string[i];
-            
+            current_mod.mod_codes[j] = mm_string[i];
+
             i++;
             j++;
         }
@@ -164,7 +166,7 @@ void extractModifications(const char *mm_string) {
                 MALLOC_CHK(current_mod.skip_counts);
                 // die("Error: Too many skip counts than INIT_SKIP_COUNTS=%d.\n", INIT_SKIP_COUNTS);
             }
-                
+
 
             char skip_count_str[10];
             int l = 0;
@@ -188,7 +190,7 @@ void extractModifications(const char *mm_string) {
         /*
         printf("Base: %c\n", current_mod.base);
         printf("Strand: %c\n", current_mod.strand);
-        printf("Modification codes: %s\n", current_mod.modification_codes);
+        printf("Modification codes: %s\n", current_mod.mod_codes);
         printf("Status flag: %c\n", current_mod.status_flag);
         printf("Skip counts: ");
         for (int m = 0; m < current_mod.num_skips; m++) {
@@ -196,13 +198,17 @@ void extractModifications(const char *mm_string) {
         }
         printf("\n");
         */
-        
+
 
     }
 
+    *len_mods = num_mods;
+
+    return mods;
+
 }
 
-void *get_mm_tag(bam1_t *record, uint32_t *len_ptr){
+const char *get_mm_tag_ptr(bam1_t *record){
 
     const char* tag = "MM";
     // get the mm
@@ -221,10 +227,7 @@ void *get_mm_tag(bam1_t *record, uint32_t *len_ptr){
 
     fprintf(stdout, "%s\t%s\t%s\n", bam_get_qname(record), tag, mm_str);
 
-    extractModifications(mm_str);
-
-
-    return NULL;
+    return mm_str;
 
 }
 
@@ -297,26 +300,53 @@ static void print_ml_array(uint8_t *array, uint32_t len, bam1_t *record){
 
 }
 
+static void print_mods(mod_t *mods, uint32_t len, bam_hdr_t *hdr, bam1_t *record){
+
+    int32_t tid = record->core.tid;
+    assert(tid < hdr->n_targets);
+    const char *tname = tid >= 0 ? hdr->target_name[tid] : ".";
+    int32_t pos = record->core.pos;
+    int32_t end = bam_endpos(record);
+    const char *qname = bam_get_qname(record);
+
+    int8_t rev = bam_is_rev(record);
+    const char strand = rev ? '-' : '+';
+    assert(!(record->core.flag & BAM_FUNMAP));
+
+    // for(int i=0;i<len;i++){
+    //     fprintf(stdout, "%s\t%d\t%s\t%c\t%c\t", bam_get_qname(record),record->core.pos, "MM", mods[i].base, mods[i].strand);
+
+    //     fprintf(stdout, "\n");
+    // }
+
+}
+
+static void print_hdr(){
+    printf("chromosome\tstrand\tstart\tend\tread_name\tprob");
+}
 
 void simple_meth_view(core_t* core){
 
     bam1_t *record = bam_init1();
     while(sam_itr_next(core->bam_fp, core->itr, record) >= 0){
 
+
+        const char *mm = get_mm_tag_ptr(record);
         uint32_t len;
-        uint16_t *mm = get_mm_tag(record, &len);
         uint8_t *ml = get_ml_tag(record, &len);
 
+        uint32_t mods_len;
+        mod_t *mods = extract_mods(mm, &mods_len);
 
 
         if(ml==NULL){
             continue;
         }
+
+
         //print_mm_array(mm, len, record);
-        print_ml_array(ml, len, record);
+        //print_ml_array(ml, len, record);
 
-
-        //free(mm);
         free(ml);
         //free(ri);
         //free(rp);
