@@ -53,6 +53,7 @@ typedef struct {
     int skip_counts_cap;
     int num_skips;
     char status_flag;
+    uint8_t * probs;
 } mod_t;
 
 static inline int isValidBase(char ch) {
@@ -78,7 +79,7 @@ static inline int die(const char *format, ...) {
 }
 
 // Function to extract methylated C base modification regions from MM string
-static mod_t *extract_mods(const char *mm_string, uint32_t *len_mods) {
+static mod_t *extract_mods(const char *mm_string, const uint8_t *ml, uint32_t *len_mods) {
     if (mm_string == NULL || strlen(mm_string) == 0) {
         ERROR("%s","Error: Empty MM string.\n");
         return NULL;
@@ -92,6 +93,7 @@ static mod_t *extract_mods(const char *mm_string, uint32_t *len_mods) {
 
     int mm_str_len = strlen(mm_string);
     int i = 0;
+    int probs_i = 0;
     while (i < mm_str_len) {
 
         if (num_mods >= INIT_MODS) {
@@ -108,6 +110,10 @@ static mod_t *extract_mods(const char *mm_string, uint32_t *len_mods) {
         current_mod.skip_counts_cap = INIT_SKIP_COUNTS;
         current_mod.skip_counts = (int *) malloc(current_mod.skip_counts_cap * sizeof(int));
         MALLOC_CHK(current_mod.skip_counts);
+
+        // allocate initial memory for probabilities
+        current_mod.probs = (uint8_t *) malloc(current_mod.skip_counts_cap * sizeof(uint8_t));
+        MALLOC_CHK(current_mod.probs);
 
         // allocate initial memory for modification codes
         current_mod.mod_codes_cap = INIT_MODS_CODES;
@@ -164,6 +170,9 @@ static mod_t *extract_mods(const char *mm_string, uint32_t *len_mods) {
                 current_mod.skip_counts_cap *= 2;
                 current_mod.skip_counts = (int *) realloc(current_mod.skip_counts, current_mod.skip_counts_cap * sizeof(int));
                 MALLOC_CHK(current_mod.skip_counts);
+
+                current_mod.probs = (uint8_t *) realloc(current_mod.probs, current_mod.skip_counts_cap * sizeof(uint8_t));
+                MALLOC_CHK(current_mod.probs);
                 // die("Error: Too many skip counts than INIT_SKIP_COUNTS=%d.\n", INIT_SKIP_COUNTS);
             }
 
@@ -179,6 +188,7 @@ static mod_t *extract_mods(const char *mm_string, uint32_t *len_mods) {
             skip_count_str[l] = '\0';
             // printf("skip_count_str: %s\n", skip_count_str);
             current_mod.skip_counts[k] = atoi(skip_count_str);
+            current_mod.probs[k] = ml[probs_i++];
             i++;
             k++;
         }
@@ -224,8 +234,6 @@ const char *get_mm_tag_ptr(bam1_t *record){
         WARNING("%s tag could not be decoded for %s. Is it type Z?",tag, bam_get_qname(record));
         exit(EXIT_FAILURE);
     }
-
-    fprintf(stdout, "%s\t%s\t%s\n", bam_get_qname(record), tag, mm_str);
 
     return mm_str;
 
@@ -290,11 +298,21 @@ uint8_t *get_ml_tag(bam1_t *record, uint32_t *len_ptr){
 }
 
 
-static void print_ml_array(uint8_t *array, uint32_t len, bam1_t *record){
+static void print_ml_array(const uint8_t *array, uint32_t len, bam1_t *record){
 
     fprintf(stdout, "%s\t%d\t%s\t", bam_get_qname(record),record->core.pos, "ML");
     for(int i=0;i<len;i++){
         fprintf(stdout, "%d,", array[i]);
+    }
+    fprintf(stdout, "\n");
+
+}
+
+static void print_mm_array(const char *mm, uint32_t len, bam1_t *record){
+
+    fprintf(stdout, "%s\t%d\t%s\t", bam_get_qname(record),record->core.pos, "MM");
+    for(int i=0;i<len;i++){
+        fprintf(stdout, "%c", mm[i]);
     }
     fprintf(stdout, "\n");
 
@@ -313,11 +331,11 @@ static void print_mods(mod_t *mods, uint32_t len, bam_hdr_t *hdr, bam1_t *record
     const char strand = rev ? '-' : '+';
     assert(!(record->core.flag & BAM_FUNMAP));
 
-    // for(int i=0;i<len;i++){
-    //     fprintf(stdout, "%s\t%d\t%s\t%c\t%c\t", bam_get_qname(record),record->core.pos, "MM", mods[i].base, mods[i].strand);
+    printf("chromosome\tstrand\tstart\tend\tread_name\n");
 
-    //     fprintf(stdout, "\n");
-    // }
+    for(int i=0;i<len;i++){
+        fprintf(stdout, "%s\t%c\t%d\t%d\t%s\n", tname, strand, pos, end, qname);
+    }
 
 }
 
@@ -333,21 +351,21 @@ void simple_meth_view(core_t* core){
 
         const char *mm = get_mm_tag_ptr(record);
         uint32_t len;
-        uint8_t *ml = get_ml_tag(record, &len);
+        const uint8_t *ml = get_ml_tag(record, &len);
 
-        uint32_t mods_len;
-        mod_t *mods = extract_mods(mm, &mods_len);
+        uint32_t mods_len = 0;
+        mod_t *mods = extract_mods(mm, ml, &mods_len);
 
+        bam_hdr_t *hdr = core->bam_hdr;
 
         if(ml==NULL){
             continue;
         }
 
-
-        //print_mm_array(mm, len, record);
-        //print_ml_array(ml, len, record);
-
-        free(ml);
+        print_ml_array(ml, len, record);
+        print_mm_array(mm, len, record);
+        print_mods(mods, mods_len, hdr, record);
+        
         //free(ri);
         //free(rp);
 
