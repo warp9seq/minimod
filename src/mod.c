@@ -49,10 +49,10 @@ typedef struct {
     char strand;
     char * mod_codes;
     int mod_codes_cap;
-    int num_mod_codes;
+    int mod_codes_len;
     int * skip_counts;
     int skip_counts_cap;
-    int num_skips;
+    int skip_counts_len;
     char status_flag;
     uint8_t * probs;
 } mod_t;
@@ -154,7 +154,7 @@ static mod_t *extract_mods(const char *mm_string, const uint8_t *ml, uint32_t *l
             i++;
             j++;
         }
-        current_mod.num_mod_codes = j;
+        current_mod.mod_codes_len = j;
 
         // get modification status flag
         if (mm_string[i] == '?' || mm_string[i] == '.') {
@@ -197,7 +197,7 @@ static mod_t *extract_mods(const char *mm_string, const uint8_t *ml, uint32_t *l
             i++;
             k++;
         }
-        current_mod.num_skips = k;
+        current_mod.skip_counts_len = k;
 
         mods[num_mods] = current_mod;
         num_mods++;
