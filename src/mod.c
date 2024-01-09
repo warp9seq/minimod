@@ -49,6 +49,7 @@ typedef struct {
     char strand;
     char * mod_codes;
     int mod_codes_cap;
+    int num_mod_codes;
     int * skip_counts;
     int skip_counts_cap;
     int num_skips;
@@ -137,7 +138,7 @@ static mod_t *extract_mods(const char *mm_string, const uint8_t *ml, uint32_t *l
 
         // get base modification codes
         int j = 0;
-        while (i < mm_str_len && mm_string[i] != ',' && mm_string[i] != ';') {
+        while (i < mm_str_len && mm_string[i] != ',' && mm_string[i] != ';' && mm_string[i] != '?' && mm_string[i] != '.') {
 
             if (j >= current_mod.mod_codes_cap) {
                 current_mod.mod_codes_cap *= 2;
@@ -146,20 +147,24 @@ static mod_t *extract_mods(const char *mm_string, const uint8_t *ml, uint32_t *l
                 // die("Error: Too many mod codes than INIT_MODS_CODES=.\n", INIT_MODS_CODES);
             }
 
-            if (j>0 && (mm_string[i] == '?' || mm_string[i] == '.')) {
-                current_mod.status_flag = mm_string[i];
-                i+=2; // skip the comma
-                j++;
-                current_mod.mod_codes[j] = '\0';
-                break;
-            }
-
             if (!isValidModificationCode(mm_string[i]))
                 die("Error: Invalid base modification code:%c\n", mm_string[i]);
             current_mod.mod_codes[j] = mm_string[i];
 
             i++;
             j++;
+        }
+        current_mod.num_mod_codes = j;
+
+        // get modification status flag
+        if (mm_string[i] == '?' || mm_string[i] == '.') {
+            current_mod.status_flag = mm_string[i];
+            i++;
+        } else if (mm_string[i] == ',') { // if not present, set to '.'
+            current_mod.status_flag = '.';
+            i++;
+        } else if (mm_string[i] == ';') { // end of current mod, no skip counts
+            current_mod.status_flag = '.';
         }
 
         // get skip counts
