@@ -43,6 +43,7 @@ SOFTWARE.
 #define INIT_MODS 100
 #define INIT_SKIP_COUNTS 100
 #define INIT_MODS_CODES 2
+#define INIT_BASE_POS 100
 
 typedef struct {
     char base;
@@ -232,6 +233,160 @@ static mod_t *extract_mods(const char *mm_string, const uint8_t *ml, uint32_t *l
 
 }
 
+// function to print an array of given type
+void print_array(void *array, int len, char type){
+    if(type == 'i'){
+        int *arr = (int *)array;
+        for(int i=0;i<len;i++){
+            printf("%d,", arr[i]);
+        }
+    }else if(type == 'c'){
+        char *arr = (char *)array;
+        for(int i=0;i<len;i++){
+            printf("%c,", arr[i]);
+        }
+    }
+    printf("\n");
+}
+
+int base_to_idx(char base){
+    if(base == 'A'){
+        return 0;
+    }else if(base == 'C'){
+        return 1;
+    }else if(base == 'G'){
+        return 2;
+    }else if(base == 'T'){
+        return 3;
+    }
+    return 4;
+}
+
+char base_complement(char base){
+    if(base == 'A'){
+        return 'T';
+    }else if(base == 'C'){
+        return 'G';
+    }else if(base == 'G'){
+        return 'C';
+    }else if(base == 'T'){
+        return 'A';
+    }
+    return base;
+}
+
+void print_meth_call_hdr(){
+    printf("read_name\tread_pos\tstrand\tbase_pos\tbase\tmod_strand\tmod_code\tmod_prob\n");
+}
+
+const char *get_mm_tag_ptr(bam1_t *record);
+
+void meth_call(mod_t *mods, uint32_t mods_len, bam_hdr_t *hdr, bam1_t *record){
+    int32_t tid = record->core.tid;
+    assert(tid < hdr->n_targets);
+    const char *tname = tid >= 0 ? hdr->target_name[tid] : "*";
+    int32_t pos = record->core.pos;
+    int32_t end = bam_endpos(record);
+    const char *qname = bam_get_qname(record);
+
+    int8_t rev = bam_is_rev(record);
+    const char strand = rev ? '-' : '+';
+    assert(!(record->core.flag & BAM_FUNMAP));
+
+    uint8_t *seq = bam_get_seq(record);
+    uint32_t seq_len = record->core.l_qseq;
+    if(seq_len <= 0){
+        WARNING("Sequence length is 0 for read %s", qname);
+        return;
+    }
+
+    // 5 int arrays to keep base pos of A, C, G, T, N bases.
+    // A: 0, C: 1, G: 2, T: 3, N: 4
+    // so that, nth base of A is base_pos[0][n] and so on.
+    int * bases_pos[5];
+    int bases_pos_lens[5];
+    int bases_pos_caps[5];
+    for(int i=0;i<5;i++){
+        bases_pos_caps[i] = INIT_BASE_POS;
+        bases_pos[i] = (int *)malloc(sizeof(int)*bases_pos_caps[i]);
+        MALLOC_CHK(bases_pos[i]);
+        bases_pos_lens[i] = 0;
+    }
+
+    // keep record of base pos of A, C, G, T, N bases
+    printf("seq_len: %d\n", seq_len);
+    for(int i=0; i<seq_len; i++){
+        int base_char = seq_nt16_str[bam_seqi(seq, i)];
+        int idx = base_to_idx(base_char);
+        if(bases_pos_lens[idx] >= bases_pos_caps[idx]){
+            bases_pos_caps[idx] *= 2;
+            bases_pos[idx] = (int *)realloc(bases_pos[idx], sizeof(int)*bases_pos_caps[idx]);
+            MALLOC_CHK(bases_pos[idx]);
+        }
+        bases_pos[idx][bases_pos_lens[idx]] = i;
+        bases_pos_lens[idx]++;
+        
+    }
+    
+
+    // go through mods
+    const char *mm = get_mm_tag_ptr(record);
+    printf("mm: %s\n", mm);
+    printf("mods_len: %d\n", mods_len);
+    
+    for (int i = 0; i < mods_len; i++) {
+        mod_t mod = mods[i];
+        printf("mod.base:%c mod.strand:%c mod.codes:%s\n", mod.base, mod.strand, mod.mod_codes);
+    }
+    
+    for(int i=0; i<mods_len; i++) {
+        mod_t mod = mods[i];
+        int base_rank = -1;
+        
+        for(int j=0; j<mod.skip_counts_len; j++) {
+            base_rank += mod.skip_counts[j] + 1;
+
+            // printf("mod.skip_counts[j]:%d base_rank: %d\n", mod.skip_counts[j], base_rank);
+            // print_array(bases_pos_lens, 5, 'i');
+            // print_array(mod.skip_counts, mod.skip_counts_len, 'i');
+            //print mod.strand
+            // printf("mod.base:%c seq.strand:%c mod.strand:%c\n", mod.base, strand, mod.strand);
+            
+            char mod_base = mod.base;
+            int idx = base_to_idx(mod_base);
+            ASSERT_MSG(base_rank < bases_pos_lens[idx], "%d th base of %c not found in SEQ. %c base count is %d\n", base_rank, mod_base, mod_base, bases_pos_lens[idx]);
+
+            int base_pos = bases_pos[idx][base_rank];
+            ASSERT_MSG(base_pos < seq_len, "Base pos cannot exceed seq len. base_pos: %d seq_len: %d\n", base_pos, seq_len);
+
+            int seq_base = seq_nt16_str[bam_seqi(seq, base_pos)];
+            ASSERT_MSG(seq_base == mod_base, "Base mismatch at %d. Expected %c in MM, but found %c in SEQ.\n", base_pos, mod_base, seq_base);
+
+            // mod prob per each mod code. TO-DO: need to change when code is ChEBI id
+            for(int k=0; k<mod.mod_codes_len; k++) {
+                char mod_code = mod.mod_codes[k];
+
+                // get the mod prob
+                uint8_t mod_prob_scaled = mod.probs[j*mod.mod_codes_len + k];
+                double mod_prob = (double)(mod_prob_scaled+1)/256.0;
+
+                // print qname, pos, strand, base_pos, base, mod_strand, mod_code, mod_prob
+                // printf("%s\t%d\t%c\t%d\t%c\t%c\t%c\t%f\n", bam_get_qname(record), record->core.pos, strand, base_pos, mod_base, mod.strand, mod_code, mod_prob);
+
+            }
+
+        }
+    }
+
+    // free base_pos
+    for(int i=0;i<5;i++){
+        free(bases_pos[i]);
+    }
+
+
+}
+
+
 const char *get_mm_tag_ptr(bam1_t *record){
 
     const char* tag = "MM";
@@ -355,6 +510,8 @@ static void print_mods(mod_t *mods, uint32_t len, bam_hdr_t *hdr, bam1_t *record
 
 void simple_meth_view(core_t* core){
 
+    print_meth_call_hdr();
+
     bam1_t *record = bam_init1();
     while(sam_itr_next(core->bam_fp, core->itr, record) >= 0){
 
@@ -372,9 +529,11 @@ void simple_meth_view(core_t* core){
             continue;
         }
 
-        print_ml_array(ml, len, record);
-        print_mm_array(mm, len, record);
-        print_mods(mods, mods_len, hdr, record);
+        meth_call(mods, mods_len, hdr, record);
+        // break;
+        // print_ml_array(ml, len, record);
+        // print_mm_array(mm, len, record);
+        // print_mods(mods, mods_len, hdr, record);
         
         //free(ri);
         //free(rp);
