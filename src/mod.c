@@ -302,7 +302,7 @@ void meth_call(mod_t *mods, uint32_t mods_len, bam_hdr_t *hdr, bam1_t *record){
 
     // 5 int arrays to keep base pos of A, C, G, T, N bases.
     // A: 0, C: 1, G: 2, T: 3, N: 4
-    // so that, nth base of A is base_pos[0][n] and so on.
+    // so that, nth base of A is at base_pos[0][n] and so on.
     int * bases_pos[5];
     int bases_pos_lens[5];
     int bases_pos_caps[5];
@@ -327,12 +327,10 @@ void meth_call(mod_t *mods, uint32_t mods_len, bam_hdr_t *hdr, bam1_t *record){
         
     }
     
-
     // go through mods    
     for(int i=0; i<mods_len; i++) {
         mod_t mod = mods[i];
         int base_rank = -1;
-        
         
         for(int j=0; j<mod.skip_counts_len; j++) {
             base_rank += mod.skip_counts[j] + 1;
@@ -343,6 +341,9 @@ void meth_call(mod_t *mods, uint32_t mods_len, bam_hdr_t *hdr, bam1_t *record){
             // printf("mod.base:%c seq.strand:%c mod.strand:%c\n", mod.base, strand, mod.strand);
             
             char mod_base = mod.base;
+            if(strand == '-'){
+                mod_base = base_complement(mod_base);
+            }
             int idx = base_to_idx(mod_base);
             ASSERT_MSG(base_rank < bases_pos_lens[idx], "%d th base of %c not found in SEQ. %c base count is %d\n", base_rank, mod_base, mod_base, bases_pos_lens[idx]);
 
@@ -361,7 +362,7 @@ void meth_call(mod_t *mods, uint32_t mods_len, bam_hdr_t *hdr, bam1_t *record){
                 double mod_prob = (double)(mod_prob_scaled+1)/256.0;
 
                 // print qname, pos, strand, base_pos, base, mod_strand, mod_code, mod_prob
-                // printf("%s\t%d\t%c\t%d\t%c\t%c\t%c\t%f\n", bam_get_qname(record), record->core.pos, strand, base_pos, mod_base, mod.strand, mod_code, mod_prob);
+                printf("%s\t%d\t%c\t%d\t%c\t%c\t%c\t%f\n", bam_get_qname(record), record->core.pos, strand, base_pos, mod.base, mod.strand, mod_code, mod_prob);
 
             }
 
@@ -500,7 +501,7 @@ static void print_mods(mod_t *mods, uint32_t len, bam_hdr_t *hdr, bam1_t *record
 
 void simple_meth_view(core_t* core){
 
-    // print_meth_call_hdr();
+    print_meth_call_hdr();
 
     bam1_t *record = bam_init1();
     while(sam_itr_next(core->bam_fp, core->itr, record) >= 0){
