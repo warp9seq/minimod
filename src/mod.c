@@ -340,18 +340,25 @@ void meth_call(mod_t *mods, uint32_t mods_len, bam_hdr_t *hdr, bam1_t *record){
             // print_array(mod.skip_counts, mod.skip_counts_len, 'i');
             // printf("mod.base:%c seq.strand:%c mod.strand:%c\n", mod.base, strand, mod.strand);
             
-            char mod_base = mod.base;
-            if(strand == '-'){
-                mod_base = base_complement(mod_base);
+            int idx = base_to_idx(mod.base);
+            if(rev){
+                char bc = base_complement(mod.base);
+                idx = base_to_idx(bc);
+                ASSERT_MSG(base_rank < bases_pos_lens[idx], "%d th base of %c not found in SEQ. %c base count is %d\n", base_rank, bc, bc, bases_pos_lens[idx]);
+            } else {
+                ASSERT_MSG(base_rank < bases_pos_lens[idx], "%d th base of %c not found in SEQ. %c base count is %d\n", base_rank, mod.base, mod.base, bases_pos_lens[idx]);
             }
-            int idx = base_to_idx(mod_base);
-            ASSERT_MSG(base_rank < bases_pos_lens[idx], "%d th base of %c not found in SEQ. %c base count is %d\n", base_rank, mod_base, mod_base, bases_pos_lens[idx]);
-
+            
             int base_pos = bases_pos[idx][base_rank];
             ASSERT_MSG(base_pos < seq_len, "Base pos cannot exceed seq len. base_pos: %d seq_len: %d\n", base_pos, seq_len);
 
             int seq_base = seq_nt16_str[bam_seqi(seq, base_pos)];
-            ASSERT_MSG(seq_base == mod_base, "Base mismatch at %d. Expected %c in MM, but found %c in SEQ.\n", base_pos, mod_base, seq_base);
+            if(rev){
+                char bc = base_complement(seq_base);
+                ASSERT_MSG(bc == mod.base, "Base mismatch at %d. Expected %c in MM, but found %c in SEQ.\n", base_pos, mod.base, bc);
+            } else {
+                ASSERT_MSG(seq_base == mod.base, "Base mismatch at %d. Expected %c in MM, but found %c in SEQ.\n", base_pos, mod.base, seq_base);
+            }
 
             // mod prob per each mod code. TO-DO: need to change when code is ChEBI id
             for(int k=0; k<mod.mod_codes_len; k++) {
