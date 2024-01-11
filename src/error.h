@@ -6,7 +6,7 @@ MIT License
 
 Copyright (c) 2018  Hasindu Gamaarachchi (hasindu@unsw.edu.au)
 Copyright (c) 2018  Thomas Daniell
-Copyright (c) 2023 Suneth Samarasinghe
+Copyright (c) 2023  Suneth Samarasinghe
 
 Permission is hereby granted, free of charge, to any person obtaining a copy
 of this software and associated documentation files (the "Software"), to deal
