@@ -6,6 +6,7 @@ MIT License
 
 Copyright (c) 2018  Hasindu Gamaarachchi (hasindu@unsw.edu.au)
 Copyright (c) 2018  Thomas Daniell
+Copyright (c) 2023 Suneth Samarasinghe
 
 Permission is hereby granted, free of charge, to any person obtaining a copy
 of this software and associated documentation files (the "Software"), to deal
@@ -137,6 +138,15 @@ void set_log_level(enum log_level_opt level);
         fprintf(stderr, ERROR_PREFIX "Assertion failed." NO_COLOUR \
                 " At %s:%d\nExiting.\n", \
                 __func__ , __FILE__, __LINE__ - 1); \
+        exit(EXIT_FAILURE); \
+    } \
+}
+
+#define ASSERT_MSG(ret, msg, ...) { \
+    if ((ret) == 0){ \
+        fprintf(stderr, ERROR_PREFIX "Assertion failed. " msg NO_COLOUR \
+                " At %s:%d\nExiting.\n", \
+                __func__, __VA_ARGS__, __FILE__, __LINE__ - 1); \
         exit(EXIT_FAILURE); \
     } \
 }

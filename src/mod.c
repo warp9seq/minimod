@@ -42,7 +42,7 @@ SOFTWARE.
 
 #define INIT_MODS 100
 #define INIT_SKIP_COUNTS 100
-#define INIT_MODS_CODES 3
+#define INIT_MODS_CODES 2
 
 typedef struct {
     char base;
@@ -125,18 +125,20 @@ static mod_t *extract_mods(const char *mm_string, const uint8_t *ml, uint32_t *l
         current_mod.status_flag = '.';
 
         // get base
-        current_mod.base = mm_string[i];
-        if (!isValidBase(current_mod.base))
-            die("Error: Invalid base:%c\n", current_mod.base);
-        i++;
+        if(i < mm_str_len) {
+            current_mod.base = mm_string[i];
+            ASSERT_MSG(isValidBase(current_mod.base), "Invalid base:%c\n", current_mod.base);
+            i++;
+        }
 
         // get strand
-        current_mod.strand = mm_string[i];
-        if (!isValidStrand(current_mod.strand))
-            die("Error: Invalid strand:%c\n", current_mod.strand);
-        i++;
+        if(i < mm_str_len) {
+            current_mod.strand = mm_string[i];
+            ASSERT_MSG(current_mod.strand == '+' || current_mod.strand == '-', "Invalid strand:%c\n", current_mod.strand);
+            i++;
+        }
 
-        // get base modification codes
+        // get base modification codes. can handle multiple codes giver as chars. TO-DO: handle when given as a ChEBI id
         int j = 0;
         while (i < mm_str_len && mm_string[i] != ',' && mm_string[i] != ';' && mm_string[i] != '?' && mm_string[i] != '.') {
 
@@ -147,29 +149,33 @@ static mod_t *extract_mods(const char *mm_string, const uint8_t *ml, uint32_t *l
                 // die("Error: Too many mod codes than INIT_MODS_CODES=.\n", INIT_MODS_CODES);
             }
 
-            if (!isValidModificationCode(mm_string[i]))
-                die("Error: Invalid base modification code:%c\n", mm_string[i]);
+            ASSERT_MSG(isValidModificationCode(mm_string[i]), "Invalid base modification code:%c\n", mm_string[i]);
+
             current_mod.mod_codes[j] = mm_string[i];
 
             i++;
             j++;
         }
+        current_mod.mod_codes[j] = '\0';
         current_mod.mod_codes_len = j;
 
         // get modification status flag
-        if (mm_string[i] == '?' || mm_string[i] == '.') {
+        if(i < mm_str_len && ( mm_string[i] == '?' || mm_string[i] == '.' )) {
             current_mod.status_flag = mm_string[i];
             i++;
-        } else if (mm_string[i] == ',') { // if not present, set to '.'
-            current_mod.status_flag = '.';
-            i++;
-        } else if (mm_string[i] == ';') { // end of current mod, no skip counts
+        } else { // if not present, set to '.'
             current_mod.status_flag = '.';
         }
 
         // get skip counts
         int k = 0;
         while (i < mm_str_len && mm_string[i] != ';') {
+
+            // skip if a comma
+            if(i < mm_str_len && mm_string[i] == ',') {
+                i++;
+                continue;
+            }
 
             if (k >= current_mod.skip_counts_cap) {
                 current_mod.skip_counts_cap *= 2;
@@ -189,14 +195,17 @@ static mod_t *extract_mods(const char *mm_string, const uint8_t *ml, uint32_t *l
                 skip_count_str[l] = mm_string[i];
                 i++;
                 l++;
+                assert(l < 10); // if this fails, use dynamic allocation for skip_count_str
             }
             skip_count_str[l] = '\0';
             // printf("skip_count_str: %s\n", skip_count_str);
-            current_mod.skip_counts[k] = atoi(skip_count_str);
+            ASSERT_MSG(l > 0, "invalid skip count:%d.\n", l);
+            sscanf(skip_count_str, "%d", &current_mod.skip_counts[k]);
+            ASSERT_MSG(current_mod.skip_counts[k] >= 0, "skip count cannot be negative: %d.\n", current_mod.skip_counts[k]);
             current_mod.probs[k] = ml[probs_i++];
-            i++;
             k++;
         }
+        i++;
         current_mod.skip_counts_len = k;
 
         mods[num_mods] = current_mod;
@@ -342,10 +351,6 @@ static void print_mods(mod_t *mods, uint32_t len, bam_hdr_t *hdr, bam1_t *record
         fprintf(stdout, "%s\t%c\t%d\t%d\t%s\n", tname, strand, pos, end, qname);
     }
 
-}
-
-static void print_hdr(){
-    printf("chromosome\tstrand\tstart\tend\tread_name\tprob");
 }
 
 void simple_meth_view(core_t* core){
