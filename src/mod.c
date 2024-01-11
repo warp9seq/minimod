@@ -295,8 +295,8 @@ void meth_call(mod_t *mods, uint32_t mods_len, bam_hdr_t *hdr, bam1_t *record){
 
     uint8_t *seq = bam_get_seq(record);
     uint32_t seq_len = record->core.l_qseq;
-    if(seq_len <= 0){
-        WARNING("Sequence length is 0 for read %s", qname);
+    if(seq_len == 0){
+        WARNING("Sequence length is 0 for read %s. Found %d mods", qname, mods_len);
         return;
     }
 
@@ -314,7 +314,6 @@ void meth_call(mod_t *mods, uint32_t mods_len, bam_hdr_t *hdr, bam1_t *record){
     }
 
     // keep record of base pos of A, C, G, T, N bases
-    printf("seq_len: %d\n", seq_len);
     for(int i=0; i<seq_len; i++){
         int base_char = seq_nt16_str[bam_seqi(seq, i)];
         int idx = base_to_idx(base_char);
@@ -329,27 +328,18 @@ void meth_call(mod_t *mods, uint32_t mods_len, bam_hdr_t *hdr, bam1_t *record){
     }
     
 
-    // go through mods
-    const char *mm = get_mm_tag_ptr(record);
-    printf("mm: %s\n", mm);
-    printf("mods_len: %d\n", mods_len);
-    
-    for (int i = 0; i < mods_len; i++) {
-        mod_t mod = mods[i];
-        printf("mod.base:%c mod.strand:%c mod.codes:%s\n", mod.base, mod.strand, mod.mod_codes);
-    }
-    
+    // go through mods    
     for(int i=0; i<mods_len; i++) {
         mod_t mod = mods[i];
         int base_rank = -1;
         
+        
         for(int j=0; j<mod.skip_counts_len; j++) {
             base_rank += mod.skip_counts[j] + 1;
-
+            // printf("mod.skip_counts_len: %d\n", mod.skip_counts_len);
             // printf("mod.skip_counts[j]:%d base_rank: %d\n", mod.skip_counts[j], base_rank);
             // print_array(bases_pos_lens, 5, 'i');
             // print_array(mod.skip_counts, mod.skip_counts_len, 'i');
-            //print mod.strand
             // printf("mod.base:%c seq.strand:%c mod.strand:%c\n", mod.base, strand, mod.strand);
             
             char mod_base = mod.base;
@@ -510,7 +500,7 @@ static void print_mods(mod_t *mods, uint32_t len, bam_hdr_t *hdr, bam1_t *record
 
 void simple_meth_view(core_t* core){
 
-    print_meth_call_hdr();
+    // print_meth_call_hdr();
 
     bam1_t *record = bam_init1();
     while(sam_itr_next(core->bam_fp, core->itr, record) >= 0){
