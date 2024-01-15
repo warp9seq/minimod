@@ -276,7 +276,7 @@ char base_complement(char base){
 }
 
 void print_meth_call_hdr(){
-    printf("read_name\tread_pos\tstrand\tbase_pos\tbase\tmod_strand\tmod_code\tmod_prob\n");
+    printf("read_name\tchrom\tread_pos\tstrand\tbase_pos\tbase\tmod_strand\tmod_code\tmod_prob\n");
 }
 
 const char *get_mm_tag_ptr(bam1_t *record);
@@ -353,7 +353,7 @@ void meth_call(mod_t *mods, uint32_t mods_len, bam_hdr_t *hdr, bam1_t *record){
             }
             
             ASSERT_MSG(base_rank < bases_pos_lens[idx], "%d th base of %c not found in SEQ. %c base count is %d\n", base_rank, mod_base, mod_base, bases_pos_lens[idx]);
-            ASSERT_MSG(base_pos < seq_len, "Base pos cannot exceed seq len. base_pos: %d seq_len: %d\n", base_pos, seq_len);
+            ASSERT_MSG(base_pos < seq_len, "Base pos cannot exceed seq len. base_pos: %d seq_len: %d\n", base_pos, seq_len); 
             
             // mod prob per each mod code. TO-DO: need to change when code is ChEBI id
             for(int k=0; k<mod.mod_codes_len; k++) {
@@ -363,9 +363,9 @@ void meth_call(mod_t *mods, uint32_t mods_len, bam_hdr_t *hdr, bam1_t *record){
                 uint8_t mod_prob_scaled = mod.probs[j*mod.mod_codes_len + k];
                 double mod_prob = (double)(mod_prob_scaled+1)/256.0;
 
-                // print qname, pos, strand, base_pos, base, mod_strand, mod_code, mod_prob
+                // print pos, strand, base_pos, base, mod_strand, mod_code, mod_prob, chromosome
                 char base = (mod.strand == '+') ? mod.base : base_complement(mod.base);
-                printf("%s\t%d\t%c\t%d\t%c\t%c\t%c\t%f\n", bam_get_qname(record), record->core.pos, strand, base_pos, base, mod.strand, mod_code, mod_prob);
+                printf("%s\t%s\t%d\t%c\t%d\t%c\t%c\t%c\t%f\n", bam_get_qname(record), tname, record->core.pos, strand, base_pos, base, mod.strand, mod_code, mod_prob);
 
             }
 
