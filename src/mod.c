@@ -291,7 +291,7 @@ void meth_call(mod_t *mods, uint32_t mods_len, bam_hdr_t *hdr, bam1_t *record){
 
     int8_t rev = bam_is_rev(record);
     const char strand = rev ? '-' : '+';
-    assert(!(record->core.flag & BAM_FUNMAP));
+    // assert(!(record->core.flag & BAM_FUNMAP));
 
     uint8_t *seq = bam_get_seq(record);
     uint32_t seq_len = record->core.l_qseq;
@@ -334,32 +334,27 @@ void meth_call(mod_t *mods, uint32_t mods_len, bam_hdr_t *hdr, bam1_t *record){
         
         for(int j=0; j<mod.skip_counts_len; j++) {
             base_rank += mod.skip_counts[j] + 1;
-            // printf("mod.skip_counts_len: %d\n", mod.skip_counts_len);
-            // printf("mod.skip_counts[j]:%d base_rank: %d\n", mod.skip_counts[j], base_rank);
-            // print_array(bases_pos_lens, 5, 'i');
-            // print_array(mod.skip_counts, mod.skip_counts_len, 'i');
-            // printf("mod.base:%c seq.strand:%c mod.strand:%c\n", mod.base, strand, mod.strand);
+            // fprintf(stderr, "qname:%s seq_len:%d mod.base:%c seq.strand:%c mod.strand:%c rank:%d\n", qname, seq_len, mod.base, strand, mod.strand, base_rank);
             
-            int idx = base_to_idx(mod.base);
+            char mod_base;
+            int idx;
+            int base_pos;
+            char seq_base;
+
             if(rev){
-                char bc = base_complement(mod.base);
-                idx = base_to_idx(bc);
-                ASSERT_MSG(base_rank < bases_pos_lens[idx], "%d th base of %c not found in SEQ. %c base count is %d\n", base_rank, bc, bc, bases_pos_lens[idx]);
+                mod_base = base_complement(mod.base);
+                idx = base_to_idx(mod_base);
+                base_pos = bases_pos[idx][bases_pos_lens[idx] - base_rank - 1];
+                base_pos = seq_len - base_pos - 1;
             } else {
-                ASSERT_MSG(base_rank < bases_pos_lens[idx], "%d th base of %c not found in SEQ. %c base count is %d\n", base_rank, mod.base, mod.base, bases_pos_lens[idx]);
+                mod_base = mod.base;
+                idx = base_to_idx(mod_base);
+                base_pos = bases_pos[idx][base_rank];
             }
             
-            int base_pos = bases_pos[idx][base_rank];
+            ASSERT_MSG(base_rank < bases_pos_lens[idx], "%d th base of %c not found in SEQ. %c base count is %d\n", base_rank, mod_base, mod_base, bases_pos_lens[idx]);
             ASSERT_MSG(base_pos < seq_len, "Base pos cannot exceed seq len. base_pos: %d seq_len: %d\n", base_pos, seq_len);
-
-            int seq_base = seq_nt16_str[bam_seqi(seq, base_pos)];
-            if(rev){
-                char bc = base_complement(seq_base);
-                ASSERT_MSG(bc == mod.base, "Base mismatch at %d. Expected %c in MM, but found %c in SEQ.\n", base_pos, mod.base, bc);
-            } else {
-                ASSERT_MSG(seq_base == mod.base, "Base mismatch at %d. Expected %c in MM, but found %c in SEQ.\n", base_pos, mod.base, seq_base);
-            }
-
+            
             // mod prob per each mod code. TO-DO: need to change when code is ChEBI id
             for(int k=0; k<mod.mod_codes_len; k++) {
                 char mod_code = mod.mod_codes[k];
@@ -369,7 +364,8 @@ void meth_call(mod_t *mods, uint32_t mods_len, bam_hdr_t *hdr, bam1_t *record){
                 double mod_prob = (double)(mod_prob_scaled+1)/256.0;
 
                 // print qname, pos, strand, base_pos, base, mod_strand, mod_code, mod_prob
-                printf("%s\t%d\t%c\t%d\t%c\t%c\t%c\t%f\n", bam_get_qname(record), record->core.pos, strand, base_pos, mod.base, mod.strand, mod_code, mod_prob);
+                char base = (mod.strand == '+') ? mod.base : base_complement(mod.base);
+                printf("%s\t%d\t%c\t%d\t%c\t%c\t%c\t%f\n", bam_get_qname(record), record->core.pos, strand, base_pos, base, mod.strand, mod_code, mod_prob);
 
             }
 
