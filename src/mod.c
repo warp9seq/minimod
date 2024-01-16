@@ -42,8 +42,9 @@ SOFTWARE.
 
 #define INIT_MODS 100
 #define INIT_SKIP_COUNTS 100
-#define INIT_MODS_CODES 2
+#define INIT_MOD_CODES 2
 #define INIT_BASE_POS 100
+#define INIT_MOD_BASES 2
 
 typedef struct {
     char base;
@@ -55,7 +56,18 @@ typedef struct {
     int skip_counts_cap;
     int skip_counts_len;
     char status_flag;
-    uint8_t * probs;
+} mod_tag_t;
+
+typedef struct {
+    char mod_code;
+    int mod_strand;
+    double mod_prob;
+} modbase_t;
+
+typedef struct {
+    modbase_t * mod_bases;
+    int mod_bases_cap;
+    int mod_bases_len;
 } mod_t;
 
 static inline int isValidBase(char ch) {
@@ -81,7 +93,7 @@ static inline int die(const char *format, ...) {
 }
 
 // Function to extract methylated C base modification regions from MM string
-static mod_t *extract_mods(const char *mm_string, const uint8_t *ml, uint32_t *len_mods) {
+static mod_tag_t *extract_mods(const char *mm_string, uint32_t *len_mods) {
     if (mm_string == NULL || strlen(mm_string) == 0) {
         ERROR("%s","Error: Empty MM string.\n");
         return NULL;
@@ -89,36 +101,30 @@ static mod_t *extract_mods(const char *mm_string, const uint8_t *ml, uint32_t *l
 
     // allocate initial memory for modifications
     int mods_cap = INIT_MODS;
-    mod_t * mods = (mod_t *) malloc(mods_cap * sizeof(mod_t));
-    MALLOC_CHK(mods);
+    mod_tag_t * mod_tags = (mod_tag_t *) malloc(mods_cap * sizeof(mod_tag_t));
+    MALLOC_CHK(mod_tags);
     int num_mods = 0;
 
     int mm_str_len = strlen(mm_string);
     int i = 0;
-    int probs_i = 0;
     while (i < mm_str_len) {
 
         if (num_mods >= INIT_MODS) {
             mods_cap *= 2;
-            mods = (mod_t *) realloc(mods, mods_cap * sizeof(mod_t));
-            MALLOC_CHK(mods);
-            // die("Error: Too many modifications than INIT_MODS=%d.\n", INIT_MODS);
+            mod_tags = (mod_tag_t *) realloc(mod_tags, mods_cap * sizeof(mod_tag_t));
+            MALLOC_CHK(mod_tags);
         }
 
-        mod_t current_mod;
-        memset(&current_mod, 0, sizeof(mod_t));
+        mod_tag_t current_mod;
+        memset(&current_mod, 0, sizeof(mod_tag_t));
 
         // allocate initial memory for skip counts
         current_mod.skip_counts_cap = INIT_SKIP_COUNTS;
         current_mod.skip_counts = (int *) malloc(current_mod.skip_counts_cap * sizeof(int));
         MALLOC_CHK(current_mod.skip_counts);
 
-        // allocate initial memory for probabilities
-        current_mod.probs = (uint8_t *) malloc(current_mod.skip_counts_cap * sizeof(uint8_t));
-        MALLOC_CHK(current_mod.probs);
-
         // allocate initial memory for modification codes
-        current_mod.mod_codes_cap = INIT_MODS_CODES;
+        current_mod.mod_codes_cap = INIT_MOD_CODES;
         current_mod.mod_codes = (char *) malloc(current_mod.mod_codes_cap * sizeof(char));
         MALLOC_CHK(current_mod.mod_codes);
 
@@ -147,7 +153,6 @@ static mod_t *extract_mods(const char *mm_string, const uint8_t *ml, uint32_t *l
                 current_mod.mod_codes_cap *= 2;
                 current_mod.mod_codes = (char *) realloc(current_mod.mod_codes, current_mod.mod_codes_cap * sizeof(char));
                 MALLOC_CHK(current_mod.mod_codes);
-                // die("Error: Too many mod codes than INIT_MODS_CODES=.\n", INIT_MODS_CODES);
             }
 
             ASSERT_MSG(isValidModificationCode(mm_string[i]), "Invalid base modification code:%c\n", mm_string[i]);
@@ -182,10 +187,6 @@ static mod_t *extract_mods(const char *mm_string, const uint8_t *ml, uint32_t *l
                 current_mod.skip_counts_cap *= 2;
                 current_mod.skip_counts = (int *) realloc(current_mod.skip_counts, current_mod.skip_counts_cap * sizeof(int));
                 MALLOC_CHK(current_mod.skip_counts);
-
-                current_mod.probs = (uint8_t *) realloc(current_mod.probs, current_mod.skip_counts_cap * sizeof(uint8_t));
-                MALLOC_CHK(current_mod.probs);
-                // die("Error: Too many skip counts than INIT_SKIP_COUNTS=%d.\n", INIT_SKIP_COUNTS);
             }
 
 
@@ -203,33 +204,19 @@ static mod_t *extract_mods(const char *mm_string, const uint8_t *ml, uint32_t *l
             ASSERT_MSG(l > 0, "invalid skip count:%d.\n", l);
             sscanf(skip_count_str, "%d", &current_mod.skip_counts[k]);
             ASSERT_MSG(current_mod.skip_counts[k] >= 0, "skip count cannot be negative: %d.\n", current_mod.skip_counts[k]);
-            current_mod.probs[k] = ml[probs_i++];
+            
             k++;
         }
-        i++;
         current_mod.skip_counts_len = k;
 
-        mods[num_mods] = current_mod;
+        mod_tags[num_mods] = current_mod;
         num_mods++;
-
-        /*
-        printf("Base: %c\n", current_mod.base);
-        printf("Strand: %c\n", current_mod.strand);
-        printf("Modification codes: %s\n", current_mod.mod_codes);
-        printf("Status flag: %c\n", current_mod.status_flag);
-        printf("Skip counts: ");
-        for (int m = 0; m < current_mod.num_skips; m++) {
-            printf("%d ", current_mod.skip_counts[m]);
-        }
-        printf("\n");
-        */
-
-
+        i++;
     }
 
     *len_mods = num_mods;
 
-    return mods;
+    return mod_tags;
 
 }
 
@@ -275,13 +262,11 @@ char base_complement(char base){
     return base;
 }
 
-void print_meth_call_hdr(){
-    printf("read_name\tchrom\tread_pos\tstrand\tbase_pos\tbase\tmod_strand\tmod_code\tmod_prob\n");
+static void print_meth_call_hdr(){
+    printf("chrom\tref_pos\tread_name\tread_pos\tstrand\tbase\tmod_strand\tmod_code\tmod_prob\n");
 }
 
-const char *get_mm_tag_ptr(bam1_t *record);
-
-void meth_call(mod_t *mods, uint32_t mods_len, bam_hdr_t *hdr, bam1_t *record){
+static void print_methylation(mod_t * mods, uint32_t prob_len, bam_hdr_t *hdr, bam1_t *record){
     int32_t tid = record->core.tid;
     assert(tid < hdr->n_targets);
     const char *tname = tid >= 0 ? hdr->target_name[tid] : "*";
@@ -291,13 +276,96 @@ void meth_call(mod_t *mods, uint32_t mods_len, bam_hdr_t *hdr, bam1_t *record){
 
     int8_t rev = bam_is_rev(record);
     const char strand = rev ? '-' : '+';
-    // assert(!(record->core.flag & BAM_FUNMAP));
+    assert(!(record->core.flag & BAM_FUNMAP));
+
+    if(!rev){
+
+        uint32_t *cigar = bam_get_cigar(record);
+        uint32_t n_cigar = record->core.n_cigar;
+
+        int read_pos = 0;
+        int ref_pos = pos;
+
+        //fprintf(stderr,"n cigar: %d\n", n_cigar);
+
+        for (uint32_t ci = 0; ci < n_cigar; ++ci) {
+
+            const uint32_t c = cigar[ci];
+            int cigar_len = bam_cigar_oplen(c);
+            int cigar_op = bam_cigar_op(c);
+
+            // Set the amount that the ref/read positions should be incremented
+            // based on the cigar operation
+            int read_inc = 0;
+            int ref_inc = 0;
+
+            // Process match between the read and the reference
+            int8_t is_aligned = 0;
+            if(cigar_op == BAM_CMATCH || cigar_op == BAM_CEQUAL || cigar_op == BAM_CDIFF) {
+                is_aligned = 1;
+                read_inc = 1;
+                ref_inc = 1;
+            } else if(cigar_op == BAM_CDEL) {
+                ref_inc = 1;
+            } else if(cigar_op == BAM_CREF_SKIP) {
+                // end the current segment and start a new one
+                //out.push_back(AlignedSegment());
+                ref_inc = 1;
+            } else if(cigar_op == BAM_CINS) {
+                read_inc = 1;
+            } else if(cigar_op == BAM_CSOFT_CLIP) {
+                read_inc = 1;
+            } else if(cigar_op == BAM_CHARD_CLIP) {
+                read_inc = 0;
+            } else {
+                ERROR("Unhandled CIGAR OPT Cigar: %d\n", cigar_op);
+                exit(EXIT_FAILURE);
+            }
+
+            // Iterate over the pairs of aligned bases
+            for(int j = 0; j < cigar_len; ++j) {
+                if(is_aligned) {
+                    assert(read_pos < prob_len);
+                    char base = seq_nt16_str[bam_seqi(bam_get_seq(record), read_pos)];
+                    mod_t mod = mods[read_pos];
+                    for(int k=0;k<mod.mod_bases_len;k++){
+                        modbase_t mod_base = mod.mod_bases[k];
+                        fprintf(stdout, "%s\t%d\t%s\t%d\t%c\t%c\t%c\t%c\t%f\n",tname, ref_pos, qname, read_pos, strand, base, mod_base.mod_strand, mod_base.mod_code, mod_base.mod_prob);
+                    }
+                }
+
+                // increment
+                read_pos += read_inc;
+                ref_pos += ref_inc;
+            }
+        }
+        
+    }
+
+
+}
+
+static mod_t * get_mods_per_base(mod_tag_t *mod_tags, uint32_t mods_len, uint8_t * ml, uint32_t ml_len, bam_hdr_t *hdr, bam1_t *record){
+
+    const char *qname = bam_get_qname(record);
+    int8_t rev = bam_is_rev(record);
+    assert(!(record->core.flag & BAM_FUNMAP));
 
     uint8_t *seq = bam_get_seq(record);
     uint32_t seq_len = record->core.l_qseq;
+
     if(seq_len == 0){
-        WARNING("Sequence length is 0 for read %s. Found %d mods", qname, mods_len);
-        return;
+        ERROR("Sequence length is 0 for read %s. Found %d mod_tags", qname, mods_len);
+        exit(EXIT_FAILURE);
+    }
+
+    mod_t *mods = (mod_t *)malloc(sizeof(mod_t)*seq_len);
+    MALLOC_CHK(mods);
+    for(int i=0;i<seq_len;i++){
+        mods[i].mod_bases_cap = INIT_MOD_BASES;
+        mods[i].mod_bases = (modbase_t *)malloc(sizeof(modbase_t)*mods[i].mod_bases_cap);
+        MALLOC_CHK(mods[i].mod_bases);
+        mods[i].mod_bases_len = 0;
     }
 
     // 5 int arrays to keep base pos of A, C, G, T, N bases.
@@ -327,10 +395,13 @@ void meth_call(mod_t *mods, uint32_t mods_len, bam_hdr_t *hdr, bam1_t *record){
         
     }
     
-    // go through mods    
+    // go through mod_tags    
     for(int i=0; i<mods_len; i++) {
-        mod_t mod = mods[i];
+        mod_tag_t mod = mod_tags[i];
         int base_rank = -1;
+
+        // assert skip_count * mod_codes_len should be equal to ml_len
+        ASSERT_MSG(mod.skip_counts_len * mod.mod_codes_len == ml_len, "Expected %d probability values but found only %d\n", mod.skip_counts_len * mod.mod_codes_len, ml_len)
         
         for(int j=0; j<mod.skip_counts_len; j++) {
             base_rank += mod.skip_counts[j] + 1;
@@ -339,7 +410,6 @@ void meth_call(mod_t *mods, uint32_t mods_len, bam_hdr_t *hdr, bam1_t *record){
             char mod_base;
             int idx;
             int base_pos;
-            char seq_base;
 
             if(rev){
                 mod_base = base_complement(mod.base);
@@ -355,17 +425,24 @@ void meth_call(mod_t *mods, uint32_t mods_len, bam_hdr_t *hdr, bam1_t *record){
             ASSERT_MSG(base_rank < bases_pos_lens[idx], "%d th base of %c not found in SEQ. %c base count is %d\n", base_rank, mod_base, mod_base, bases_pos_lens[idx]);
             ASSERT_MSG(base_pos < seq_len, "Base pos cannot exceed seq len. base_pos: %d seq_len: %d\n", base_pos, seq_len); 
             
+
             // mod prob per each mod code. TO-DO: need to change when code is ChEBI id
             for(int k=0; k<mod.mod_codes_len; k++) {
-                char mod_code = mod.mod_codes[k];
-
                 // get the mod prob
-                uint8_t mod_prob_scaled = mod.probs[j*mod.mod_codes_len + k];
+                uint8_t mod_prob_scaled = ml[j*mod.mod_codes_len + k];
                 double mod_prob = (double)(mod_prob_scaled+1)/256.0;
+                
+                // add to mods
+                if(mods[base_pos].mod_bases_len >= mods[base_pos].mod_bases_cap){
+                    mods[base_pos].mod_bases_cap *= 2;
+                    mods[base_pos].mod_bases = (modbase_t *)realloc(mods[base_pos].mod_bases, sizeof(modbase_t)*mods[base_pos].mod_bases_cap);
+                    MALLOC_CHK(mods[base_pos].mod_bases);
+                }
 
-                // print pos, strand, base_pos, base, mod_strand, mod_code, mod_prob, chromosome
-                char base = (mod.strand == '+') ? mod.base : base_complement(mod.base);
-                printf("%s\t%s\t%d\t%c\t%d\t%c\t%c\t%c\t%f\n", bam_get_qname(record), tname, record->core.pos, strand, base_pos, base, mod.strand, mod_code, mod_prob);
+                mods[base_pos].mod_bases[mods[base_pos].mod_bases_len].mod_code = mod.mod_codes[k];
+                mods[base_pos].mod_bases[mods[base_pos].mod_bases_len].mod_strand = mod.strand;
+                mods[base_pos].mod_bases[mods[base_pos].mod_bases_len].mod_prob = mod_prob;
+                mods[base_pos].mod_bases_len++;
 
             }
 
@@ -377,6 +454,7 @@ void meth_call(mod_t *mods, uint32_t mods_len, bam_hdr_t *hdr, bam1_t *record){
         free(bases_pos[i]);
     }
 
+    return mods;
 
 }
 
@@ -481,7 +559,7 @@ static void print_mm_array(const char *mm, uint32_t len, bam1_t *record){
 
 }
 
-static void print_mods(mod_t *mods, uint32_t len, bam_hdr_t *hdr, bam1_t *record){
+static void print_mods(mod_tag_t *mod_tags, uint32_t len, bam_hdr_t *hdr, bam1_t *record){
 
     int32_t tid = record->core.tid;
     assert(tid < hdr->n_targets);
@@ -511,11 +589,11 @@ void simple_meth_view(core_t* core){
 
 
         const char *mm = get_mm_tag_ptr(record);
-        uint32_t len;
-        const uint8_t *ml = get_ml_tag(record, &len);
+        uint32_t ml_len;
+        uint8_t *ml = get_ml_tag(record, &ml_len);
 
         uint32_t mods_len = 0;
-        mod_t *mods = extract_mods(mm, ml, &mods_len);
+        mod_tag_t *mod_tags = extract_mods(mm, &mods_len);
 
         bam_hdr_t *hdr = core->bam_hdr;
 
@@ -523,11 +601,14 @@ void simple_meth_view(core_t* core){
             continue;
         }
 
-        meth_call(mods, mods_len, hdr, record);
-        // break;
+        mod_t * mods_per_base = get_mods_per_base(mod_tags, mods_len, ml, ml_len, hdr, record);
+        uint32_t mods_per_base_len = record->core.l_qseq;
+
+        print_methylation(mods_per_base, mods_per_base_len, hdr, record);
+        
         // print_ml_array(ml, len, record);
         // print_mm_array(mm, len, record);
-        // print_mods(mods, mods_len, hdr, record);
+        // print_mods(mod_tags, mods_len, hdr, record);
         
         //free(ri);
         //free(rp);
