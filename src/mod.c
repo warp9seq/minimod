@@ -56,7 +56,7 @@ typedef struct {
     int skip_counts_cap;
     int skip_counts_len;
     char status_flag;
-} mod_tag_t;
+} mod_tag_t; // free in free_mod_tags()
 
 typedef struct {
     char mod_code;
@@ -68,7 +68,7 @@ typedef struct {
     modbase_t * mod_bases;
     int mod_bases_cap;
     int mod_bases_len;
-} mod_t;
+} mod_t; // free in free_mods_per_base()
 
 static inline int isValidBase(char ch) {
     ch = toupper(ch);
@@ -208,10 +208,16 @@ static mod_tag_t *extract_mods(const char *mm_string, uint32_t *len_mods) {
             k++;
         }
         current_mod.skip_counts_len = k;
+        i++;
+
+        if(current_mod.skip_counts_len == 0) { // no skip counts, no modification
+            free(current_mod.skip_counts);
+            free(current_mod.mod_codes);
+            continue;
+        }
 
         mod_tags[num_mods] = current_mod;
         num_mods++;
-        i++;
     }
 
     *len_mods = num_mods;
@@ -225,15 +231,15 @@ void print_array(void *array, int len, char type){
     if(type == 'i'){
         int *arr = (int *)array;
         for(int i=0;i<len;i++){
-            printf("%d,", arr[i]);
+            fprintf(stderr, "%d,", arr[i]);
         }
     }else if(type == 'c'){
         char *arr = (char *)array;
         for(int i=0;i<len;i++){
-            printf("%c,", arr[i]);
+            fprintf(stderr, "%c,", arr[i]);
         }
     }
-    printf("\n");
+    fprintf(stderr, "\n");
 }
 
 int base_to_idx(char base){
@@ -276,7 +282,7 @@ static void print_methylation(mod_t * mods, uint32_t prob_len, bam_hdr_t *hdr, b
 
     int8_t rev = bam_is_rev(record);
     const char strand = rev ? '-' : '+';
-    assert(!(record->core.flag & BAM_FUNMAP));
+    ASSERT_MSG(!(record->core.flag & BAM_FUNMAP), "Unmapped read %s\n", qname);
 
     if(!rev){
 
@@ -330,7 +336,7 @@ static void print_methylation(mod_t * mods, uint32_t prob_len, bam_hdr_t *hdr, b
                     mod_t mod = mods[read_pos];
                     for(int k=0;k<mod.mod_bases_len;k++){
                         modbase_t mod_base = mod.mod_bases[k];
-                        fprintf(stdout, "%s\t%d\t%s\t%d\t%c\t%c\t%c\t%c\t%f\n",tname, ref_pos, qname, read_pos, strand, base, mod_base.mod_strand, mod_base.mod_code, mod_base.mod_prob);
+                        fprintf(stdout, "%s\t%d\t%s\t%d\t%c\t%c\t%c\t%c\t%f\n", tname, ref_pos, qname, read_pos, strand, base, mod_base.mod_strand, mod_base.mod_code, mod_base.mod_prob);
                     }
                 }
 
@@ -349,7 +355,6 @@ static mod_t * get_mods_per_base(mod_tag_t *mod_tags, uint32_t mods_len, uint8_t
 
     const char *qname = bam_get_qname(record);
     int8_t rev = bam_is_rev(record);
-    assert(!(record->core.flag & BAM_FUNMAP));
 
     uint8_t *seq = bam_get_seq(record);
     uint32_t seq_len = record->core.l_qseq;
@@ -394,15 +399,17 @@ static mod_t * get_mods_per_base(mod_tag_t *mod_tags, uint32_t mods_len, uint8_t
         bases_pos_lens[idx]++;
         
     }
+
+
+    // ASSERT_MSG(mods_len >= ml_len, "Probaility array len mismatch. mods_len:%d ml_len:%d\n", mods_len, ml_len);
     
+    int ml_idx = 0;
     // go through mod_tags    
     for(int i=0; i<mods_len; i++) {
         mod_tag_t mod = mod_tags[i];
         int base_rank = -1;
 
-        // assert skip_count * mod_codes_len should be equal to ml_len
-        ASSERT_MSG(mod.skip_counts_len * mod.mod_codes_len == ml_len, "Expected %d probability values but found only %d\n", mod.skip_counts_len * mod.mod_codes_len, ml_len)
-        
+
         for(int j=0; j<mod.skip_counts_len; j++) {
             base_rank += mod.skip_counts[j] + 1;
             // fprintf(stderr, "qname:%s seq_len:%d mod.base:%c seq.strand:%c mod.strand:%c rank:%d\n", qname, seq_len, mod.base, strand, mod.strand, base_rank);
@@ -414,21 +421,32 @@ static mod_t * get_mods_per_base(mod_tag_t *mod_tags, uint32_t mods_len, uint8_t
             if(rev){
                 mod_base = base_complement(mod.base);
                 idx = base_to_idx(mod_base);
-                base_pos = bases_pos[idx][bases_pos_lens[idx] - base_rank - 1];
-                base_pos = seq_len - base_pos - 1;
             } else {
                 mod_base = mod.base;
                 idx = base_to_idx(mod_base);
+            }
+            
+            // print_array(bases_pos_lens, 5, 'i');
+            if(base_rank >= bases_pos_lens[idx]) {
+                WARNING("%d th base of %c not found in SEQ. %c base count is %d read_id:%s seq_len:%d mod.base:%c mod_codes:%s\n", base_rank, mod_base, mod_base, bases_pos_lens[idx], qname, seq_len, mod.base, mod.mod_codes);
+                continue;
+            }
+            ASSERT_MSG(base_rank < bases_pos_lens[idx], "%d th base of %c not found in SEQ. %c base count is %d read_id:%s seq_len:%d mod.base:%c mod_codes:%s\n", base_rank, mod_base, mod_base, bases_pos_lens[idx], qname, seq_len, mod.base, mod.mod_codes);
+            
+            if(rev) {
+                base_pos = bases_pos[idx][bases_pos_lens[idx] - base_rank - 1];
+                base_pos = seq_len - base_pos - 1;
+            } else {
                 base_pos = bases_pos[idx][base_rank];
             }
             
-            ASSERT_MSG(base_rank < bases_pos_lens[idx], "%d th base of %c not found in SEQ. %c base count is %d\n", base_rank, mod_base, mod_base, bases_pos_lens[idx]);
             ASSERT_MSG(base_pos < seq_len, "Base pos cannot exceed seq len. base_pos: %d seq_len: %d\n", base_pos, seq_len); 
             
-
+            ml_idx += j*mod.mod_codes_len;
             // mod prob per each mod code. TO-DO: need to change when code is ChEBI id
             for(int k=0; k<mod.mod_codes_len; k++) {
                 // get the mod prob
+                ml_idx += k;
                 uint8_t mod_prob_scaled = ml[j*mod.mod_codes_len + k];
                 double mod_prob = (double)(mod_prob_scaled+1)/256.0;
                 
@@ -447,6 +465,7 @@ static mod_t * get_mods_per_base(mod_tag_t *mod_tags, uint32_t mods_len, uint8_t
             }
 
         }
+        ml_idx++;
     }
 
     // free base_pos
@@ -501,17 +520,6 @@ uint8_t *get_ml_tag(bam1_t *record, uint32_t *len_ptr){
 
     // get the array len
     uint32_t len = bam_auxB_len(data);
-    if(len==0){
-        ERROR("%s array length is 0 in read %s",tag, bam_get_qname(record));
-        exit(EXIT_FAILURE);
-    }
-
-    // get the sequence length and check if they match to array len
-    // int seq_len = record->core.l_qseq;
-    // if(seq_len != len){
-    // int seq_len = record->core.l_qseq;
-    //     ERROR("%d array length does not match sequence length %d in read %s. Hard clipped alignments? If aligner is minimap2, make sure you use -Y option.", len, seq_len, bam_get_qname(record));
-    // }
 
     // check if the array type is uint8_t
     const char aux_array_type = data[1];
@@ -580,6 +588,21 @@ static void print_mods(mod_tag_t *mod_tags, uint32_t len, bam_hdr_t *hdr, bam1_t
 
 }
 
+static void free_mod_tags(mod_tag_t *mod_tags, uint32_t len){
+    for(int i=0;i<len;i++){
+        free(mod_tags[i].mod_codes);
+        free(mod_tags[i].skip_counts);
+    }
+    free(mod_tags);
+}
+
+static void free_mods_per_base(mod_t *mods, uint32_t len){
+    for(int i=0;i<len;i++){
+        free(mods[i].mod_bases);
+    }
+    free(mods);
+}
+
 void simple_meth_view(core_t* core){
 
     print_meth_call_hdr();
@@ -601,6 +624,10 @@ void simple_meth_view(core_t* core){
             continue;
         }
 
+        if(ml_len==0){ // no mod probs, therefore no mods
+            ASSERT_MSG(mods_len==0, "Mods len should be 0 when ml_len is 0. mods_len:%d ml_len:%d\n", mods_len, ml_len);
+        }
+
         mod_t * mods_per_base = get_mods_per_base(mod_tags, mods_len, ml, ml_len, hdr, record);
         uint32_t mods_per_base_len = record->core.l_qseq;
 
@@ -610,8 +637,9 @@ void simple_meth_view(core_t* core){
         // print_mm_array(mm, len, record);
         // print_mods(mod_tags, mods_len, hdr, record);
         
-        //free(ri);
-        //free(rp);
+        free(ml);
+        free_mod_tags(mod_tags, mods_len);
+        free_mods_per_base(mods_per_base, mods_per_base_len);
 
 
     }
