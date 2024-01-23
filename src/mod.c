@@ -272,7 +272,7 @@ static void print_meth_call_hdr(){
     printf("chrom\tref_pos\tread_name\tread_pos\tstrand\tbase\tmod_strand\tmod_code\tmod_prob\n");
 }
 
-static void print_methylation(mod_t * mods, uint32_t prob_len, bam_hdr_t *hdr, bam1_t *record){
+static void print_mods(mod_t * mods, uint32_t prob_len, bam_hdr_t *hdr, bam1_t *record){
     int32_t tid = record->core.tid;
     assert(tid < hdr->n_targets);
     const char *tname = tid >= 0 ? hdr->target_name[tid] : "*";
@@ -567,27 +567,6 @@ static void print_mm_array(const char *mm, uint32_t len, bam1_t *record){
 
 }
 
-static void print_mods(mod_tag_t *mod_tags, uint32_t len, bam_hdr_t *hdr, bam1_t *record){
-
-    int32_t tid = record->core.tid;
-    assert(tid < hdr->n_targets);
-    const char *tname = tid >= 0 ? hdr->target_name[tid] : ".";
-    int32_t pos = record->core.pos;
-    int32_t end = bam_endpos(record);
-    const char *qname = bam_get_qname(record);
-
-    int8_t rev = bam_is_rev(record);
-    const char strand = rev ? '-' : '+';
-    assert(!(record->core.flag & BAM_FUNMAP));
-
-    printf("chromosome\tstrand\tstart\tend\tread_name\n");
-
-    for(int i=0;i<len;i++){
-        fprintf(stdout, "%s\t%c\t%d\t%d\t%s\n", tname, strand, pos, end, qname);
-    }
-
-}
-
 static void free_mod_tags(mod_tag_t *mod_tags, uint32_t len){
     for(int i=0;i<len;i++){
         free(mod_tags[i].mod_codes);
@@ -631,7 +610,7 @@ void simple_meth_view(core_t* core){
         mod_t * mods_per_base = get_mods_per_base(mod_tags, mods_len, ml, ml_len, hdr, record);
         uint32_t mods_per_base_len = record->core.l_qseq;
 
-        print_methylation(mods_per_base, mods_per_base_len, hdr, record);
+        print_mods(mods_per_base, mods_per_base_len, hdr, record);
         
         // print_ml_array(ml, len, record);
         // print_mm_array(mm, len, record);
