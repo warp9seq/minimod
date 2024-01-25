@@ -79,6 +79,15 @@ typedef struct {
     double mod_prob;
 } meth_t;
 
+enum MOD_CODES {
+    MOD_ALL = 'A',
+    MOD_5mC = 'm',
+    MOD_5hmC = 'h',
+    MOD_5fC = 'f',
+    MOD_5caC = 'c',
+    MOD_xC = 'C'
+};
+
 static inline int isValidBase(char ch) {
     ch = toupper(ch);
     return (ch == 'A' || ch == 'C' || ch == 'G' || ch == 'T' || ch == 'U' || ch == 'N');
@@ -101,8 +110,14 @@ static inline int die(const char *format, ...) {
     exit(EXIT_FAILURE);
 }
 
-// Function to extract methylated C base modification regions from MM string
-static mod_tag_t *extract_mods(const char *mm_string, uint32_t *len_mods) {
+/*
+* Extracts the modifications from the MM string
+* @param mm_string MM string
+* @param len_mods pointer to the variable to store the number of modifications
+* @param mod_code code of the modification to extract. If MOD_ALL, all modifications are extracted
+* @return pointer to the array of mod_tag_t
+*/
+static mod_tag_t *extract_mods(const char *mm_string, uint32_t *len_mods, enum MOD_CODES mod_code) {
     if (mm_string == NULL || strlen(mm_string) == 0) {
         ERROR("%s","Error: Empty MM string.\n");
         return NULL;
@@ -166,10 +181,12 @@ static mod_tag_t *extract_mods(const char *mm_string, uint32_t *len_mods) {
 
             ASSERT_MSG(isValidModificationCode(mm_string[i]), "Invalid base modification code:%c\n", mm_string[i]);
 
-            current_mod.mod_codes[j] = mm_string[i];
+            if(mod_code == MOD_ALL || mm_string[i] == mod_code) {
+                current_mod.mod_codes[j] = mm_string[i];
+                j++;
+            }
 
             i++;
-            j++;
         }
         current_mod.mod_codes[j] = '\0';
         current_mod.mod_codes_len = j;
@@ -299,6 +316,7 @@ static meth_t * call_meth(mod_t * mods, uint32_t prob_len, bam_hdr_t *hdr, bam1_
 
     uint32_t len = 0;
     meth_t * meths = (meth_t *)malloc(sizeof(meth_t)*prob_len);
+    MALLOC_CHK(meths);
 
     if(!rev){
 
@@ -641,7 +659,7 @@ void simple_meth_view(core_t* core){
         uint8_t *ml = get_ml_tag(record, &ml_len);
 
         uint32_t mods_len = 0;
-        mod_tag_t *mod_tags = extract_mods(mm, &mods_len);
+        mod_tag_t *mod_tags = extract_mods(mm, &mods_len, MOD_ALL);
 
         bam_hdr_t *hdr = core->bam_hdr;
 
