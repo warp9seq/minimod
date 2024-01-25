@@ -70,6 +70,15 @@ typedef struct {
     int mod_bases_len;
 } mod_t; // free in free_mods_per_base()
 
+typedef struct {
+    int ref_pos;
+    int read_pos;
+    char base;
+    char mod_strand;
+    char mod_code;
+    double mod_prob;
+} meth_t;
+
 static inline int isValidBase(char ch) {
     ch = toupper(ch);
     return (ch == 'A' || ch == 'C' || ch == 'G' || ch == 'T' || ch == 'U' || ch == 'N');
@@ -272,7 +281,11 @@ static void print_meth_call_hdr(){
     printf("chrom\tref_pos\tread_name\tread_pos\tstrand\tbase\tmod_strand\tmod_code\tmod_prob\n");
 }
 
-static void print_mods(mod_t * mods, uint32_t prob_len, bam_hdr_t *hdr, bam1_t *record){
+static void print_meth_freq_hdr(){
+    printf("chrom\tstart\tend\tfreq\n");
+}
+
+static meth_t * call_meth(mod_t * mods, uint32_t prob_len, bam_hdr_t *hdr, bam1_t *record, uint32_t * meths_len){
     int32_t tid = record->core.tid;
     assert(tid < hdr->n_targets);
     const char *tname = tid >= 0 ? hdr->target_name[tid] : "*";
@@ -283,6 +296,9 @@ static void print_mods(mod_t * mods, uint32_t prob_len, bam_hdr_t *hdr, bam1_t *
     int8_t rev = bam_is_rev(record);
     const char strand = rev ? '-' : '+';
     ASSERT_MSG(!(record->core.flag & BAM_FUNMAP), "Unmapped read %s\n", qname);
+
+    uint32_t len = 0;
+    meth_t * meths = (meth_t *)malloc(sizeof(meth_t)*prob_len);
 
     if(!rev){
 
@@ -336,7 +352,14 @@ static void print_mods(mod_t * mods, uint32_t prob_len, bam_hdr_t *hdr, bam1_t *
                     mod_t mod = mods[read_pos];
                     for(int k=0;k<mod.mod_bases_len;k++){
                         modbase_t mod_base = mod.mod_bases[k];
-                        fprintf(stdout, "%s\t%d\t%s\t%d\t%c\t%c\t%c\t%c\t%f\n", tname, ref_pos, qname, read_pos, strand, base, mod_base.mod_strand, mod_base.mod_code, mod_base.mod_prob);
+                        meths[len].ref_pos = ref_pos;
+                        meths[len].read_pos = read_pos;
+                        meths[len].base = base;
+                        meths[len].mod_strand = mod_base.mod_strand;
+                        meths[len].mod_code = mod_base.mod_code;
+                        meths[len].mod_prob = mod_base.mod_prob;
+                        len++;
+                        // fprintf(stdout, "%s\t%d\t%s\t%d\t%c\t%c\t%c\t%c\t%f\n", tname, ref_pos, qname, read_pos, strand, base, mod_base.mod_strand, mod_base.mod_code, mod_base.mod_prob);
                     }
                 }
 
@@ -348,7 +371,11 @@ static void print_mods(mod_t * mods, uint32_t prob_len, bam_hdr_t *hdr, bam1_t *
         
     }
 
+    *meths_len = len;
 
+    ASSERT_MSG(len <= prob_len, "len:%d prob_len:%d\n", len, prob_len);
+
+    return meths;
 }
 
 static mod_t * get_mods_per_base(mod_tag_t *mod_tags, uint32_t mods_len, uint8_t * ml, uint32_t ml_len, bam_hdr_t *hdr, bam1_t *record){
@@ -567,6 +594,25 @@ static void print_mm_array(const char *mm, uint32_t len, bam1_t *record){
 
 }
 
+static void print_meths(meth_t *meths, uint32_t len, bam_hdr_t *hdr, bam1_t *record){
+
+    int32_t tid = record->core.tid;
+    assert(tid < hdr->n_targets);
+    const char *tname = tid >= 0 ? hdr->target_name[tid] : "*";
+    int32_t pos = record->core.pos;
+    int32_t end = bam_endpos(record);
+    const char *qname = bam_get_qname(record);
+
+    int8_t rev = bam_is_rev(record);
+    const char strand = rev ? '-' : '+';
+    ASSERT_MSG(!(record->core.flag & BAM_FUNMAP), "Unmapped read %s\n", qname);
+
+    for(int i=0;i<len;i++){
+        fprintf(stdout, "%s\t%d\t%s\t%d\t%c\t%c\t%c\t%c\t%f\n", tname, meths[i].ref_pos, qname, meths[i].read_pos, strand, meths[i].base, meths[i].mod_strand, meths[i].mod_code, meths[i].mod_prob);
+    }
+
+}
+
 static void free_mod_tags(mod_tag_t *mod_tags, uint32_t len){
     for(int i=0;i<len;i++){
         free(mod_tags[i].mod_codes);
@@ -610,15 +656,19 @@ void simple_meth_view(core_t* core){
         mod_t * mods_per_base = get_mods_per_base(mod_tags, mods_len, ml, ml_len, hdr, record);
         uint32_t mods_per_base_len = record->core.l_qseq;
 
-        print_mods(mods_per_base, mods_per_base_len, hdr, record);
+        uint32_t meths_len = 0;
+        meth_t * meths = call_meth(mods_per_base, mods_per_base_len, hdr, record, &meths_len);
         
         // print_ml_array(ml, len, record);
         // print_mm_array(mm, len, record);
         // print_mods(mod_tags, mods_len, hdr, record);
+
+        print_meths(meths, meths_len, hdr, record);
         
         free(ml);
         free_mod_tags(mod_tags, mods_len);
         free_mods_per_base(mods_per_base, mods_per_base_len);
+        free(meths);
 
 
     }
@@ -628,7 +678,9 @@ void simple_meth_view(core_t* core){
 
 void meth_freq(core_t* core){
 
-    
+    print_meth_call_hdr();
+
+   
     return;
 }
 
