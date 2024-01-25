@@ -7,6 +7,7 @@ BINARY = minimod
 OBJ = $(BUILD_DIR)/main.o \
       $(BUILD_DIR)/minimod.o \
       $(BUILD_DIR)/view_main.o \
+	  $(BUILD_DIR)/meth_freq_main.o \
       $(BUILD_DIR)/thread.o \
 	  $(BUILD_DIR)/misc.o \
 	  $(BUILD_DIR)/misc_p.o \
@@ -30,6 +31,9 @@ $(BUILD_DIR)/minimod.o: src/minimod.c src/misc.h src/error.h src/minimod.h
 	$(CC) $(CFLAGS) $(CPPFLAGS) $< -c -o $@
 
 $(BUILD_DIR)/view_main.o: src/view_main.c src/error.h
+	$(CC) $(CFLAGS) $(CPPFLAGS) $< -c -o $@
+
+$(BUILD_DIR)/meth_freq_main.o: src/meth_freq_main.c src/error.h
 	$(CC) $(CFLAGS) $(CPPFLAGS) $< -c -o $@
 
 $(BUILD_DIR)/thread.o: src/thread.c src/minimod.h

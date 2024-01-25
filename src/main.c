@@ -38,6 +38,7 @@ SOFTWARE.
 #include "minimod.h"
 
 int view_main(int argc, char* argv[]);
+int meth_freq_main(int argc, char* argv[]);
 
 int print_usage(FILE *fp_help){
 
@@ -66,6 +67,8 @@ int main(int argc, char* argv[]){
         return print_usage(stderr);
     } else if (strcmp(argv[1],"view")==0){
         ret=view_main(argc-1, argv+1);
+    } else if (strcmp(argv[1],"meth_freq")==0){
+        ret=meth_freq_main(argc-1, argv+1);
     } else if (strcmp(argv[1],"subtool2")==0){
         ret=view_main(argc-1, argv+1);
     } else if(strcmp(argv[1],"--version")==0 || strcmp(argv[1],"-V")==0){

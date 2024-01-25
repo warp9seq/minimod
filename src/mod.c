@@ -626,5 +626,10 @@ void simple_meth_view(core_t* core){
     return;
 }
 
+void meth_freq(core_t* core){
+
+    
+    return;
+}
 
 
