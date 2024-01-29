@@ -31,6 +31,7 @@ SOFTWARE.
 #include "mod.h"
 // #include "misc.h"
 #include "error.h"
+#include "khash.h"
 #include <assert.h>
 #include <string.h>
 #include <stdio.h>
@@ -87,6 +88,27 @@ enum MOD_CODES {
     MOD_5caC = 'c',
     MOD_xC = 'C'
 };
+
+typedef struct {
+    char * chrom;
+    int start;
+    int end;
+    int n_reads;
+    int n_methylated;
+    double freq;
+} meth_freq_t;
+
+KHASH_MAP_INIT_STR(str, meth_freq_t);
+
+char* make_key(char *chrom, int start, int end){
+    int start_strlen = snprintf(NULL, 0, "%d", start);
+    int end_strlen = snprintf(NULL, 0, "%d", end);
+    int key_strlen = strlen(chrom) + start_strlen + end_strlen + 3;
+    char* key = (char *)malloc(key_strlen * sizeof(char));
+    MALLOC_CHK(key);
+    snprintf(key, key_strlen, "%s\t%d\t%d", chrom, start, end);
+    return key;
+}
 
 static inline int isValidBase(char ch) {
     ch = toupper(ch);
@@ -295,11 +317,11 @@ char base_complement(char base){
 }
 
 static void print_meth_call_hdr(){
-    printf("chrom\tref_pos\tread_name\tread_pos\tstrand\tbase\tmod_strand\tmod_code\tmod_prob\n");
+    printf("chrom\tref_pos\tread_name\tread_pos\tstrand\tbase\tmod_strand\tmod_code\tmod_prob\tflag\n");
 }
 
 static void print_meth_freq_hdr(){
-    printf("chrom\tstart\tend\tfreq\n");
+    printf("chrom\tstart\tend\tn_reads\tn_methylated\tfreq\n");
 }
 
 static meth_t * call_meth(mod_t * mods, uint32_t prob_len, bam_hdr_t *hdr, bam1_t *record, uint32_t * meths_len){
@@ -387,7 +409,7 @@ static meth_t * call_meth(mod_t * mods, uint32_t prob_len, bam_hdr_t *hdr, bam1_
             }
         }
         
-    }
+    } 
 
     *meths_len = len;
 
@@ -522,6 +544,57 @@ static mod_t * get_mods_per_base(mod_tag_t *mod_tags, uint32_t mods_len, uint8_t
 
 }
 
+static void update_meth_freq(khash_t(str) *meth_freqs, meth_freq_t meth_freq){
+    char *key = make_key(meth_freq.chrom, meth_freq.start, meth_freq.end);
+    khiter_t k = kh_get(str, meth_freqs, key);
+    if (k == kh_end(meth_freqs)) {
+        int ret;
+        k = kh_put(str, meth_freqs, key, &ret);
+        kh_value(meth_freqs, k) = meth_freq;
+    } else {
+        meth_freq_t *mf = &kh_value(meth_freqs, k);
+        mf->n_reads += meth_freq.n_reads;
+        mf->n_methylated += meth_freq.n_methylated;
+        mf->freq = (double)mf->n_methylated/mf->n_reads;
+    }
+}
+
+static void call_freqs(meth_t * meths, uint32_t meths_len, khash_t(str)* freq_map,  bam_hdr_t *hdr, bam1_t *record){
+    uint32_t len = 0;
+
+    int32_t tid = record->core.tid;
+    assert(tid < hdr->n_targets);
+    const char *tname = tid >= 0 ? hdr->target_name[tid] : "*";
+    const char *qname = bam_get_qname(record);
+
+    for(int i=0;i<meths_len;i++) {
+        meth_t meth = meths[i];
+        meth_freq_t meth_freq;
+        meth_freq.chrom = tname;
+        meth_freq.start = meth.ref_pos;
+        meth_freq.end = meth.ref_pos;
+        meth_freq.n_reads = 1; // revist this
+        meth_freq.n_methylated = meth.mod_prob > 0.0 ? 1 : 0; // revist this
+        meth_freq.freq = 0.0;
+        update_meth_freq(freq_map, meth_freq);
+    }
+
+}
+
+static meth_freq_t * get_meth_freqs(khash_t(str)* freq_map, uint32_t *meth_freqs_len){
+    uint32_t len = 0;
+    meth_freq_t * meth_freqs = (meth_freq_t *)malloc(sizeof(meth_freq_t)*kh_size(freq_map));
+    MALLOC_CHK(meth_freqs);
+    for (khiter_t k = kh_begin(freq_map); k != kh_end(freq_map); ++k) {
+        if (kh_exist(freq_map, k)) {
+            meth_freqs[len] = kh_value(freq_map, k);
+            len++;
+        }
+    }
+    *meth_freqs_len = len;
+    return meth_freqs;
+}
+
 
 const char *get_mm_tag_ptr(bam1_t *record){
 
@@ -617,16 +690,22 @@ static void print_meths(meth_t *meths, uint32_t len, bam_hdr_t *hdr, bam1_t *rec
     int32_t tid = record->core.tid;
     assert(tid < hdr->n_targets);
     const char *tname = tid >= 0 ? hdr->target_name[tid] : "*";
-    int32_t pos = record->core.pos;
-    int32_t end = bam_endpos(record);
     const char *qname = bam_get_qname(record);
+
+    uint16_t flag = record->core.flag;
 
     int8_t rev = bam_is_rev(record);
     const char strand = rev ? '-' : '+';
-    ASSERT_MSG(!(record->core.flag & BAM_FUNMAP), "Unmapped read %s\n", qname);
 
     for(int i=0;i<len;i++){
-        fprintf(stdout, "%s\t%d\t%s\t%d\t%c\t%c\t%c\t%c\t%f\n", tname, meths[i].ref_pos, qname, meths[i].read_pos, strand, meths[i].base, meths[i].mod_strand, meths[i].mod_code, meths[i].mod_prob);
+        fprintf(stdout, "%s\t%d\t%s\t%d\t%c\t%c\t%c\t%c\t%f\t%d\n", tname, meths[i].ref_pos, qname, meths[i].read_pos, strand, meths[i].base, meths[i].mod_strand, meths[i].mod_code, meths[i].mod_prob, flag);
+    }
+}
+
+static void print_meth_freq(meth_freq_t * meth_freqs, uint32_t len){
+
+    for(int i=0;i<len;i++){
+        fprintf(stdout, "%s\t%d\t%d\t%d\t%d\t%f\n", meth_freqs[i].chrom, meth_freqs[i].start, meth_freqs[i].end, meth_freqs[i].n_reads, meth_freqs[i].n_methylated, meth_freqs[i].freq);
     }
 
 }
@@ -696,9 +775,53 @@ void simple_meth_view(core_t* core){
 
 void meth_freq(core_t* core){
 
-    print_meth_call_hdr();
+    print_meth_freq_hdr();
+    khash_t(str)* freq_map = kh_init(str);
 
-   
+    bam1_t *record = bam_init1();
+    while(sam_itr_next(core->bam_fp, core->itr, record) >= 0){
+
+
+        const char *mm = get_mm_tag_ptr(record);
+        uint32_t ml_len;
+        uint8_t *ml = get_ml_tag(record, &ml_len);
+
+        uint32_t mods_len = 0;
+        mod_tag_t *mod_tags = extract_mods(mm, &mods_len, MOD_ALL);
+
+        bam_hdr_t *hdr = core->bam_hdr;
+
+        if(ml==NULL){
+            continue;
+        }
+
+        if(ml_len==0){ // no mod probs, therefore no mods
+            ASSERT_MSG(mods_len==0, "Mods len should be 0 when ml_len is 0. mods_len:%d ml_len:%d\n", mods_len, ml_len);
+        }
+
+        mod_t * mods_per_base = get_mods_per_base(mod_tags, mods_len, ml, ml_len, hdr, record);
+        uint32_t mods_per_base_len = record->core.l_qseq;
+
+        uint32_t meths_len = 0;
+        meth_t * meths = call_meth(mods_per_base, mods_per_base_len, hdr, record, &meths_len);
+
+        call_freqs(meths, meths_len, freq_map, hdr, record);
+        
+        free(ml);
+        free_mod_tags(mod_tags, mods_len);
+        free_mods_per_base(mods_per_base, mods_per_base_len);
+        free(meths);
+
+    }
+
+    uint32_t meth_freqs_len = 0;
+    meth_freq_t * meth_freqs = get_meth_freqs(freq_map, &meth_freqs_len);
+
+    print_meth_freq(meth_freqs, meth_freqs_len);
+
+    kh_destroy(str, freq_map);
+
+    bam_destroy1(record);
     return;
 }
 

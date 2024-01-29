@@ -48,7 +48,7 @@ $(BUILD_DIR)/misc_p.o: src/misc_p.c src/misc.h
 $(BUILD_DIR)/error.o: src/error.c src/error.h
 	$(CC) $(CFLAGS) $(CPPFLAGS) $< -c -o $@
 
-$(BUILD_DIR)/mod.o: src/mod.c src/mod.h
+$(BUILD_DIR)/mod.o: src/mod.c src/mod.h src/khash.h
 	$(CC) $(CFLAGS) $(CPPFLAGS) $< -c -o $@
 
 
