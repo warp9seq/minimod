@@ -102,7 +102,7 @@ typedef struct {
 KHASH_MAP_INIT_STR(str, meth_freq_t);
 KHASH_MAP_INIT_STR(nr, int);
 
-char* make_key(char *chrom, int start, int end, char mod_code){
+char* make_key(const char *chrom, int start, int end, char mod_code){
     int start_strlen = snprintf(NULL, 0, "%d", start);
     int end_strlen = snprintf(NULL, 0, "%d", end);
     int mod_code_strlen = snprintf(NULL, 0, "%c", mod_code);
@@ -319,16 +319,17 @@ char base_complement(char base){
     return base;
 }
 
-static void update_n_reads(khash_t(nr) *n_reads_map, meth_freq_t meth_freq){
-    char *key = make_key(meth_freq.chrom, meth_freq.start, meth_freq.end, MOD_ALL);
+static void update_n_reads(khash_t(nr) *n_reads_map, const char * chrom, int start, int end, int n_reads){
+    char *key = make_key(chrom, start, end, MOD_ALL);
     khiter_t k = kh_get(nr, n_reads_map, key);
     if (k == kh_end(n_reads_map)) {
         int ret;
         k = kh_put(nr, n_reads_map, key, &ret);
-        kh_value(n_reads_map, k) = meth_freq.n_reads;
+        kh_value(n_reads_map, k) = n_reads;
     } else {
+        free(key);
         int *mf = &kh_value(n_reads_map, k);
-        *mf += meth_freq.n_reads;
+        *mf += n_reads;
     }
 }
 
@@ -341,6 +342,7 @@ static void update_meth_freq(khash_t(str) *meth_freqs, meth_freq_t meth_freq){
         k = kh_put(str, meth_freqs, key, &ret);
         kh_value(meth_freqs, k) = meth_freq;
     } else {
+        free(key);
         meth_freq_t *mf = &kh_value(meth_freqs, k);
         mf->n_methylated += meth_freq.n_methylated;
     }
@@ -349,12 +351,14 @@ static void update_meth_freq(khash_t(str) *meth_freqs, meth_freq_t meth_freq){
 static int get_n_reads(khash_t(nr)* n_reads_map, char * chrom, int start, int end){
     char *key = make_key(chrom, start, end, MOD_ALL);
     khiter_t k = kh_get(nr, n_reads_map, key);
+    int n_reads = 0;
     if (k == kh_end(n_reads_map)) {
         WARNING("Key %s not found in n_reads_map\n", key);
-        return 0;
     } else {
-        return kh_value(n_reads_map, k);
+        n_reads = kh_value(n_reads_map, k);
     }
+    free(key);
+    return n_reads;
 }
 
 
@@ -477,9 +481,6 @@ static void call_meth_freq(mod_t * mods, uint32_t prob_len, khash_t(nr) *n_reads
 
     int32_t seq_len = record->core.l_qseq;
 
-    meth_t * meths = (meth_t *)malloc(sizeof(meth_t)*prob_len);
-    MALLOC_CHK(meths);
-
     uint32_t *cigar = bam_get_cigar(record);
     uint32_t n_cigar = record->core.n_cigar;
 
@@ -533,13 +534,7 @@ static void call_meth_freq(mod_t * mods, uint32_t prob_len, khash_t(nr) *n_reads
                 }
 
                 // update n_reads
-                meth_freq_t mf_n_reads;
-                mf_n_reads.chrom = tname;
-                mf_n_reads.start = ref_pos;
-                mf_n_reads.end = ref_pos;
-                mf_n_reads.n_reads = 1;
-                mf_n_reads.n_methylated = 0;
-                update_n_reads(n_reads_map, mf_n_reads);
+                update_n_reads(n_reads_map, tname, ref_pos, ref_pos, 1);
 
 
                 mod_t mod = mods[read_pos];
@@ -553,6 +548,7 @@ static void call_meth_freq(mod_t * mods, uint32_t prob_len, khash_t(nr) *n_reads
                     mf_n_methylated.mod_code = mod.mod_bases[k].mod_code;
                     mf_n_methylated.n_reads = 0;
                     mf_n_methylated.n_methylated = mod.mod_bases[k].mod_prob > 0.0 ? 1 : 0;
+                    mf_n_methylated.freq = 0.0; //calculated before printing
                     update_meth_freq(freq_map, mf_n_methylated);
                     // fprintf(stdout, "%s\t%d\t%s\t%d\t%c\t%c\t%c\t%c\t%f\n", tname, ref_pos, qname, read_pos, strand, base, mod_base.mod_strand, mod_base.mod_code, mod_base.mod_prob);
                 }
@@ -564,7 +560,6 @@ static void call_meth_freq(mod_t * mods, uint32_t prob_len, khash_t(nr) *n_reads
         }
     }
 
-    return meths;
 }
 
 static mod_t * get_mods_per_base(mod_tag_t *mod_tags, uint32_t mods_len, uint8_t * ml, uint32_t ml_len, bam_hdr_t *hdr, bam1_t *record){
@@ -921,7 +916,7 @@ void meth_freq(core_t* core){
         uint8_t *ml = get_ml_tag(record, &ml_len);
 
         uint32_t mods_len = 0;
-        mod_tag_t *mod_tags = extract_mods(mm, &mods_len, MOD_ALL);
+        mod_tag_t *mod_tags = extract_mods(mm, &mods_len, MOD_5mC);
 
         bam_hdr_t *hdr = core->bam_hdr;
 
@@ -949,6 +944,7 @@ void meth_freq(core_t* core){
 
     print_meth_freq(meth_freqs, meth_freqs_len);
 
+    free(meth_freqs);
     kh_destroy(str, freq_map);
     kh_destroy(nr, n_reads_map);
 
