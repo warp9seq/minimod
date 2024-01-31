@@ -63,22 +63,18 @@ typedef struct {
     char mod_code;
     int mod_strand;
     double mod_prob;
-} modbase_t;
+    char mod_base;
+    void * base;
+} mod_t;
 
 typedef struct {
-    modbase_t * mod_bases;
-    int mod_bases_cap;
-    int mod_bases_len;
-} mod_t; // free in free_mods_per_base()
-
-typedef struct {
+    const char * chrom;
     int ref_pos;
     int read_pos;
-    char base;
-    char mod_strand;
-    char mod_code;
-    double mod_prob;
-} meth_t;
+    mod_t * mods;
+    int mods_cap;
+    int mods_len;
+} base_t; // free in free_mods_per_base()
 
 enum MOD_CODES {
     MOD_ALL = 'A',
@@ -90,23 +86,22 @@ enum MOD_CODES {
 };
 
 typedef struct {
-    char * chrom;
+    const char * chrom;
     int start;
     int end;
     int n_reads;
     int n_methylated;
     double freq;
     char mod_code;
-} meth_freq_t;
+} stat_t;
 
-KHASH_MAP_INIT_STR(str, meth_freq_t);
+KHASH_MAP_INIT_STR(str, stat_t);
 KHASH_MAP_INIT_STR(nr, int);
 
 char* make_key(const char *chrom, int start, int end, char mod_code){
     int start_strlen = snprintf(NULL, 0, "%d", start);
     int end_strlen = snprintf(NULL, 0, "%d", end);
-    int mod_code_strlen = snprintf(NULL, 0, "%c", mod_code);
-    int key_strlen = strlen(chrom) + start_strlen + end_strlen  + mod_code_strlen + 4;
+    int key_strlen = strlen(chrom) + start_strlen + end_strlen  + 5;
     char* key = (char *)malloc(key_strlen * sizeof(char));
     MALLOC_CHK(key);
     snprintf(key, key_strlen, "%s\t%d\t%d\t%c", chrom, start, end, mod_code);
@@ -319,51 +314,67 @@ char base_complement(char base){
     return base;
 }
 
-static void update_n_reads(khash_t(nr) *n_reads_map, const char * chrom, int start, int end, int n_reads){
+static void update_n_reads(khash_t(nr)* n_reads, const char *chrom, int start, int end){
     char *key = make_key(chrom, start, end, MOD_ALL);
-    khiter_t k = kh_get(nr, n_reads_map, key);
-    if (k == kh_end(n_reads_map)) {
+    khiter_t k = kh_get(nr, n_reads, key);
+    if (k == kh_end(n_reads)) {
         int ret;
-        k = kh_put(nr, n_reads_map, key, &ret);
-        kh_value(n_reads_map, k) = n_reads;
+        k = kh_put(nr, n_reads, key, &ret);
+        kh_value(n_reads, k) = 1;
     } else {
         free(key);
-        int *mf = &kh_value(n_reads_map, k);
-        *mf += n_reads;
+        int *nr = &kh_value(n_reads, k);
+        *nr += 1;
     }
+
 }
 
-
-static void update_meth_freq(khash_t(str) *meth_freqs, meth_freq_t meth_freq){
-    char *key = make_key(meth_freq.chrom, meth_freq.start, meth_freq.end, meth_freq.mod_code);
-    khiter_t k = kh_get(str, meth_freqs, key);
-    if (k == kh_end(meth_freqs)) {
-        int ret;
-        k = kh_put(str, meth_freqs, key, &ret);
-        kh_value(meth_freqs, k) = meth_freq;
-    } else {
-        free(key);
-        meth_freq_t *mf = &kh_value(meth_freqs, k);
-        mf->n_methylated += meth_freq.n_methylated;
-    }
-}
-
-static int get_n_reads(khash_t(nr)* n_reads_map, char * chrom, int start, int end){
+static int get_n_reads(khash_t(nr)* n_reads, const char *chrom, int start, int end){
     char *key = make_key(chrom, start, end, MOD_ALL);
-    khiter_t k = kh_get(nr, n_reads_map, key);
-    int n_reads = 0;
-    if (k == kh_end(n_reads_map)) {
-        WARNING("Key %s not found in n_reads_map\n", key);
+    khiter_t k = kh_get(nr, n_reads, key);
+    if (k == kh_end(n_reads)) {
+        return 0;
     } else {
-        n_reads = kh_value(n_reads_map, k);
+        int nr = kh_value(n_reads, k);
+        return nr;
     }
     free(key);
-    return n_reads;
 }
 
 
+static void update_stats(base_t *bases, uint32_t seq_len, khash_t(str)* stats){
+    for(int i=0;i<seq_len;i++){
+        base_t base = bases[i];
+        for(int j=0;j<base.mods_len;j++){
+            mod_t mod = base.mods[j];
+            
+            char *key = make_key(base.chrom, base.ref_pos, base.ref_pos, mod.mod_code);
+            khiter_t k = kh_get(str, stats, key);
+            if (k == kh_end(stats)) {
+                stat_t stat;
+                stat.chrom = base.chrom;
+                stat.start = base.ref_pos;
+                stat.end = base.ref_pos;
+                stat.mod_code = mod.mod_code;
+                stat.n_methylated = mod.mod_prob > 0.0 ? 1 : 0;
 
-static meth_t * call_meth(mod_t * mods, uint32_t prob_len, bam_hdr_t *hdr, bam1_t *record, uint32_t * meths_len){
+                int ret;
+                k = kh_put(str, stats, key, &ret);
+                kh_value(stats, k) = stat;
+            } else {
+                free(key);
+                stat_t *mf = &kh_value(stats, k);
+                mf->chrom = base.chrom;
+                mf->start = base.ref_pos;
+                mf->end = base.ref_pos;
+                mf->mod_code = mod.mod_code;
+                mf->n_methylated += mod.mod_prob > 0.0 ? 1 : 0;
+            }
+        }
+    }
+}
+
+static void update_ref_pos(base_t * bases, uint32_t seq_len, khash_t(nr)* n_reads, bam_hdr_t *hdr, bam1_t *record){
     int32_t tid = record->core.tid;
     assert(tid < hdr->n_targets);
     const char *tname = tid >= 0 ? hdr->target_name[tid] : "*";
@@ -375,15 +386,6 @@ static meth_t * call_meth(mod_t * mods, uint32_t prob_len, bam_hdr_t *hdr, bam1_
     const char strand = rev ? '-' : '+';
     ASSERT_MSG(!(record->core.flag & BAM_FUNMAP), "Unmapped read %s\n", qname);
 
-    int32_t seq_len = record->core.l_qseq;
-
-    uint32_t len = 0;
-    meth_t * meths = (meth_t *)malloc(sizeof(meth_t)*prob_len);
-    MALLOC_CHK(meths);
-
-
-    
-
     uint32_t *cigar = bam_get_cigar(record);
     uint32_t n_cigar = record->core.n_cigar;
 
@@ -391,7 +393,6 @@ static meth_t * call_meth(mod_t * mods, uint32_t prob_len, bam_hdr_t *hdr, bam1_
     int ref_pos = pos;
 
     //fprintf(stderr,"n cigar: %d\n", n_cigar);
-
     for (uint32_t ci = 0; ci < n_cigar; ++ci) {
 
         const uint32_t c = cigar[ci];
@@ -429,28 +430,16 @@ static meth_t * call_meth(mod_t * mods, uint32_t prob_len, bam_hdr_t *hdr, bam1_
         // Iterate over the pairs of aligned bases
         for(int j = 0; j < cigar_len; ++j) {
             if(is_aligned) {
-                assert(read_pos < prob_len);
-                char base = seq_nt16_str[bam_seqi(bam_get_seq(record), read_pos)];
-                if(rev) {
-                    base = seq_nt16_str[bam_seqi(bam_get_seq(record), seq_len - read_pos - 1)];
-                    base = base_complement(base);
-                }
+                assert(read_pos < seq_len);
 
-                
+                // int ref2 = rev ? end - ref_pos - 1 : ref_pos;
 
-                mod_t mod = mods[read_pos];
+                bases[read_pos].ref_pos = ref_pos;
+                bases[read_pos].read_pos = read_pos;
+                bases[read_pos].chrom = tname;
 
-                //TODO-need to count coverage
-                for(int k=0;k<mod.mod_bases_len;k++){
-                    modbase_t mod_base = mod.mod_bases[k];
-                    meths[len].ref_pos = ref_pos;
-                    meths[len].read_pos = read_pos;
-                    meths[len].base = base;
-                    meths[len].mod_strand = mod_base.mod_strand;
-                    meths[len].mod_code = mod_base.mod_code;
-                    meths[len].mod_prob = mod_base.mod_prob;
-                    len++;
-                    // fprintf(stdout, "%s\t%d\t%s\t%d\t%c\t%c\t%c\t%c\t%f\n", tname, ref_pos, qname, read_pos, strand, base, mod_base.mod_strand, mod_base.mod_code, mod_base.mod_prob);
+                if(n_reads != NULL){
+                    update_n_reads(n_reads, tname, ref_pos, ref_pos);
                 }
             }
 
@@ -460,112 +449,16 @@ static meth_t * call_meth(mod_t * mods, uint32_t prob_len, bam_hdr_t *hdr, bam1_
         }
     }
 
-    *meths_len = len;
-
-    ASSERT_MSG(len <= prob_len, "len:%d prob_len:%d\n", len, prob_len);
-
-    return meths;
 }
 
-static void call_meth_freq(mod_t * mods, uint32_t prob_len, khash_t(nr) *n_reads_map, khash_t(str) *freq_map, bam_hdr_t *hdr, bam1_t *record){
+static base_t * get_bases(mod_tag_t *mod_tags, uint32_t mods_len, uint8_t * ml, uint32_t ml_len, bam_hdr_t *hdr, bam1_t *record){
+
+    const char *qname = bam_get_qname(record);
+    int8_t rev = bam_is_rev(record);
+
     int32_t tid = record->core.tid;
     assert(tid < hdr->n_targets);
     const char *tname = tid >= 0 ? hdr->target_name[tid] : "*";
-    int32_t pos = record->core.pos;
-    int32_t end = bam_endpos(record);
-    const char *qname = bam_get_qname(record);
-
-    int8_t rev = bam_is_rev(record);
-    const char strand = rev ? '-' : '+';
-    ASSERT_MSG(!(record->core.flag & BAM_FUNMAP), "Unmapped read %s\n", qname);
-
-    int32_t seq_len = record->core.l_qseq;
-
-    uint32_t *cigar = bam_get_cigar(record);
-    uint32_t n_cigar = record->core.n_cigar;
-
-    int read_pos = 0;
-    int ref_pos = pos;
-
-    //fprintf(stderr,"n cigar: %d\n", n_cigar);
-
-    for (uint32_t ci = 0; ci < n_cigar; ++ci) {
-
-        const uint32_t c = cigar[ci];
-        int cigar_len = bam_cigar_oplen(c);
-        int cigar_op = bam_cigar_op(c);
-
-        // Set the amount that the ref/read positions should be incremented
-        // based on the cigar operation
-        int read_inc = 0;
-        int ref_inc = 0;
-
-        // Process match between the read and the reference
-        int8_t is_aligned = 0;
-        if(cigar_op == BAM_CMATCH || cigar_op == BAM_CEQUAL || cigar_op == BAM_CDIFF) {
-            is_aligned = 1;
-            read_inc = 1;
-            ref_inc = 1;
-        } else if(cigar_op == BAM_CDEL) {
-            ref_inc = 1;
-        } else if(cigar_op == BAM_CREF_SKIP) {
-            // end the current segment and start a new one
-            //out.push_back(AlignedSegment());
-            ref_inc = 1;
-        } else if(cigar_op == BAM_CINS) {
-            read_inc = 1;
-        } else if(cigar_op == BAM_CSOFT_CLIP) {
-            read_inc = 1;
-        } else if(cigar_op == BAM_CHARD_CLIP) {
-            read_inc = 0;
-        } else {
-            ERROR("Unhandled CIGAR OPT Cigar: %d\n", cigar_op);
-            exit(EXIT_FAILURE);
-        }
-
-        // Iterate over the pairs of aligned bases
-        for(int j = 0; j < cigar_len; ++j) {
-            if(is_aligned) {
-                assert(read_pos < prob_len);
-                char base = seq_nt16_str[bam_seqi(bam_get_seq(record), read_pos)];
-                if(rev) {
-                    base = seq_nt16_str[bam_seqi(bam_get_seq(record), seq_len - read_pos - 1)];
-                    base = base_complement(base);
-                }
-
-                // update n_reads
-                update_n_reads(n_reads_map, tname, ref_pos, ref_pos, 1);
-
-
-                mod_t mod = mods[read_pos];
-
-                //TODO-need to count coverage
-                for(int k=0;k<mod.mod_bases_len;k++){
-                    meth_freq_t mf_n_methylated;
-                    mf_n_methylated.chrom = tname;
-                    mf_n_methylated.start = ref_pos;
-                    mf_n_methylated.end = ref_pos;
-                    mf_n_methylated.mod_code = mod.mod_bases[k].mod_code;
-                    mf_n_methylated.n_reads = 0;
-                    mf_n_methylated.n_methylated = mod.mod_bases[k].mod_prob > 0.0 ? 1 : 0;
-                    mf_n_methylated.freq = 0.0; //calculated before printing
-                    update_meth_freq(freq_map, mf_n_methylated);
-                    // fprintf(stdout, "%s\t%d\t%s\t%d\t%c\t%c\t%c\t%c\t%f\n", tname, ref_pos, qname, read_pos, strand, base, mod_base.mod_strand, mod_base.mod_code, mod_base.mod_prob);
-                }
-            }
-
-            // increment
-            read_pos += read_inc;
-            ref_pos += ref_inc;
-        }
-    }
-
-}
-
-static mod_t * get_mods_per_base(mod_tag_t *mod_tags, uint32_t mods_len, uint8_t * ml, uint32_t ml_len, bam_hdr_t *hdr, bam1_t *record){
-
-    const char *qname = bam_get_qname(record);
-    int8_t rev = bam_is_rev(record);
 
     uint8_t *seq = bam_get_seq(record);
     uint32_t seq_len = record->core.l_qseq;
@@ -575,13 +468,13 @@ static mod_t * get_mods_per_base(mod_tag_t *mod_tags, uint32_t mods_len, uint8_t
         exit(EXIT_FAILURE);
     }
 
-    mod_t *mods = (mod_t *)malloc(sizeof(mod_t)*seq_len);
-    MALLOC_CHK(mods);
+    base_t *bases = (base_t *)malloc(sizeof(base_t)*seq_len);
+    MALLOC_CHK(bases);
     for(int i=0;i<seq_len;i++){
-        mods[i].mod_bases_cap = INIT_MOD_BASES;
-        mods[i].mod_bases = (modbase_t *)malloc(sizeof(modbase_t)*mods[i].mod_bases_cap);
-        MALLOC_CHK(mods[i].mod_bases);
-        mods[i].mod_bases_len = 0;
+        bases[i].mods_cap = INIT_MOD_BASES;
+        bases[i].mods = (mod_t *)malloc(sizeof(mod_t)*bases[i].mods_cap);
+        MALLOC_CHK(bases[i].mods);
+        bases[i].mods_len = 0;
     }
 
     // 5 int arrays to keep base pos of A, C, G, T, N bases.
@@ -652,26 +545,32 @@ static mod_t * get_mods_per_base(mod_tag_t *mod_tags, uint32_t mods_len, uint8_t
             }
             
             ASSERT_MSG(read_pos < seq_len, "Base pos cannot exceed seq len. read_pos: %d seq_len: %d\n", read_pos, seq_len); 
+
+            bases[read_pos].ref_pos = -1;
+            bases[read_pos].read_pos = read_pos;
+            bases[read_pos].chrom = tname;
             
             ml_idx += j*mod.mod_codes_len;
             // mod prob per each mod code. TO-DO: need to change when code is ChEBI id
             for(int k=0; k<mod.mod_codes_len; k++) {
                 // get the mod prob
                 ml_idx += k;
-                uint8_t mod_prob_scaled = ml[j*mod.mod_codes_len + k];
+                uint8_t mod_prob_scaled = ml[ml_idx];
                 double mod_prob = (double)(mod_prob_scaled+1)/256.0;
                 
                 // add to mods
-                if(mods[read_pos].mod_bases_len >= mods[read_pos].mod_bases_cap){
-                    mods[read_pos].mod_bases_cap *= 2;
-                    mods[read_pos].mod_bases = (modbase_t *)realloc(mods[read_pos].mod_bases, sizeof(modbase_t)*mods[read_pos].mod_bases_cap);
-                    MALLOC_CHK(mods[read_pos].mod_bases);
+                if(bases[read_pos].mods_len >= bases[read_pos].mods_cap){
+                    bases[read_pos].mods_cap *= 2;
+                    bases[read_pos].mods = (mod_t *)realloc(bases[read_pos].mods, sizeof(mod_t)*bases[read_pos].mods_cap);
+                    MALLOC_CHK(bases[read_pos].mods);
                 }
 
-                mods[read_pos].mod_bases[mods[read_pos].mod_bases_len].mod_code = mod.mod_codes[k];
-                mods[read_pos].mod_bases[mods[read_pos].mod_bases_len].mod_strand = mod.strand;
-                mods[read_pos].mod_bases[mods[read_pos].mod_bases_len].mod_prob = mod_prob;
-                mods[read_pos].mod_bases_len++;
+                bases[read_pos].mods[bases[read_pos].mods_len].base = &bases[read_pos];
+                bases[read_pos].mods[bases[read_pos].mods_len].mod_code = mod.mod_codes[k];
+                bases[read_pos].mods[bases[read_pos].mods_len].mod_strand = mod.strand;
+                bases[read_pos].mods[bases[read_pos].mods_len].mod_prob = mod_prob;
+                bases[read_pos].mods[bases[read_pos].mods_len].mod_base = mod_base;
+                bases[read_pos].mods_len++;
 
             }
 
@@ -684,25 +583,25 @@ static mod_t * get_mods_per_base(mod_tag_t *mod_tags, uint32_t mods_len, uint8_t
         free(bases_pos[i]);
     }
 
-    return mods;
+    return bases;
 
 }
 
-static meth_freq_t * get_meth_freqs(khash_t(nr)* n_reads_map, khash_t(str)* freq_map, uint32_t *meth_freqs_len){
+static stat_t * get_stats(khash_t(str)* stats_map, khash_t(nr)* n_reads_map, uint32_t *meth_freqs_len){
     uint32_t len = 0;
-    meth_freq_t * meth_freqs = (meth_freq_t *)malloc(sizeof(meth_freq_t)*kh_size(freq_map));
-    MALLOC_CHK(meth_freqs);
-    for (khiter_t k = kh_begin(freq_map); k != kh_end(freq_map); ++k) {
-        if (kh_exist(freq_map, k)) {
-            meth_freq_t meth_freq = kh_value(freq_map, k);
-            meth_freq.n_reads = get_n_reads(n_reads_map, meth_freq.chrom, meth_freq.start, meth_freq.end);
-            meth_freq.freq = (double)meth_freq.n_methylated/meth_freq.n_reads;
-            meth_freqs[len] = meth_freq;
+    stat_t * stats = (stat_t *)malloc(sizeof(stat_t)*kh_size(stats_map));
+    MALLOC_CHK(stats);
+    for (khiter_t k = kh_begin(stats_map); k != kh_end(stats_map); ++k) {
+        if (kh_exist(stats_map, k)) {
+            stat_t stat = kh_value(stats_map, k);
+            stat.n_reads = get_n_reads(n_reads_map, stat.chrom, stat.start, stat.end);
+            stat.freq = (double)stat.n_methylated/stat.n_reads;
+            stats[len] = stat;
             len++;
         }
     }
     *meth_freqs_len = len;
-    return meth_freqs;
+    return stats;
 }
 
 
@@ -804,7 +703,7 @@ static void print_meth_freq_hdr(){
     printf("chrom\tstart\tend\tn_reads\tn_methylated\tfreq\tmod_code\n");
 }
 
-static void print_meths(meth_t *meths, uint32_t len, bam_hdr_t *hdr, bam1_t *record){
+static void print_meths(base_t *bases, uint32_t seq_len, bam_hdr_t *hdr, bam1_t *record){
 
     int32_t tid = record->core.tid;
     assert(tid < hdr->n_targets);
@@ -816,24 +715,21 @@ static void print_meths(meth_t *meths, uint32_t len, bam_hdr_t *hdr, bam1_t *rec
     int8_t rev = bam_is_rev(record);
     const char strand = rev ? '-' : '+';
 
-    for(int i=0;i<len;i++){
 
-        // fprintf(stdout, "%s\t%d\t%s\t%d\t%c\t%c\t%c\t%c\t%f\t%d\n", tname, meths[i].ref_pos, qname, meths[i].read_pos, strand, meths[i].base, meths[i].mod_strand, meths[i].mod_code, meths[i].mod_prob, flag);
-        fprintf(stdout, "%s\t%d\t%d\t%s\t%c\t%c\t%c\t%d\t%d\t%d\t%f\t%c\t%d\t%s\t%s\t%c\t%c\t%c\t%d\n", 
-            qname, meths[i].read_pos, meths[i].ref_pos, tname, // read_id	forward_read_position   ref_position	chrom
-            meths[i].mod_strand, strand, '?', // mod_strand	ref_strand	ref_mod_strand	
-            -1, -1, -1, // fw_soft_clipped_start	fw_soft_clipped_end	read_length	
-            meths[i].mod_prob, meths[i].mod_code, -1, // mod_qual mod_code	base_qual	
-            "NA", "NA", // ref_kmer	query_kmer	
-            '?', meths[i].base // canonical_base	modified_primary_base	
-            , '?', flag); // inferred	flag
+    for(int i=0;i<seq_len;i++){
+        for(int j=0;j<bases[i].mods_len;j++){
+            mod_t mod = bases[i].mods[j];
+            base_t base = bases[i];
+            fprintf(stdout, "%s\t%d\t%d\t%s\t%c\t%c\t%c\t%d\t%d\t%d\t%f\t%c\t%d\t%s\t%s\t%c\t%c\t%c\t%c\n", qname, base.read_pos, base.ref_pos, base.chrom, mod.mod_strand, strand, mod.mod_code, 0, 0, 0, mod.mod_prob, mod.mod_code, 0, "NA", "NA", 'N', 'N', 'N', 'N');
+        }
     }
 }
 
-static void print_meth_freq(meth_freq_t * meth_freqs, uint32_t len){
+static void print_meth_freq(stat_t * stats, uint32_t seq_len){
 
-    for(int i=0;i<len;i++){
-        fprintf(stdout, "%s\t%d\t%d\t%d\t%d\t%f\t%c\n", meth_freqs[i].chrom, meth_freqs[i].start, meth_freqs[i].end, meth_freqs[i].n_reads, meth_freqs[i].n_methylated, meth_freqs[i].freq, meth_freqs[i].mod_code);
+    for(int i=0;i<seq_len;i++){
+        stat_t stat = stats[i];
+        fprintf(stdout, "%s\t%d\t%d\t%d\t%d\t%f\t%c\n", stat.chrom, stat.start, stat.end, stat.n_reads, stat.n_methylated, stat.freq, stat.mod_code);
     }
 
 }
@@ -846,9 +742,9 @@ static void free_mod_tags(mod_tag_t *mod_tags, uint32_t len){
     free(mod_tags);
 }
 
-static void free_mods_per_base(mod_t *mods, uint32_t len){
+static void free_mods_per_base(base_t *mods, uint32_t len){
     for(int i=0;i<len;i++){
-        free(mods[i].mod_bases);
+        free(mods[i].mods);
     }
     free(mods);
 }
@@ -878,23 +774,20 @@ void simple_meth_view(core_t* core){
             ASSERT_MSG(mods_len==0, "Mods len should be 0 when ml_len is 0. mods_len:%d ml_len:%d\n", mods_len, ml_len);
         }
 
-        mod_t * mods_per_base = get_mods_per_base(mod_tags, mods_len, ml, ml_len, hdr, record);
-        uint32_t mods_per_base_len = record->core.l_qseq;
+        base_t * bases = get_bases(mod_tags, mods_len, ml, ml_len, hdr, record);
+        uint32_t seq_len = record->core.l_qseq;
 
-        uint32_t meths_len = 0;
-        meth_t * meths = call_meth(mods_per_base, mods_per_base_len, hdr, record, &meths_len);
+        update_ref_pos(bases, seq_len, NULL, hdr, record);
         
         // print_ml_array(ml, len, record);
         // print_mm_array(mm, len, record);
         // print_mods(mod_tags, mods_len, hdr, record);
 
-        print_meths(meths, meths_len, hdr, record);
+        print_meths(bases, seq_len, hdr, record);
         
         free(ml);
         free_mod_tags(mod_tags, mods_len);
-        free_mods_per_base(mods_per_base, mods_per_base_len);
-        free(meths);
-
+        free_mods_per_base(bases, seq_len);
 
     }
     bam_destroy1(record);
@@ -904,7 +797,7 @@ void simple_meth_view(core_t* core){
 void meth_freq(core_t* core){
 
     print_meth_freq_hdr();
-    khash_t(str)* freq_map = kh_init(str);
+    khash_t(str)* stats_map = kh_init(str);
     khash_t(nr)* n_reads_map = kh_init(nr);
 
     bam1_t *record = bam_init1();
@@ -928,24 +821,27 @@ void meth_freq(core_t* core){
             ASSERT_MSG(mods_len==0, "Mods len should be 0 when ml_len is 0. mods_len:%d ml_len:%d\n", mods_len, ml_len);
         }
 
-        mod_t * mods_per_base = get_mods_per_base(mod_tags, mods_len, ml, ml_len, hdr, record);
-        uint32_t mods_per_base_len = record->core.l_qseq;
+        base_t * bases = get_bases(mod_tags, mods_len, ml, ml_len, hdr, record);
+        uint32_t seq_len = record->core.l_qseq;
 
-        call_meth_freq(mods_per_base, mods_per_base_len, n_reads_map, freq_map, hdr, record);
+        // call_meth_freq(bases, seq_len, n_reads_map, stats_map, hdr, record);
+        update_ref_pos(bases, seq_len, n_reads_map, hdr, record);
+
+        update_stats(bases, seq_len, stats_map);
         
         free(ml);
         free_mod_tags(mod_tags, mods_len);
-        free_mods_per_base(mods_per_base, mods_per_base_len);
+        free_mods_per_base(bases, seq_len);
 
     }
 
     uint32_t meth_freqs_len = 0;
-    meth_freq_t * meth_freqs = get_meth_freqs(n_reads_map, freq_map, &meth_freqs_len);
+    stat_t * stats = get_stats(stats_map, n_reads_map, &meth_freqs_len);
 
-    print_meth_freq(meth_freqs, meth_freqs_len);
+    print_meth_freq(stats, meth_freqs_len);
 
-    free(meth_freqs);
-    kh_destroy(str, freq_map);
+    free(stats);
+    kh_destroy(str, stats_map);
     kh_destroy(nr, n_reads_map);
 
     bam_destroy1(record);
