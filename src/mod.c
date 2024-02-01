@@ -139,7 +139,7 @@ static inline int die(const char *format, ...) {
 */
 static mod_tag_t *extract_mods(const char *mm_string, uint32_t *len_mods, enum MOD_CODES mod_code) {
     if (mm_string == NULL || strlen(mm_string) == 0) {
-        ERROR("%s","Error: Empty MM string.\n");
+        WARNING("%s","Empty MM string. Continuing\n");
         return NULL;
     }
 
@@ -388,7 +388,7 @@ static void update_ref_pos(base_t * bases, uint32_t seq_len, khash_t(nr)* n_read
 
     uint32_t *cigar = bam_get_cigar(record);
     uint32_t n_cigar = record->core.n_cigar;
-
+    
     int read_pos = 0;
     int ref_pos = pos;
 
@@ -432,14 +432,17 @@ static void update_ref_pos(base_t * bases, uint32_t seq_len, khash_t(nr)* n_read
             if(is_aligned) {
                 assert(read_pos < seq_len);
 
-                // int ref2 = rev ? end - ref_pos - 1 : ref_pos;
-
-                bases[read_pos].ref_pos = ref_pos;
+                if(rev) {
+                    bases[read_pos].ref_pos = pos + end - ref_pos - 1;
+                } else {
+                    bases[read_pos].ref_pos = ref_pos;
+                }
+                
                 bases[read_pos].read_pos = read_pos;
                 bases[read_pos].chrom = tname;
 
                 if(n_reads != NULL){
-                    update_n_reads(n_reads, tname, ref_pos, ref_pos);
+                    update_n_reads(n_reads, tname, bases[read_pos].ref_pos, bases[read_pos].ref_pos);
                 }
             }
 
@@ -507,13 +510,13 @@ static base_t * get_bases(mod_tag_t *mod_tags, uint32_t mods_len, uint8_t * ml, 
 
     // ASSERT_MSG(mods_len >= ml_len, "Probaility array len mismatch. mods_len:%d ml_len:%d\n", mods_len, ml_len);
     
-    int ml_idx = 0;
+    int ml_start_idx = 0;
     // go through mod_tags    
     for(int i=0; i<mods_len; i++) {
         mod_tag_t mod = mod_tags[i];
         int base_rank = -1;
 
-
+        int ml_idx = ml_start_idx;
         for(int j=0; j<mod.skip_counts_len; j++) {
             base_rank += mod.skip_counts[j] + 1;
             // fprintf(stderr, "qname:%s seq_len:%d mod.base:%c seq.strand:%c mod.strand:%c rank:%d\n", qname, seq_len, mod.base, strand, mod.strand, base_rank);
@@ -550,13 +553,14 @@ static base_t * get_bases(mod_tag_t *mod_tags, uint32_t mods_len, uint8_t * ml, 
             bases[read_pos].read_pos = read_pos;
             bases[read_pos].chrom = tname;
             
-            ml_idx += j*mod.mod_codes_len;
             // mod prob per each mod code. TO-DO: need to change when code is ChEBI id
             for(int k=0; k<mod.mod_codes_len; k++) {
                 // get the mod prob
-                ml_idx += k;
+                ml_idx = ml_start_idx + j*mod.mod_codes_len + k;
+                ASSERT_MSG(ml_idx<ml_len, "ml_idx:%d ml_len:%d\n", ml_idx, ml_len);
                 uint8_t mod_prob_scaled = ml[ml_idx];
-                double mod_prob = (double)(mod_prob_scaled+1)/256.0;
+                ASSERT_MSG(mod_prob_scaled <= 255 && mod_prob_scaled>=0, "mod_prob_scaled:%d\n", mod_prob_scaled);
+                double mod_prob = (mod_prob_scaled+1)/256.0;
                 
                 // add to mods
                 if(bases[read_pos].mods_len >= bases[read_pos].mods_cap){
@@ -575,7 +579,7 @@ static base_t * get_bases(mod_tag_t *mod_tags, uint32_t mods_len, uint8_t * ml, 
             }
 
         }
-        ml_idx++;
+        ml_start_idx = ml_idx + 1;
     }
 
     // free base_pos
@@ -720,7 +724,7 @@ static void print_meths(base_t *bases, uint32_t seq_len, bam_hdr_t *hdr, bam1_t 
         for(int j=0;j<bases[i].mods_len;j++){
             mod_t mod = bases[i].mods[j];
             base_t base = bases[i];
-            fprintf(stdout, "%s\t%d\t%d\t%s\t%c\t%c\t%c\t%d\t%d\t%d\t%f\t%c\t%d\t%s\t%s\t%c\t%c\t%c\t%c\n", qname, base.read_pos, base.ref_pos, base.chrom, mod.mod_strand, strand, mod.mod_code, 0, 0, 0, mod.mod_prob, mod.mod_code, 0, "NA", "NA", 'N', 'N', 'N', 'N');
+            fprintf(stdout, "%s\t%d\t%d\t%s\t%c\t%c\t%c\t%d\t%d\t%d\t%f\t%c\t%d\t%s\t%s\t%c\t%c\t%c\t%d\n", qname, base.read_pos, base.ref_pos, base.chrom, mod.mod_strand, strand, '*', -1, -1, -1, mod.mod_prob, mod.mod_code, -1, "*", "*", '*', '*', '*', flag);
         }
     }
 }
@@ -812,10 +816,6 @@ void meth_freq(core_t* core){
         mod_tag_t *mod_tags = extract_mods(mm, &mods_len, MOD_5mC);
 
         bam_hdr_t *hdr = core->bam_hdr;
-
-        if(ml==NULL){
-            continue;
-        }
 
         if(ml_len==0){ // no mod probs, therefore no mods
             ASSERT_MSG(mods_len==0, "Mods len should be 0 when ml_len is 0. mods_len:%d ml_len:%d\n", mods_len, ml_len);
