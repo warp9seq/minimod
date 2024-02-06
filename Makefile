@@ -70,5 +70,5 @@ distclean: clean
 	rm -rf $(BUILD_DIR)/*
 
 test: $(BINARY)
-	./scripts/test.sh
+	./test/test.sh
 
