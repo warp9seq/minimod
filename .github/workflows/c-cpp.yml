@@ -13,6 +13,6 @@ jobs:
     steps:
     - uses: actions/checkout@v2
     - name: install htslib
-      run: ./scripts/install-htslib.sh
+      run: ./scripts/install-hts.sh
     - name: test
       run: make test
