@@ -26,7 +26,7 @@ ex  ./minimod view test/r84088_20230609_025659_1_A01_fmr1.bam > test/tmp.txt  ||
 # diff -q test/example.exp test/tmp.txt || die "diff failed"
 
 echo "Test 2"
-ex  ./minimod view test/alignment.bam | awk '{print $2"\t"$3}' | sort -k2,2n > test/alignment_actual.tsv
+ex  ./minimod view test/alignment.bam | awk 'NR>1{print $2"\t"$3}' | sort -n -k 1 > test/alignment_actual.tsv
 diff -q test/alignment_actual.tsv test/alignment_expected.tsv || die "diff failed: Invalid alignment positions"
 
 echo "Tests passed"
