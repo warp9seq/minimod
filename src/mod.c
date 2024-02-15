@@ -46,6 +46,7 @@ SOFTWARE.
 #define INIT_MOD_CODES 2
 #define INIT_BASE_POS 100
 #define INIT_MOD_BASES 2
+#define MOD_THRESHOLD 0.2
 
 typedef struct {
     char base;
@@ -76,6 +77,7 @@ typedef struct {
     mod_t * mods;
     int mods_cap;
     int mods_len;
+    char strand;
 } base_t; // free in free_mods_per_base()
 
 enum MOD_CODES {
@@ -95,18 +97,20 @@ typedef struct {
     int n_methylated;
     double freq;
     char mod_code;
+    char mod_strand;
+    char strand;
 } stat_t;
 
 KHASH_MAP_INIT_STR(str, stat_t);
 KHASH_MAP_INIT_STR(nr, int);
 
-char* make_key(const char *chrom, int start, int end, char mod_code){
+char* make_key(const char *chrom, int start, int end, char mod_code, char strand){
     int start_strlen = snprintf(NULL, 0, "%d", start);
     int end_strlen = snprintf(NULL, 0, "%d", end);
-    int key_strlen = strlen(chrom) + start_strlen + end_strlen  + 5;
+    int key_strlen = strlen(chrom) + start_strlen + end_strlen  + 7;
     char* key = (char *)malloc(key_strlen * sizeof(char));
     MALLOC_CHK(key);
-    snprintf(key, key_strlen, "%s\t%d\t%d\t%c", chrom, start, end, mod_code);
+    snprintf(key, key_strlen, "%s\t%d\t%d\t%c\t%c", chrom, start, end, mod_code, strand);
     return key;
 }
 
@@ -319,10 +323,13 @@ char base_complement(char base){
 static void update_stats(base_t *bases, uint32_t seq_len, khash_t(str)* stats){
     for(int i=0;i<seq_len;i++){
         base_t base = bases[i];
+        if(base.ref_pos == -1){ //not aligned
+            continue;
+        }
         for(int j=0;j<base.mods_len;j++){
             mod_t mod = base.mods[j];
             
-            char *key = make_key(base.chrom, base.ref_pos, base.ref_pos, mod.mod_code);
+            char *key = make_key(base.chrom, base.ref_pos, base.ref_pos, mod.mod_code, base.strand);
             khiter_t k = kh_get(str, stats, key);
             if (k == kh_end(stats)) {
                 stat_t stat;
@@ -330,7 +337,9 @@ static void update_stats(base_t *bases, uint32_t seq_len, khash_t(str)* stats){
                 stat.start = base.ref_pos;
                 stat.end = base.ref_pos;
                 stat.mod_code = mod.mod_code;
-                stat.n_methylated = mod.mod_prob > 0.0 ? 1 : 0;
+                stat.n_methylated = mod.mod_prob >= MOD_THRESHOLD ? 1 : 0;
+                stat.mod_strand = mod.mod_strand;
+                stat.strand = base.strand;
 
                 int ret;
                 k = kh_put(str, stats, key, &ret);
@@ -342,14 +351,16 @@ static void update_stats(base_t *bases, uint32_t seq_len, khash_t(str)* stats){
                 mf->start = base.ref_pos;
                 mf->end = base.ref_pos;
                 mf->mod_code = mod.mod_code;
-                mf->n_methylated += mod.mod_prob > 0.0 ? 1 : 0;
+                mf->n_methylated += mod.mod_prob >= MOD_THRESHOLD ? 1 : 0;
+                mf->mod_strand = mod.mod_strand;
+                mf->strand = base.strand;
             }
         }
     }
 }
 
-static void inc_depth(khash_t(nr)* depth_map, const char *chrom, int start, int end){
-    char *key = make_key(chrom, start, end, MOD_ALL);
+static void inc_depth(khash_t(nr)* depth_map, const char *chrom, int start, int end, char strand){
+    char *key = make_key(chrom, start, end, MOD_ALL, strand);
     khiter_t k = kh_get(nr, depth_map, key);
     if (k == kh_end(depth_map)) {
         int ret;
@@ -439,7 +450,9 @@ static int * get_aln(khash_t(nr)* depth_map, bam_hdr_t *hdr, bam1_t *record){
                     start = pos + end - ref_pos - 1;
                 }
                 aligned_pairs[read_pos] = start;
-                inc_depth(depth_map, tname, start, start);
+                inc_depth(depth_map, tname, start, start, strand);
+            } else {
+                aligned_pairs[read_pos] = -1;
             }
 
             // increment
@@ -463,6 +476,8 @@ static base_t * get_bases(mod_tag_t *mod_tags, uint32_t mods_len, uint8_t * ml, 
     uint8_t *seq = bam_get_seq(record);
     uint32_t seq_len = record->core.l_qseq;
 
+    char strand = rev ? '-' : '+';
+
     if(seq_len == 0){
         ERROR("Sequence length is 0 for read %s. Found %d mod_tags", qname, mods_len);
         exit(EXIT_FAILURE);
@@ -475,6 +490,13 @@ static base_t * get_bases(mod_tag_t *mod_tags, uint32_t mods_len, uint8_t * ml, 
         bases[i].mods = (mod_t *)malloc(sizeof(mod_t)*bases[i].mods_cap);
         MALLOC_CHK(bases[i].mods);
         bases[i].mods_len = 0;
+
+        bases[i].read_pos = i;
+        bases[i].ref_pos = aln_pairs[i];
+        bases[i].chrom = tname;
+        bases[i].qual = bam_get_qual(record)[i];
+        bases[i].strand = strand;
+        bases[i].base = bam_seqi(seq, i);
     }
 
     // 5 int arrays to keep base pos of A, C, G, T, N bases.
@@ -545,12 +567,7 @@ static base_t * get_bases(mod_tag_t *mod_tags, uint32_t mods_len, uint8_t * ml, 
             }
             
             ASSERT_MSG(read_pos < seq_len, "Base pos cannot exceed seq len. read_pos: %d seq_len: %d\n", read_pos, seq_len); 
-
-            bases[read_pos].read_pos = read_pos;
-            bases[read_pos].ref_pos = aln_pairs[read_pos];
-            bases[read_pos].chrom = tname;
-            bases[read_pos].qual = bam_get_qual(record)[read_pos];
-            
+                        
             // mod prob per each mod code. TO-DO: need to change when code is ChEBI id
             for(int k=0; k<mod.mod_codes_len; k++) {
                 // get the mod prob
@@ -589,16 +606,16 @@ static base_t * get_bases(mod_tag_t *mod_tags, uint32_t mods_len, uint8_t * ml, 
 
 }
 
-static int get_depth(khash_t(nr)* depth_map, const char *chrom, int start, int end){
-    char *key = make_key(chrom, start, end, MOD_ALL);
+static int get_depth(khash_t(nr)* depth_map, const char *chrom, int start, int end, char strand){
+    char *key = make_key(chrom, start, end, MOD_ALL, strand);
     khiter_t k = kh_get(nr, depth_map, key);
+    free(key);
     if (k == kh_end(depth_map)) {
         return 0;
     } else {
         int nr = kh_value(depth_map, k);
         return nr;
     }
-    free(key);
 }
 
 
@@ -609,7 +626,7 @@ static stat_t * get_stats(khash_t(str)* stats_map, khash_t(nr)* depth_map, uint3
     for (khiter_t k = kh_begin(stats_map); k != kh_end(stats_map); ++k) {
         if (kh_exist(stats_map, k)) {
             stat_t stat = kh_value(stats_map, k);
-            stat.depth = get_depth(depth_map, stat.chrom, stat.start, stat.end);
+            stat.depth = get_depth(depth_map, stat.chrom, stat.start, stat.end, stat.strand);
             stat.freq = (double)stat.n_methylated/stat.depth;
             stats[len] = stat;
             len++;
@@ -714,7 +731,7 @@ static void print_meth_call_hdr(){
 }
 
 static void print_meth_freq_hdr(){
-    printf("chrom\tstart\tend\tdepth\tn_methylated\tfreq\tmod_code\n");
+    printf("chrom\tstart\tend\tdepth\tn_methylated\tfreq\tmod_code\tstrand\n");
 }
 
 static void print_meths(base_t *bases, uint32_t seq_len, khash_t(nr)* depth_map, bam_hdr_t *hdr, bam1_t *record){
@@ -726,25 +743,22 @@ static void print_meths(base_t *bases, uint32_t seq_len, khash_t(nr)* depth_map,
 
     uint16_t flag = record->core.flag;
 
-    int8_t rev = bam_is_rev(record);
-    const char strand = rev ? '-' : '+';
-
 
     for(int i=0;i<seq_len;i++){
         for(int j=0;j<bases[i].mods_len;j++){
             mod_t mod = bases[i].mods[j];
             base_t base = bases[i];
-            int depth = get_depth(depth_map, base.chrom, base.ref_pos, base.ref_pos);
-            fprintf(stdout, "%s\t%d\t%d\t%s\t%c\t%c\t%c\t%d\t%d\t%d\t%f\t%c\t%d\t%s\t%s\t%c\t%c\t%c\t%d\n", qname, base.read_pos, base.ref_pos, base.chrom, mod.mod_strand, strand, '*', -1, -1, seq_len, mod.mod_prob, mod.mod_code, base.qual, "*", "*", '*', mod.mod_base, '*', flag);
+            int depth = get_depth(depth_map, base.chrom, base.ref_pos, base.ref_pos, base.strand);
+            fprintf(stdout, "%s\t%d\t%d\t%s\t%c\t%c\t%c\t%d\t%d\t%d\t%f\t%c\t%d\t%s\t%s\t%c\t%c\t%c\t%d\n", qname, base.read_pos, base.ref_pos, base.chrom, mod.mod_strand, base.strand, '*', -1, -1, seq_len, mod.mod_prob, mod.mod_code, base.qual, "*", "*", '*', mod.mod_base, '*', flag);
         }
     }
 }
 
-static void print_meth_freq(stat_t * stats, uint32_t seq_len){
+static void print_meth_freq(stat_t * stats, uint32_t seq_len, bam1_t *record){
 
     for(int i=0;i<seq_len;i++){
         stat_t stat = stats[i];
-        fprintf(stdout, "%s\t%d\t%d\t%d\t%d\t%f\t%c\n", stat.chrom, stat.start, stat.end, stat.depth, stat.n_methylated, stat.freq, stat.mod_code);
+        fprintf(stdout, "%s\t%d\t%d\t%d\t%d\t%f\t%c\t%c\n", stat.chrom, stat.start, stat.end, stat.depth, stat.n_methylated, stat.freq, stat.mod_code, stat.strand);
     }
 
 }
@@ -765,11 +779,31 @@ static void free_mod_tags(mod_tag_t *mod_tags, uint32_t len){
     free(mod_tags);
 }
 
-static void free_mods_per_base(base_t *mods, uint32_t len){
+static void free_bases(base_t *bases, uint32_t len){
     for(int i=0;i<len;i++){
-        free(mods[i].mods);
+        free(bases[i].mods);
     }
-    free(mods);
+    free(bases);
+}
+
+static void free_depth_map(khash_t(nr)* depth_map){
+    //free keys
+    for (khiter_t k = kh_begin(depth_map); k != kh_end(depth_map); ++k) {
+        if (kh_exist(depth_map, k)) {
+            free((char *)kh_key(depth_map, k));
+        }
+    }
+    kh_destroy(nr, depth_map);
+}
+
+static void free_stats_map(khash_t(str)* stats_map){
+    //free keys
+    for (khiter_t k = kh_begin(stats_map); k != kh_end(stats_map); ++k) {
+        if (kh_exist(stats_map, k)) {
+            free((char *)kh_key(stats_map, k));
+        }
+    }
+    kh_destroy(str, stats_map);
 }
 
 void simple_meth_view(core_t* core){
@@ -817,10 +851,13 @@ void simple_meth_view(core_t* core){
         print_meths(bases, seq_len, depth_map, hdr, record);
         
         free(ml);
+        free(aln_pairs);
+        free_bases(bases, seq_len);
         free_mod_tags(mod_tags, mods_len);
-        free_mods_per_base(bases, seq_len);
+        
 
     }
+    free_depth_map(depth_map);
     bam_destroy1(record);
     return;
 }
@@ -847,6 +884,9 @@ void meth_freq(core_t* core){
         int * aln_pairs = get_aln(depth_map, hdr, record);
 
         if(ml == NULL){
+            free(ml);
+            free(aln_pairs);
+            free_mod_tags(mod_tags, mods_len);
             continue;
         }
 
@@ -856,19 +896,21 @@ void meth_freq(core_t* core){
         update_stats(bases, seq_len, stats_map);
         
         free(ml);
+        free(aln_pairs);
+        free_bases(bases, seq_len);
         free_mod_tags(mod_tags, mods_len);
-        free_mods_per_base(bases, seq_len);
+        
 
     }
 
     uint32_t meth_freqs_len = 0;
     stat_t * stats = get_stats(stats_map, depth_map, &meth_freqs_len);
 
-    print_meth_freq(stats, meth_freqs_len);
+    print_meth_freq(stats, meth_freqs_len, record);
 
     free(stats);
-    kh_destroy(str, stats_map);
-    kh_destroy(nr, depth_map);
+    free_depth_map(depth_map);
+    free_stats_map(stats_map);
 
     bam_destroy1(record);
     return;
