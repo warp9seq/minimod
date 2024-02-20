@@ -16,5 +16,7 @@ jobs:
       run: ./scripts/install-hts.sh
     - name: test
       run: make test
+    - name: install valgrind
+      run: sudo apt-get install valgrind
     - name: memtest
       run: make memtest
