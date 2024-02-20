@@ -72,3 +72,6 @@ distclean: clean
 test: $(BINARY)
 	./test/test.sh
 
+memtest: $(BINARY)
+	./test/test.sh mem
+
