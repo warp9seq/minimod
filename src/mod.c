@@ -145,7 +145,7 @@ static inline int die(const char *format, ...) {
 * @param mod_code code of the modification to extract. If MOD_ALL, all modifications are extracted
 * @return pointer to the array of mod_tag_t
 */
-static mod_tag_t *extract_mods(const char *mm_string, uint32_t *len_mods, enum MOD_CODES mod_code) {
+static mod_tag_t *extract_mods(const char *mm_string, uint32_t *len_mods) {
     if (mm_string == NULL || strlen(mm_string) == 0) {
         WARNING("%s","Empty MM string. Continuing\n");
         return NULL;
@@ -209,10 +209,8 @@ static mod_tag_t *extract_mods(const char *mm_string, uint32_t *len_mods, enum M
 
             ASSERT_MSG(isValidModificationCode(mm_string[i]), "Invalid base modification code:%c\n", mm_string[i]);
 
-            if(mod_code == MOD_ALL || mm_string[i] == mod_code) {
-                current_mod.mod_codes[j] = mm_string[i];
-                j++;
-            }
+            current_mod.mod_codes[j] = mm_string[i];
+            j++;
 
             i++;
         }
@@ -330,7 +328,7 @@ static void update_stats(base_t *bases, uint32_t seq_len, khash_t(str)* stats){
         }
         for(int j=0;j<base.mods_len;j++){
             mod_t mod = base.mods[j];
-            
+
             char *key = make_key(base.chrom, base.ref_pos, base.ref_pos, mod.mod_code, base.strand);
             khiter_t k = kh_get(str, stats, key);
             if (k == kh_end(stats)) {
@@ -598,7 +596,7 @@ static base_t * get_bases(mod_tag_t *mod_tags, uint32_t mods_len, uint8_t * ml, 
                 uint8_t mod_prob_scaled = ml[ml_idx];
                 ASSERT_MSG(mod_prob_scaled <= 255 && mod_prob_scaled>=0, "mod_prob_scaled:%d\n", mod_prob_scaled);
                 double mod_prob = (mod_prob_scaled+1)/256.0;
-                
+
                 // add to mods
                 if(bases[read_pos].mods_len >= bases[read_pos].mods_cap){
                     bases[read_pos].mods_cap *= 2;
@@ -777,7 +775,7 @@ static void print_meth_freq_hdr(){
     printf("chrom\tstart\tend\tdepth\tn_mod\tn_called\tn_skipped\tfreq\tmod_code\tstrand\n");
 }
 
-static void print_meths(base_t *bases, uint32_t seq_len, khash_t(nr)* depth_map, bam_hdr_t *hdr, bam1_t *record){
+static void print_meths(base_t *bases, uint32_t seq_len, khash_t(nr)* depth_map, bam_hdr_t *hdr, bam1_t *record, enum MOD_CODES print_mod_code){
 
     int32_t tid = record->core.tid;
     assert(tid < hdr->n_targets);
@@ -791,16 +789,22 @@ static void print_meths(base_t *bases, uint32_t seq_len, khash_t(nr)* depth_map,
         for(int j=0;j<bases[i].mods_len;j++){
             mod_t mod = bases[i].mods[j];
             base_t base = bases[i];
+            if(print_mod_code != MOD_ALL && mod.mod_code != print_mod_code){
+                continue;
+            }
             int depth = get_depth(depth_map, base.chrom, base.ref_pos, base.ref_pos, base.strand);
             fprintf(stdout, "%s\t%d\t%d\t%s\t%c\t%c\t%c\t%d\t%d\t%d\t%f\t%c\t%d\t%s\t%s\t%c\t%c\t%c\t%d\n", qname, base.read_pos, base.ref_pos, base.chrom, mod.mod_strand, base.strand, '*', -1, -1, seq_len, mod.mod_prob, mod.mod_code, base.qual, "*", "*", '*', mod.mod_base, '*', flag);
         }
     }
 }
 
-static void print_meth_freq(stat_t * stats, uint32_t seq_len, bam1_t *record){
+static void print_meth_freq(stat_t * stats, uint32_t seq_len, bam1_t *record, enum MOD_CODES print_mod_code){
 
     for(int i=0;i<seq_len;i++){
         stat_t stat = stats[i];
+        if(print_mod_code != MOD_ALL && stat.mod_code != print_mod_code){
+            continue;
+        }
         fprintf(stdout, "%s\t%d\t%d\t%d\t%d\t%d\t%d\t%f\t%c\t%c\n", stat.chrom, stat.start, stat.end, stat.depth, stat.n_mod, stat.n_called, stat.n_skipped, stat.freq, stat.mod_code, stat.strand);
     }
 
@@ -864,7 +868,7 @@ void simple_meth_view(core_t* core){
         uint8_t *ml = get_ml_tag(record, &ml_len);
 
         uint32_t mods_len = 0;
-        mod_tag_t *mod_tags = extract_mods(mm, &mods_len, MOD_ALL);
+        mod_tag_t *mod_tags = extract_mods(mm, &mods_len);
 
         bam_hdr_t *hdr = core->bam_hdr;
 
@@ -883,7 +887,7 @@ void simple_meth_view(core_t* core){
             base_t * bases = get_bases(mod_tags, mods_len, ml, ml_len, aln_pairs, depth_map, n_skipped_map, hdr, record);
             uint32_t seq_len = record->core.l_qseq;
 
-            print_meths(bases, seq_len, depth_map, hdr, record);
+            print_meths(bases, seq_len, depth_map, hdr, record, MOD_ALL);
 
             free_bases(bases, seq_len);
 
@@ -917,13 +921,16 @@ void meth_freq(core_t* core){
         uint8_t *ml = get_ml_tag(record, &ml_len);
 
         uint32_t mods_len = 0;
-        mod_tag_t *mod_tags = extract_mods(mm, &mods_len, MOD_5mC);
+        mod_tag_t *mod_tags = extract_mods(mm, &mods_len);
 
         bam_hdr_t *hdr = core->bam_hdr;
 
         int * aln_pairs = get_aln(depth_map, hdr, record);
 
         if(ml != NULL){
+            if(ml_len==0){ // no mod probs, therefore no mods
+                ASSERT_MSG(mods_len==0, "Mods len should be 0 when ml_len is 0. mods_len:%d ml_len:%d\n", mods_len, ml_len);
+            }
             base_t * bases = get_bases(mod_tags, mods_len, ml, ml_len, aln_pairs, depth_map, n_skipped_map, hdr, record);
             uint32_t seq_len = record->core.l_qseq;
             update_stats(bases, seq_len, stats_map);
@@ -939,7 +946,7 @@ void meth_freq(core_t* core){
     uint32_t meth_freqs_len = 0;
     stat_t * stats = get_stats(stats_map, depth_map, n_skipped_map, &meth_freqs_len);
 
-    print_meth_freq(stats, meth_freqs_len, record);
+    print_meth_freq(stats, meth_freqs_len, record, MOD_5mC);
 
     free(stats);
     free_depth_map(depth_map);
