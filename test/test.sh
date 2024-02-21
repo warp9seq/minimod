@@ -26,10 +26,10 @@ ex  ./minimod view test/r84088_20230609_025659_1_A01_fmr1.bam > test/tmp.txt  ||
 # diff -q test/example.exp test/tmp.txt || die "diff failed"
 
 echo "Test 2"
-ex  ./minimod view test/alignment.bam | awk 'NR>1{print $2"\t"$3}' | sort -n -k 1 > test/alignment_actual.tsv
+ex  ./minimod view test/alignment.bam | awk 'NR>1{print $2"\t"$3}' | sort -n -k 1 > test/alignment_actual.tsv || die "Running the tool failed"
 diff -q test/alignment_actual.tsv test/alignment_expected.tsv || die "diff failed: Invalid alignment positions"
 
 echo "Test 3"
-ex  ./minimod view test/example-ont.bam | awk 'NR>1{print $2"\t"$11}' | sort -n -k 1 > test/example-ont_prob_expected.tsv
+ex  ./minimod view test/example-ont.bam | awk 'NR>1{print $2"\t"$11}' | sort -n -k 1 > test/example-ont_prob_expected.tsv || die "Running the tool failed"
 
 echo "Tests passed"
