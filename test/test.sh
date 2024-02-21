@@ -29,4 +29,7 @@ echo "Test 2"
 ex  ./minimod view test/alignment.bam | awk 'NR>1{print $2"\t"$3}' | sort -n -k 1 > test/alignment_actual.tsv
 diff -q test/alignment_actual.tsv test/alignment_expected.tsv || die "diff failed: Invalid alignment positions"
 
+echo "Test 3"
+ex  ./minimod view test/example-ont.bam | awk 'NR>1{print $2"\t"$11}' | sort -n -k 1 > test/example-ont_prob_expected.tsv
+
 echo "Tests passed"
