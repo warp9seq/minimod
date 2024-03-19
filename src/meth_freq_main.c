@@ -164,6 +164,7 @@ int meth_freq_main(int argc, char* argv[]) {
     init_maps();
 
     meth_freq(core);
+    print_stats(stdout);
 
     destroy_maps();
 

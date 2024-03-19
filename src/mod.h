@@ -36,5 +36,6 @@ uint16_t *get_meth_tag(bam1_t *record, char *tag, uint32_t *len_ptr);
 void meth_freq(core_t* core);
 void init_maps();
 void destroy_maps();
+void print_stats(FILE * output_file);
 
 #endif

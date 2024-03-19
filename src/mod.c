@@ -912,9 +912,7 @@ void simple_meth_view(core_t* core){
 }
 
 void meth_freq(core_t* core){
-    khash_t(str)* stats_map = kh_init(str);
-    khash_t(nr)* depth_map = kh_init(nr);
-    khash_t(nr)* n_skipped_map = kh_init(nr);
+    
     bam1_t *record = bam_init1();
     while(sam_itr_next(core->bam_fp, core->itr, record) >= 0){
 
