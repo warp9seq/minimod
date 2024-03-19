@@ -33,6 +33,7 @@ SOFTWARE.
 #include "minimod.h"
 #include "error.h"
 #include "misc.h"
+#include "mod.h"
 #include <assert.h>
 #include <getopt.h>
 #include <pthread.h>
@@ -40,8 +41,6 @@ SOFTWARE.
 #include <stdio.h>
 #include <stdlib.h>
 #include <unistd.h>
-
-void meth_freq(core_t* core);
 
 static struct option long_options[] = {
     {"threads", required_argument, 0, 't'},        //0 number of threads [8]
@@ -162,7 +161,11 @@ int meth_freq_main(int argc, char* argv[]) {
     //initialise the core data structure
     core_t* core = init_core(bamfile, opt, realtime0);
 
+    init_maps();
+
     meth_freq(core);
+
+    destroy_maps();
 
     //free the core data structure
     free_core(core,opt);
