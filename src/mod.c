@@ -114,7 +114,7 @@ char* make_key(char *chrom, int start, int end, char mod_code, char strand){
     int start_strlen = snprintf(NULL, 0, "%d", start);
     int end_strlen = snprintf(NULL, 0, "%d", end);
     int key_strlen = strlen(chrom) + start_strlen + end_strlen  + 7;
-
+    
     char* key = (char *)malloc(key_strlen * sizeof(char));
     MALLOC_CHK(key);
     snprintf(key, key_strlen, "%s\t%d\t%d\t%c\t%c", chrom, start, end, mod_code, strand);
@@ -417,6 +417,11 @@ static int * get_aln(khash_t(nr)* depth_map, bam_hdr_t *hdr, bam1_t *record){
     int * aligned_pairs = (int *)malloc(sizeof(int)*seq_len);
     MALLOC_CHK(aligned_pairs);
 
+    //fill the aligned_pairs array with -1
+    for(int i=0;i<seq_len;i++){
+        aligned_pairs[i] = -1;
+    }
+
     //fprintf(stderr,"n cigar: %d\n", n_cigar);
     for (uint32_t ci = 0; ci < n_cigar; ++ci) {
         uint32_t c = cigar[ci];
@@ -472,8 +477,6 @@ static int * get_aln(khash_t(nr)* depth_map, bam_hdr_t *hdr, bam1_t *record){
                 }
                 aligned_pairs[read_pos] = start;
                 inc_depth(depth_map, tname, start, start, strand);
-            } else {
-                aligned_pairs[read_pos] = -1;
             }
 
             // increment
@@ -912,7 +915,7 @@ void simple_meth_view(core_t* core){
 }
 
 void meth_freq(core_t* core){
-    
+
     bam1_t *record = bam_init1();
     while(sam_itr_next(core->bam_fp, core->itr, record) >= 0){
 
@@ -947,13 +950,13 @@ void meth_freq(core_t* core){
     return;
 }
 
-void init_maps(){
+void init_mod(){
     stats_map = kh_init(str);
     depth_map = kh_init(nr);
     n_skipped_map = kh_init(nr);
 }
 
-void destroy_maps(){
+void destroy_mod(){
     free_stats_map(stats_map);
     free_depth_map(depth_map);
     free_depth_map(n_skipped_map);

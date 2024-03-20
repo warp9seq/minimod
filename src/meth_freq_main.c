@@ -161,12 +161,12 @@ int meth_freq_main(int argc, char* argv[]) {
     //initialise the core data structure
     core_t* core = init_core(bamfile, opt, realtime0);
 
-    init_maps();
+    init_mod();
 
     meth_freq(core);
     print_stats(stdout);
 
-    destroy_maps();
+    destroy_mod();
 
     //free the core data structure
     free_core(core,opt);
