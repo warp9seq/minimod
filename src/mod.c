@@ -767,6 +767,8 @@ static void free_mod_tags(mod_tag_t *mod_tags, uint32_t len){
 static void free_bases(base_t *bases, uint32_t len){
     for(int i=0;i<len;i++){
         free(bases[i].mods);
+        free(bases[i].is_skipped);
+        free(bases[i].is_called);
     }
     free(bases);
 }
