@@ -1,10 +1,10 @@
 /**
- * @file mod.h
- * @brief modification tags
+ * @file meth.c
+ * @brief methylation calling and frequency calculation
 
 MIT License
 
-Copyright (c) 2023 Hasindu Gamaarachchi (hasindu@unsw.edu.au)
+Copyright (c) 2024 Suneth Samarasinghe
 
 Permission is hereby granted, free of charge, to any person obtaining a copy
 of this software and associated documentation files (the "Software"), to deal
@@ -26,14 +26,10 @@ SOFTWARE.
 
 
 ******************************************************************************/
-
-#ifndef PULSE_H
-#define PULSE_H
-
 #include "minimod.h"
 
-uint16_t *get_meth_tag(bam1_t *record, char *tag, uint32_t *len_ptr);
-const char *get_mm_tag_ptr(bam1_t *record);
-uint8_t *get_ml_tag(bam1_t *record, uint32_t *len_ptr);
-
-#endif
+void simple_meth_view(core_t* core);
+void meth_freq(core_t* core);
+void init_mod(const char * ref);
+void destroy_mod();
+void print_stats(FILE * output_file);

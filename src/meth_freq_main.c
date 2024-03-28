@@ -33,7 +33,7 @@ SOFTWARE.
 #include "minimod.h"
 #include "error.h"
 #include "misc.h"
-#include "mod.h"
+#include "meth.h"
 #include "ref.h"
 #include <assert.h>
 #include <getopt.h>

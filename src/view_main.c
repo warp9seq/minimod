@@ -32,7 +32,7 @@ SOFTWARE.
 #include "error.h"
 #include "misc.h"
 #include "ref.h"
-#include "mod.h"
+#include "meth.h"
 #include <assert.h>
 #include <getopt.h>
 #include <pthread.h>

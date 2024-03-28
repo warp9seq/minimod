@@ -13,7 +13,8 @@ OBJ = $(BUILD_DIR)/main.o \
 	  $(BUILD_DIR)/misc_p.o \
 	  $(BUILD_DIR)/error.o \
 	  $(BUILD_DIR)/mod.o \
-	  $(BUILD_DIR)/ref.o
+	  $(BUILD_DIR)/ref.o \
+	  $(BUILD_DIR)/meth.o
 
 ifdef asan
 	CFLAGS += -fsanitize=address -fno-omit-frame-pointer
@@ -49,10 +50,13 @@ $(BUILD_DIR)/misc_p.o: src/misc_p.c src/misc.h
 $(BUILD_DIR)/error.o: src/error.c src/error.h
 	$(CC) $(CFLAGS) $(CPPFLAGS) $< -c -o $@
 
-$(BUILD_DIR)/mod.o: src/mod.c src/mod.h src/khash.h
+$(BUILD_DIR)/mod.o: src/mod.c src/mod.h
 	$(CC) $(CFLAGS) $(CPPFLAGS) $< -c -o $@
 
 $(BUILD_DIR)/ref.o: src/ref.c src/kseq.h src/error.h
+	$(CC) $(CFLAGS) $(CPPFLAGS) $< -c -o $@
+
+$(BUILD_DIR)/meth.o: src/meth.c src/meth.h src/khash.h
 	$(CC) $(CFLAGS) $(CPPFLAGS) $< -c -o $@
 
 htslib/libhts.a:
