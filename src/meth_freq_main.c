@@ -34,6 +34,7 @@ SOFTWARE.
 #include "error.h"
 #include "misc.h"
 #include "mod.h"
+#include "ref.h"
 #include <assert.h>
 #include <getopt.h>
 #include <pthread.h>
@@ -60,6 +61,7 @@ static struct option long_options[] = {
 static inline void print_help_msg(FILE *fp_help, opt_t opt){
     fprintf(fp_help,"Usage: minimod meth_freq reads.bam\n");
     fprintf(fp_help,"\nbasic options:\n");
+    fprintf(fp_help,"   -r FILE                    reference genome fasta file\n");
     fprintf(fp_help,"   -t INT                     number of processing threads [%d]\n",opt.num_thread);
     fprintf(fp_help,"   -K INT                     batch size (max number of reads loaded at once) [%d]\n",opt.batch_size);
     fprintf(fp_help,"   -B FLOAT[K/M/G]            max number of bytes loaded at once [%.1fM]\n",opt.batch_size_bytes/(float)(1000*1000));
@@ -83,12 +85,13 @@ int meth_freq_main(int argc, char* argv[]) {
 
     double realtime0 = realtime();
 
-    const char* optstring = "t:B:K:v:o:hV";
+    const char* optstring = "r:t:B:K:v:o:hV";
 
     int longindex = 0;
     int32_t c = -1;
 
     const char *bamfile = NULL;
+    const char *reffile = NULL;
 
     FILE *fp_help = stderr;
 
@@ -124,7 +127,8 @@ int meth_freq_main(int argc, char* argv[]) {
             exit(EXIT_SUCCESS);
         } else if (c=='h'){
             fp_help = stdout;
-            fp_help = stdout;
+        } else if (c=='r'){
+            reffile = optarg;
         } else if(c == 0 && longindex == 7){ //debug break
             opt.debug_break = atoi(optarg);
         } else if(c == 0 && longindex == 8){ //sectional benchmark todo : warning for gpu mode
@@ -161,7 +165,7 @@ int meth_freq_main(int argc, char* argv[]) {
     //initialise the core data structure
     core_t* core = init_core(bamfile, opt, realtime0);
 
-    init_mod();
+    init_mod(reffile);
 
     meth_freq(core);
     print_stats(stdout);

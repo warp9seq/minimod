@@ -32,11 +32,13 @@ SOFTWARE.
 #include "misc.h"
 #include "error.h"
 #include "khash.h"
+#include "ref.h"
 #include <assert.h>
 #include <string.h>
 #include <stdio.h>
 #include <stdarg.h>
 #include <ctype.h>
+#include <stdbool.h>
 
 // #include <sys/wait.h>
 // #include <unistd.h>
@@ -70,6 +72,7 @@ typedef struct {
 
 typedef struct {
     char base;
+    char ref_base;
     uint8_t qual;
     const char * chrom;
     int ref_pos;
@@ -100,6 +103,7 @@ typedef struct {
     int n_skipped;
     double freq;
     char base;
+    char ref_base;
     char mod_base;
     char mod_code;
     char mod_strand;
@@ -109,6 +113,8 @@ typedef struct {
 KHASH_MAP_INIT_STR(str, stat_t *);
 
 khash_t(str)* stats_map;
+ref_t * ref;
+
 char* make_key(const char *chrom, int start, int end, char mod_code, char strand){
     int start_strlen = snprintf(NULL, 0, "%d", start);
     int end_strlen = snprintf(NULL, 0, "%d", end);
@@ -362,8 +368,7 @@ static void update_stats(base_t *bases, uint32_t seq_len, khash_t(str)* stats){
                 stat->mod_code = mod.mod_code;
                 stat->strand = base.strand;
 
-                stat->mod_base = mod.mod_base;
-                stat->base = base.base; //TO-do; take from ref
+                stat->ref_base = base.ref_base;
                 stat->n_called = base.is_called[mod_code_to_idx(mod.mod_code)];
                 stat->n_skipped = base.is_skipped[mod_code_to_idx(mod.mod_code)];
                 stat->n_mod = mod.mod_prob >= MOD_THRESHOLD ? 1 : 0;
@@ -582,6 +587,35 @@ static base_t * get_bases(mod_tag_t *mod_tags, uint32_t mods_len, uint8_t * ml, 
             }
 
             ASSERT_MSG(read_pos < seq_len, "Base pos cannot exceed seq len. read_pos: %d seq_len: %d\n", read_pos, seq_len);
+
+            bases[read_pos].base = seq_nt16_str[bam_seqi(seq, read_pos)];
+
+            // check if the base belongs to a cpg site using the ref
+            if(aln_pairs[read_pos] != -1){ // if aligned
+                int ref_pos = aln_pairs[read_pos];
+                ASSERT_MSG(strcmp(tname, ref->ref_names[tid])==0, "chrom:%s ref_name:%s\n", tname, ref->ref_names[tid]);
+                ASSERT_MSG(ref_pos >= 0 && ref_pos < ref->ref_seq_lengths[tid], "ref_pos:%d ref_len:%d\n", ref_pos, ref->ref_seq_lengths[tid]);
+                ASSERT_MSG(ref->ref_seq_lengths[tid] == hdr->target_len[tid], "ref_len:%d target_len:%d\n", ref->ref_seq_lengths[tid], hdr->target_len[tid]);
+                
+                // check if the base is a CpG site
+                char * ref_seq = ref->forward[tid];
+                int32_t ref_len = ref->ref_seq_lengths[tid];
+                int is_cpg = 0;
+                if(ref_pos+1 < ref_len && strand=='+' && ref_seq[ref_pos] == 'C' && ref_seq[ref_pos+1] == 'G'){
+                    is_cpg = 1;
+                } else if(ref_pos-1 >= 0 && strand=='-' && ref_seq[ref_pos] == 'G' && ref_seq[ref_pos-1] == 'C'){
+                    is_cpg = 1;
+                }
+
+                bases[read_pos].ref_base = ref_seq[ref_pos];
+
+                if(!is_cpg){ 
+                    continue;
+                }
+            } else { // if not aligned
+                continue;
+            }
+
                         
             // mod prob per each mod code. TO-DO: need to change when code is ChEBI id
             for(int k=0; k<mod.mod_codes_len; k++) {
@@ -716,11 +750,11 @@ uint8_t *get_ml_tag(bam1_t *record, uint32_t *len_ptr){
 }
 
 static void print_meth_call_hdr(){
-    printf("read_id\tread_pos\tref_pos\tchrom\tmod_strand\tref_strand\tref_mod_strand\tfw_soft_clipped_start\tfw_soft_clipped_end\tread_length\tmod_qual\tmod_code\tbase_qual\tref_kmer\tquery_kmer\tcanonical_base\tmodified_primary_base\tinferred\tflag\n");
+    printf("read_id\tread_pos\tref_pos\tchrom\tmod_strand\tref_strand\tref_mod_strand\tfw_soft_clipped_start\tfw_soft_clipped_end\tread_length\tmod_qual\tmod_code\tbase_qual\tref_kmer\tquery_kmer\tref_base\tread_base\tmod_base\tflag\n");
 }
 
 static void print_meth_freq_hdr(FILE * output_file){
-    fprintf(output_file, "chrom\tstart\tend\tdepth\tn_mod\tn_called\tn_skipped\tfreq\tmod_code\tstrand\n");
+    fprintf(output_file, "chrom\tstart\tend\tdepth\tn_mod\tn_called\tn_skipped\tfreq\tmod_code\tstrand\tref_base\n");
 }
 
 static void print_mods(base_t *bases, uint32_t seq_len, bam_hdr_t *hdr, bam1_t *record, enum MOD_CODES print_mod_code){
@@ -739,7 +773,7 @@ static void print_mods(base_t *bases, uint32_t seq_len, bam_hdr_t *hdr, bam1_t *
             if(print_mod_code !='*' && mod.mod_code != print_mod_code){
                 continue;
             }
-            fprintf(stdout, "%s\t%d\t%d\t%s\t%c\t%c\t%c\t%d\t%d\t%d\t%f\t%c\t%d\t%s\t%s\t%c\t%c\t%c\t%d\n", qname, i, base.ref_pos, base.chrom, mod.mod_strand, base.strand, '*', -1, -1, seq_len, mod.mod_prob, mod.mod_code, base.qual, "*", "*", '*', mod.mod_base, '*', flag);
+            fprintf(stdout, "%s\t%d\t%d\t%s\t%c\t%c\t%c\t%d\t%d\t%d\t%f\t%c\t%d\t%s\t%s\t%c\t%c\t%c\t%d\n", qname, i, base.ref_pos, base.chrom, mod.mod_strand, base.strand, '*', -1, -1, seq_len, mod.mod_prob, mod.mod_code, base.qual, "*", "*", base.ref_base, base.base, mod.mod_base, flag);
         }
     }
 }
@@ -751,7 +785,7 @@ static void print_meth_freq(FILE * output_file, stat_t ** stats, uint32_t seq_le
         if(print_mod_code !='*' && stat->mod_code != print_mod_code){
             continue;
         }
-        fprintf(output_file, "%s\t%d\t%d\t%d\t%d\t%d\t%d\t%f\t%c\t%c\n", stat->chrom, stat->start, stat->end, stat->depth, stat->n_mod, stat->n_called, stat->n_skipped, stat->freq, stat->mod_code, stat->strand);
+        fprintf(output_file, "%s\t%d\t%d\t%d\t%d\t%d\t%d\t%f\t%c\t%c\t%c\n", stat->chrom, stat->start, stat->end, stat->depth, stat->n_mod, stat->n_called, stat->n_skipped, stat->freq, stat->mod_code, stat->strand, stat->ref_base);
     }
 
 }
@@ -869,12 +903,14 @@ void meth_freq(core_t* core){
     return;
 }
 
-void init_mod(){
+void init_mod(const char * reffile){
     stats_map = kh_init(str);
+    ref = load_ref(reffile);
 }
 
 void destroy_mod(){
     free_stats_map(stats_map);
+    destroy_ref(ref);
 }
 
 void print_stats(FILE * output_file){
