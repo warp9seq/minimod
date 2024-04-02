@@ -47,6 +47,8 @@ SOFTWARE.
 #define INIT_BASE_POS 100
 #define INIT_MOD_BASES 2
 #define MOD_THRESHOLD 0.2
+#define N_BASES 6 // A, C, G, T, N, U
+#define N_MOD_CODES 5 // 5mC, 5hmC, 5fC, 5caC, xC
 
 typedef struct {
     char base;
@@ -115,6 +117,60 @@ KHASH_MAP_INIT_STR(str, stat_t *);
 khash_t(str)* stats_map;
 ref_t * ref;
 
+static const int valid_bases[256] = {
+    ['A'] = 1, ['C'] = 1, ['G'] = 1, ['T'] = 1, ['U'] = 1, ['N'] = 1,
+    ['a'] = 1, ['c'] = 1, ['g'] = 1, ['t'] = 1, ['u'] = 1, ['n'] = 1
+};
+
+static const int valid_strands[256] = {
+    ['+'] = 1,
+    ['-'] = 1
+};
+
+static const int valid_mod_codes[256] = {
+    // ['0'] = 1, ['1'] = 1, ['2'] = 1, ['3'] = 1, ['4'] = 1, ['5'] = 1, ['6'] = 1, ['7'] = 1, ['8'] = 1, ['9'] = 1, // for ChEBI ids
+    ['a'] = 1, ['b'] = 1, ['c'] = 1, ['e'] = 1, ['f'] = 1, ['g'] = 1, ['h'] = 1, ['m'] = 1, ['n'] = 1, ['o'] = 1, 
+    ['A'] = 1, ['C'] = 1, ['G'] = 1, ['T'] = 1, ['U'] = 1, ['N'] = 1
+};
+
+static const int base_idx_lookup[256] = {
+    ['A'] = 0,
+    ['C'] = 1,
+    ['G'] = 2,
+    ['T'] = 3,
+    ['U'] = 4,
+    ['N'] = 5,
+    ['a'] = 0,
+    ['c'] = 1,
+    ['g'] = 2,
+    ['t'] = 3,
+    ['u'] = 4,
+    ['n'] = 5,
+};
+
+static const int mod_code_idx_lookup[256] = {
+    [MOD_5mC] = 0,
+    [MOD_5hmC] = 1,
+    [MOD_5fC] = 2,
+    [MOD_5caC] = 3,
+    [MOD_xC] = 4,
+};
+
+static const char base_complement_lookup[256] = {
+    ['A'] = 'T',
+    ['C'] = 'G',
+    ['G'] = 'C',
+    ['T'] = 'A',
+    ['U'] = 'A',
+    ['N'] = 'N',
+    ['a'] = 't',
+    ['c'] = 'g',
+    ['g'] = 'c',
+    ['t'] = 'a',
+    ['u'] = 'a',
+    ['n'] = 'n',
+};
+
 char* make_key(const char *chrom, int start, int end, char mod_code, char strand){
     int start_strlen = snprintf(NULL, 0, "%d", start);
     int end_strlen = snprintf(NULL, 0, "%d", end);
@@ -124,19 +180,6 @@ char* make_key(const char *chrom, int start, int end, char mod_code, char strand
     MALLOC_CHK(key);
     snprintf(key, key_strlen, "%s\t%d\t%d\t%c\t%c", chrom, start, end, mod_code, strand);
     return key;
-}
-
-static inline int isValidBase(char ch) {
-    ch = toupper(ch);
-    return (ch == 'A' || ch == 'C' || ch == 'G' || ch == 'T' || ch == 'U' || ch == 'N');
-}
-
-static inline int isValidStrand(char ch) {
-    return (ch == '+' || ch == '-');
-}
-
-static inline int isValidModificationCode(char ch) {
-    return (ch >= '0' && ch <= '9') || (ch >= 'a' && ch <= 'z');
 }
 
 // function to print an array of given type
@@ -153,49 +196,6 @@ void print_array(void *array, int len, char type){
         }
     }
     fprintf(stderr, "\n");
-}
-
-int base_to_idx(char base){
-    if(base == 'A'){
-        return 0;
-    }else if(base == 'C'){
-        return 1;
-    }else if(base == 'G'){
-        return 2;
-    }else if(base == 'T'){
-        return 3;
-    }
-    return 4;
-}
-
-int mod_code_to_idx(char mod_code){
-    switch (mod_code) {
-        case MOD_5mC:
-            return 0;
-        case MOD_5hmC:
-            return 1;
-        case MOD_5fC:
-            return 2;
-        case MOD_5caC:
-            return 3;
-        case MOD_xC:
-            return 4;
-        default:
-            return -1;
-    }
-}
-
-char base_complement(char base){
-    if(base == 'A'){
-        return 'T';
-    }else if(base == 'C'){
-        return 'G';
-    }else if(base == 'G'){
-        return 'C';
-    }else if(base == 'T'){
-        return 'A';
-    }
-    return base;
 }
 
 /*
@@ -244,15 +244,15 @@ static mod_tag_t *extract_mods(const char *mm_string, uint32_t *len_mods) {
 
         // get base
         if(i < mm_str_len) {
+            ASSERT_MSG(valid_bases[(int)mm_string[i]], "Invalid base:%c\n", mm_string[i]);
             current_mod.base = mm_string[i];
-            ASSERT_MSG(isValidBase(current_mod.base), "Invalid base:%c\n", current_mod.base);
             i++;
         }
 
         // get strand
         if(i < mm_str_len) {
+            ASSERT_MSG(valid_strands[(int)mm_string[i]], "Invalid strand:%c\n", mm_string[i]);
             current_mod.strand = mm_string[i];
-            ASSERT_MSG(current_mod.strand == '+' || current_mod.strand == '-', "Invalid strand:%c\n", current_mod.strand);
             i++;
         }
 
@@ -266,8 +266,7 @@ static mod_tag_t *extract_mods(const char *mm_string, uint32_t *len_mods) {
                 MALLOC_CHK(current_mod.mod_codes);
             }
 
-            ASSERT_MSG(isValidModificationCode(mm_string[i]), "Invalid base modification code:%c\n", mm_string[i]);
-
+            ASSERT_MSG(valid_mod_codes[(int)mm_string[i]], "Invalid base modification code:%c\n", mm_string[i]);
             current_mod.mod_codes[j] = mm_string[i];
             j++;
 
@@ -356,8 +355,8 @@ static void update_stats(base_t *bases, uint32_t seq_len, khash_t(str)* stats){
                 stat->strand = base.strand;
 
                 stat->ref_base = base.ref_base;
-                stat->n_called = base.is_called[mod_code_to_idx(mod.mod_code)];
-                stat->n_skipped = base.is_skipped[mod_code_to_idx(mod.mod_code)];
+                stat->n_called = base.is_called[mod_code_idx_lookup[(int)mod.mod_code]];
+                stat->n_skipped = base.is_skipped[mod_code_idx_lookup[(int)mod.mod_code]];
                 stat->n_mod = mod.mod_prob >= MOD_THRESHOLD ? 1 : 0;
                 stat->mod_strand = mod.mod_strand;
                 stat->depth = base.depth;
@@ -369,8 +368,8 @@ static void update_stats(base_t *bases, uint32_t seq_len, khash_t(str)* stats){
             } else {
                 free(key);
                 stat_t * stat = kh_value(stats, k);
-                stat->n_called += base.is_called[mod_code_to_idx(mod.mod_code)];
-                stat->n_skipped += base.is_skipped[mod_code_to_idx(mod.mod_code)];
+                stat->n_called += base.is_called[mod_code_idx_lookup[(int)mod.mod_code]];
+                stat->n_skipped += base.is_skipped[mod_code_idx_lookup[(int)mod.mod_code]];
                 stat->n_mod += mod.mod_prob >= MOD_THRESHOLD ? 1 : 0;
                 stat->depth += base.depth;
             }
@@ -495,11 +494,11 @@ static base_t * get_bases(mod_tag_t *mod_tags, uint32_t mods_len, uint8_t * ml, 
         bases[i].qual = bam_get_qual(record)[i];
         bases[i].strand = strand;
         bases[i].base = seq_nt16_str[bam_seqi(seq, i)];
-        bases[i].is_skipped = (int *)malloc(sizeof(int)*5);
+        bases[i].is_skipped = (int *)malloc(sizeof(int)*N_MOD_CODES);
         MALLOC_CHK(bases[i].is_skipped);
-        bases[i].is_called = (int *)malloc(sizeof(int)*5);
+        bases[i].is_called = (int *)malloc(sizeof(int)*N_MOD_CODES);
         MALLOC_CHK(bases[i].is_called);
-        for(int j=0;j<5;j++){
+        for(int j=0;j<N_MOD_CODES;j++){
             bases[i].is_skipped[j] = 0;
             bases[i].is_called[j] = 0;
         }
@@ -507,12 +506,12 @@ static base_t * get_bases(mod_tag_t *mod_tags, uint32_t mods_len, uint8_t * ml, 
     }
 
     // 5 int arrays to keep base pos of A, C, G, T, N bases.
-    // A: 0, C: 1, G: 2, T: 3, N: 4
+    // A: 0, C: 1, G: 2, T: 3, U:4, N: 5
     // so that, nth base of A is at base_pos[0][n] and so on.
-    int * bases_pos[5];
-    int bases_pos_lens[5];
-    int bases_pos_caps[5];
-    for(int i=0;i<5;i++){
+    int * bases_pos[N_BASES];
+    int bases_pos_lens[N_BASES];
+    int bases_pos_caps[N_BASES];
+    for(int i=0;i<N_BASES;i++){
         bases_pos_caps[i] = INIT_BASE_POS;
         bases_pos[i] = (int *)malloc(sizeof(int)*bases_pos_caps[i]);
         MALLOC_CHK(bases_pos[i]);
@@ -522,7 +521,7 @@ static base_t * get_bases(mod_tag_t *mod_tags, uint32_t mods_len, uint8_t * ml, 
     // keep record of base pos of A, C, G, T, N bases
     for(int i=0; i<seq_len; i++){
         int base_char = seq_nt16_str[bam_seqi(seq, i)];
-        int idx = base_to_idx(base_char);
+        int idx = base_idx_lookup[(int)base_char];
         if(bases_pos_lens[idx] >= bases_pos_caps[idx]){
             bases_pos_caps[idx] *= 2;
             bases_pos[idx] = (int *)realloc(bases_pos[idx], sizeof(int)*bases_pos_caps[idx]);
@@ -554,11 +553,11 @@ static base_t * get_bases(mod_tag_t *mod_tags, uint32_t mods_len, uint8_t * ml, 
             int read_pos;
 
             if(rev){
-                mod_base = base_complement(mod.base);
-                idx = base_to_idx(mod_base);
+                mod_base = base_complement_lookup[(int)mod.base];
+                idx = base_idx_lookup[(int)mod_base];
             } else {
                 mod_base = mod.base;
-                idx = base_to_idx(mod_base);
+                idx = base_idx_lookup[(int)mod_base];
             }
             
             // print_array(bases_pos_lens, 5, 'i');
@@ -577,7 +576,8 @@ static base_t * get_bases(mod_tag_t *mod_tags, uint32_t mods_len, uint8_t * ml, 
 
             ASSERT_MSG(read_pos < seq_len, "Base pos cannot exceed seq len. read_pos: %d seq_len: %d\n", read_pos, seq_len);
 
-            bases[read_pos].base = seq_nt16_str[bam_seqi(seq, read_pos)];
+            base_t base = bases[read_pos];
+            base.base = seq_nt16_str[bam_seqi(seq, read_pos)];
 
             // check if the base belongs to a cpg site using the ref
             if(aln_pairs[read_pos] != -1){ // if aligned
@@ -590,17 +590,17 @@ static base_t * get_bases(mod_tag_t *mod_tags, uint32_t mods_len, uint8_t * ml, 
                 char * ref_seq = ref->forward[tid];
                 int32_t ref_len = ref->ref_seq_lengths[tid];
                 if(ref_pos+1 < ref_len && strand=='+' && ref_seq[ref_pos] == 'C' && ref_seq[ref_pos+1] == 'G'){
-                    bases[read_pos].is_cpg = 1;
+                    base.is_cpg = 1;
                 } else if(ref_pos-1 >= 0 && strand=='-' && ref_seq[ref_pos] == 'G' && ref_seq[ref_pos-1] == 'C'){
-                    bases[read_pos].is_cpg = 1;
+                    base.is_cpg = 1;
                 } else {
-                    bases[read_pos].is_cpg = 0;
+                    base.is_cpg = 0;
                 }
 
-                bases[read_pos].ref_base = ref_seq[ref_pos];
-
+                base.ref_base = ref_seq[ref_pos];
             }
-                        
+            
+            int mod_i = 0;
             // mod prob per each mod code. TO-DO: need to change when code is ChEBI id
             for(int k=0; k<mod.mod_codes_len; k++) {
                 // get the mod prob
@@ -610,37 +610,31 @@ static base_t * get_bases(mod_tag_t *mod_tags, uint32_t mods_len, uint8_t * ml, 
                 ASSERT_MSG(mod_prob_scaled <= 255 && mod_prob_scaled>=0, "mod_prob_scaled:%d\n", mod_prob_scaled);
                 double mod_prob = (mod_prob_scaled)/255.0;
 
-                // //temp======
-                // if(bases[read_pos].ref_pos == 20008662){
-                //     fprintf(stderr, "read_id:%s, ref_pos:%d, prob:%d, prob2:%f code:%c, strand:%c\n", qname, bases[read_pos].ref_pos, mod_prob_scaled, mod_prob, mod.mod_codes[k], mod.strand);
-                // }
-
-
-                // //==========
-
                 // add to mods
-                if(bases[read_pos].mods_len >= bases[read_pos].mods_cap){
-                    bases[read_pos].mods_cap *= 2;
-                    bases[read_pos].mods = (mod_t *)realloc(bases[read_pos].mods, sizeof(mod_t)*bases[read_pos].mods_cap);
-                    MALLOC_CHK(bases[read_pos].mods);
+                if(mod_i >= base.mods_cap){
+                    base.mods_cap *= 2;
+                    base.mods = (mod_t *)realloc(base.mods, sizeof(mod_t)*base.mods_cap);
+                    MALLOC_CHK(base.mods);
                 }
 
-                bases[read_pos].mods[bases[read_pos].mods_len].base = &bases[read_pos];
-                bases[read_pos].mods[bases[read_pos].mods_len].mod_code = mod.mod_codes[k];
-                bases[read_pos].mods[bases[read_pos].mods_len].mod_strand = mod.strand;
-                bases[read_pos].mods[bases[read_pos].mods_len].mod_prob = mod_prob;
-                bases[read_pos].mods[bases[read_pos].mods_len].mod_base = mod.base;
-                bases[read_pos].is_called[mod_code_to_idx(mod.mod_codes[k])] = 1;
-                bases[read_pos].mods_len++;
+                base.mods[mod_i].base = &base;
+                base.mods[mod_i].mod_code = mod.mod_codes[k];
+                base.mods[mod_i].mod_strand = mod.strand;
+                base.mods[mod_i].mod_prob = mod_prob;
+                base.mods[mod_i].mod_base = mod.base;
+                int mod_code_idx = mod_code_idx_lookup[(int)mod.mod_codes[k]];
+                base.is_called[mod_code_idx] = 1;
+                mod_i++;
 
                 if(mod.status_flag=='.' && prev_read_pos != -1 && prev_read_pos+1 < read_pos){
                     for(int l=prev_read_pos+1;l<read_pos;l++){
-                        bases[read_pos].is_skipped[mod_code_to_idx(mod.mod_codes[k])] = 1;
+                        base.is_skipped[mod_code_idx] = 1;
                     }
                 }
 
             }
-
+            base.mods_len = mod_i;
+            bases[read_pos] = base;
             prev_read_pos = read_pos;
 
         }
