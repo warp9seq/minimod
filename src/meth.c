@@ -149,11 +149,11 @@ static const int base_idx_lookup[256] = {
 };
 
 static const int mod_code_idx_lookup[256] = {
-    [MOD_5mC] = 0,
-    [MOD_5hmC] = 1,
-    [MOD_5fC] = 2,
-    [MOD_5caC] = 3,
-    [MOD_xC] = 4,
+    ['m'] = 0,
+    ['h'] = 1,
+    ['f'] = 2,
+    ['c'] = 3,
+    ['C'] = 4,
 };
 
 static const char base_complement_lookup[256] = {
@@ -502,7 +502,27 @@ static base_t * get_bases(mod_tag_t *mod_tags, uint32_t mods_len, uint8_t * ml, 
             bases[i].is_skipped[j] = 0;
             bases[i].is_called[j] = 0;
         }
-        bases[i].is_cpg = 0;
+        bases[i].base = seq_nt16_str[bam_seqi(seq, i)];
+        // check if the base belongs to a cpg site using the ref
+        if(aln_pairs[i] != -1){ // if aligned
+            int ref_pos = aln_pairs[i];
+            ASSERT_MSG(strcmp(tname, ref->ref_names[tid])==0, "chrom:%s ref_name:%s\n", tname, ref->ref_names[tid]);
+            ASSERT_MSG(ref_pos >= 0 && ref_pos < ref->ref_seq_lengths[tid], "ref_pos:%d ref_len:%d\n", ref_pos, ref->ref_seq_lengths[tid]);
+            ASSERT_MSG(ref->ref_seq_lengths[tid] == hdr->target_len[tid], "ref_len:%d target_len:%d\n", ref->ref_seq_lengths[tid], hdr->target_len[tid]);
+            
+            // check if the base is a CpG site
+            char * ref_seq = ref->forward[tid];
+            int32_t ref_len = ref->ref_seq_lengths[tid];
+            if(ref_pos+1 < ref_len && strand=='+' && ref_seq[ref_pos] == 'C' && ref_seq[ref_pos+1] == 'G'){
+                bases[i].is_cpg = 1;
+            } else if(ref_pos-1 >= 0 && strand=='-' && ref_seq[ref_pos] == 'G' && ref_seq[ref_pos-1] == 'C'){
+                bases[i].is_cpg = 1;
+            } else {
+                bases[i].is_cpg = 0;
+            }
+
+            bases[i].ref_base = ref_seq[ref_pos];
+        }
     }
 
     // 5 int arrays to keep base pos of A, C, G, T, N bases.
@@ -577,30 +597,7 @@ static base_t * get_bases(mod_tag_t *mod_tags, uint32_t mods_len, uint8_t * ml, 
             ASSERT_MSG(read_pos < seq_len, "Base pos cannot exceed seq len. read_pos: %d seq_len: %d\n", read_pos, seq_len);
 
             base_t base = bases[read_pos];
-            base.base = seq_nt16_str[bam_seqi(seq, read_pos)];
-
-            // check if the base belongs to a cpg site using the ref
-            if(aln_pairs[read_pos] != -1){ // if aligned
-                int ref_pos = aln_pairs[read_pos];
-                ASSERT_MSG(strcmp(tname, ref->ref_names[tid])==0, "chrom:%s ref_name:%s\n", tname, ref->ref_names[tid]);
-                ASSERT_MSG(ref_pos >= 0 && ref_pos < ref->ref_seq_lengths[tid], "ref_pos:%d ref_len:%d\n", ref_pos, ref->ref_seq_lengths[tid]);
-                ASSERT_MSG(ref->ref_seq_lengths[tid] == hdr->target_len[tid], "ref_len:%d target_len:%d\n", ref->ref_seq_lengths[tid], hdr->target_len[tid]);
-                
-                // check if the base is a CpG site
-                char * ref_seq = ref->forward[tid];
-                int32_t ref_len = ref->ref_seq_lengths[tid];
-                if(ref_pos+1 < ref_len && strand=='+' && ref_seq[ref_pos] == 'C' && ref_seq[ref_pos+1] == 'G'){
-                    base.is_cpg = 1;
-                } else if(ref_pos-1 >= 0 && strand=='-' && ref_seq[ref_pos] == 'G' && ref_seq[ref_pos-1] == 'C'){
-                    base.is_cpg = 1;
-                } else {
-                    base.is_cpg = 0;
-                }
-
-                base.ref_base = ref_seq[ref_pos];
-            }
-            
-            int mod_i = 0;
+            int mod_i = base.mods_len;
             // mod prob per each mod code. TO-DO: need to change when code is ChEBI id
             for(int k=0; k<mod.mod_codes_len; k++) {
                 // get the mod prob
@@ -617,7 +614,7 @@ static base_t * get_bases(mod_tag_t *mod_tags, uint32_t mods_len, uint8_t * ml, 
                     MALLOC_CHK(base.mods);
                 }
 
-                base.mods[mod_i].base = &base;
+                base.mods[mod_i].base = &bases[read_pos];
                 base.mods[mod_i].mod_code = mod.mod_codes[k];
                 base.mods[mod_i].mod_strand = mod.strand;
                 base.mods[mod_i].mod_prob = mod_prob;
@@ -628,7 +625,7 @@ static base_t * get_bases(mod_tag_t *mod_tags, uint32_t mods_len, uint8_t * ml, 
 
                 if(mod.status_flag=='.' && prev_read_pos != -1 && prev_read_pos+1 < read_pos){
                     for(int l=prev_read_pos+1;l<read_pos;l++){
-                        base.is_skipped[mod_code_idx] = 1;
+                        bases[l].is_skipped[mod_code_idx] = 1;
                     }
                 }
 
