@@ -81,6 +81,7 @@ typedef struct {
     int * is_skipped; // for 5 mod codes;
     int depth;
     int * is_called; // for 5 mod codes;
+    int is_cpg;
 } base_t; // free in free_mods_per_base()
 
 enum MOD_CODES {
@@ -106,6 +107,7 @@ typedef struct {
     char mod_code;
     char mod_strand;
     char strand;
+    int is_cpg;
 } stat_t;
 
 KHASH_MAP_INIT_STR(str, stat_t *);
@@ -338,12 +340,8 @@ static mod_tag_t *extract_mods(const char *mm_string, uint32_t *len_mods) {
 static void update_stats(base_t *bases, uint32_t seq_len, khash_t(str)* stats){
     for(int i=0;i<seq_len;i++){
         base_t base = bases[i];
-        if(base.ref_pos == -1){ //not aligned
-            continue;
-        }
         for(int j=0;j<base.mods_len;j++){
             mod_t mod = base.mods[j];
-
             char *key = make_key(base.chrom, base.ref_pos, base.ref_pos, mod.mod_code, base.strand);
             khiter_t k = kh_get(str, stats, key);
             if (k == kh_end(stats)) {
@@ -363,6 +361,7 @@ static void update_stats(base_t *bases, uint32_t seq_len, khash_t(str)* stats){
                 stat->n_mod = mod.mod_prob >= MOD_THRESHOLD ? 1 : 0;
                 stat->mod_strand = mod.mod_strand;
                 stat->depth = base.depth;
+                stat->is_cpg = base.is_cpg;
 
                 int ret;
                 k = kh_put(str, stats, key, &ret);
@@ -504,6 +503,7 @@ static base_t * get_bases(mod_tag_t *mod_tags, uint32_t mods_len, uint8_t * ml, 
             bases[i].is_skipped[j] = 0;
             bases[i].is_called[j] = 0;
         }
+        bases[i].is_cpg = 0;
     }
 
     // 5 int arrays to keep base pos of A, C, G, T, N bases.
@@ -589,22 +589,17 @@ static base_t * get_bases(mod_tag_t *mod_tags, uint32_t mods_len, uint8_t * ml, 
                 // check if the base is a CpG site
                 char * ref_seq = ref->forward[tid];
                 int32_t ref_len = ref->ref_seq_lengths[tid];
-                int is_cpg = 0;
                 if(ref_pos+1 < ref_len && strand=='+' && ref_seq[ref_pos] == 'C' && ref_seq[ref_pos+1] == 'G'){
-                    is_cpg = 1;
+                    bases[read_pos].is_cpg = 1;
                 } else if(ref_pos-1 >= 0 && strand=='-' && ref_seq[ref_pos] == 'G' && ref_seq[ref_pos-1] == 'C'){
-                    is_cpg = 1;
+                    bases[read_pos].is_cpg = 1;
+                } else {
+                    bases[read_pos].is_cpg = 0;
                 }
 
                 bases[read_pos].ref_base = ref_seq[ref_pos];
 
-                if(!is_cpg){ 
-                    continue;
-                }
-            } else { // if not aligned
-                continue;
             }
-
                         
             // mod prob per each mod code. TO-DO: need to change when code is ChEBI id
             for(int k=0; k<mod.mod_codes_len; k++) {
@@ -613,7 +608,15 @@ static base_t * get_bases(mod_tag_t *mod_tags, uint32_t mods_len, uint8_t * ml, 
                 ASSERT_MSG(ml_idx<ml_len, "ml_idx:%d ml_len:%d\n", ml_idx, ml_len);
                 uint8_t mod_prob_scaled = ml[ml_idx];
                 ASSERT_MSG(mod_prob_scaled <= 255 && mod_prob_scaled>=0, "mod_prob_scaled:%d\n", mod_prob_scaled);
-                double mod_prob = (mod_prob_scaled+1)/256.0;
+                double mod_prob = (mod_prob_scaled)/255.0;
+
+                // //temp======
+                // if(bases[read_pos].ref_pos == 20008662){
+                //     fprintf(stderr, "read_id:%s, ref_pos:%d, prob:%d, prob2:%f code:%c, strand:%c\n", qname, bases[read_pos].ref_pos, mod_prob_scaled, mod_prob, mod.mod_codes[k], mod.strand);
+                // }
+
+
+                // //==========
 
                 // add to mods
                 if(bases[read_pos].mods_len >= bases[read_pos].mods_cap){
@@ -690,7 +693,7 @@ static void print_mods(base_t *bases, uint32_t seq_len, bam_hdr_t *hdr, bam1_t *
         for(int j=0;j<bases[i].mods_len;j++){
             mod_t mod = bases[i].mods[j];
             base_t base = bases[i];
-            if(print_mod_code !='*' && mod.mod_code != print_mod_code){
+            if((print_mod_code !='*' && mod.mod_code != print_mod_code) || base.ref_pos < 0){
                 continue;
             }
             fprintf(stdout, "%s\t%d\t%d\t%s\t%c\t%c\t%c\t%d\t%d\t%d\t%f\t%c\t%d\t%s\t%s\t%c\t%c\t%c\t%d\n", qname, i, base.ref_pos, base.chrom, mod.mod_strand, base.strand, '*', -1, -1, seq_len, mod.mod_prob, mod.mod_code, base.qual, "*", "*", base.ref_base, base.base, mod.mod_base, flag);
@@ -702,7 +705,7 @@ static void print_meth_freq(FILE * output_file, stat_t ** stats, uint32_t seq_le
     print_meth_freq_hdr(output_file);
     for(int i=0;i<seq_len;i++){
         stat_t * stat = stats[i];
-        if(print_mod_code !='*' && stat->mod_code != print_mod_code){
+        if((print_mod_code !='*' && stat->mod_code != print_mod_code) || stat->is_cpg == 0 || stat->start < 0){
             continue;
         }
         fprintf(output_file, "%s\t%d\t%d\t%d\t%d\t%d\t%d\t%f\t%c\t%c\t%c\n", stat->chrom, stat->start, stat->end, stat->depth, stat->n_mod, stat->n_called, stat->n_skipped, stat->freq, stat->mod_code, stat->strand, stat->ref_base);
