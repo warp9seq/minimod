@@ -66,6 +66,7 @@ static inline void print_help_msg(FILE *fp_help, opt_t opt){
     fprintf(fp_help,"   -K INT                     batch size (max number of reads loaded at once) [%d]\n",opt.batch_size);
     fprintf(fp_help,"   -B FLOAT[K/M/G]            max number of bytes loaded at once [%.1fM]\n",opt.batch_size_bytes/(float)(1000*1000));
     fprintf(fp_help,"   -h                         help\n");
+    fprintf(fp_help,"   -b                         output in bedMethyl format\n");
     fprintf(fp_help,"   -o FILE                    output to file [stdout]\n");
     fprintf(fp_help,"   --verbose INT              verbosity level [%d]\n",(int)get_log_level());
     fprintf(fp_help,"   --version                  print version\n");
@@ -85,13 +86,14 @@ int meth_freq_main(int argc, char* argv[]) {
 
     double realtime0 = realtime();
 
-    const char* optstring = "r:t:B:K:v:o:hV";
+    const char* optstring = "r:t:B:K:v:o:hVb";
 
     int longindex = 0;
     int32_t c = -1;
 
     const char *bamfile = NULL;
     const char *reffile = NULL;
+    int bedmethyl_out = 0;
 
     FILE *fp_help = stderr;
 
@@ -129,7 +131,9 @@ int meth_freq_main(int argc, char* argv[]) {
             fp_help = stdout;
         } else if (c=='r'){
             reffile = optarg;
-        } else if(c == 0 && longindex == 7){ //debug break
+        } else if (c=='b'){
+            bedmethyl_out = 1;
+        }else if(c == 0 && longindex == 7){ //debug break
             opt.debug_break = atoi(optarg);
         } else if(c == 0 && longindex == 8){ //sectional benchmark todo : warning for gpu mode
             yes_or_no(&opt.flag, MINIMOD_PRF, long_options[longindex].name, optarg, 1);
@@ -162,13 +166,21 @@ int meth_freq_main(int argc, char* argv[]) {
         exit(EXIT_FAILURE);
     }
 
+    if (reffile == NULL) {
+        print_help_msg(fp_help, opt);
+        if(fp_help == stdout){
+            exit(EXIT_SUCCESS);
+        }
+        exit(EXIT_FAILURE);
+    }
+
     //initialise the core data structure
     core_t* core = init_core(bamfile, opt, realtime0);
 
     init_mod(reffile);
 
     meth_freq(core);
-    print_stats(stdout);
+    print_stats(stdout, bedmethyl_out);
 
     destroy_mod();
 

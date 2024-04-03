@@ -160,6 +160,14 @@ int view_main(int argc, char* argv[]) {
         exit(EXIT_FAILURE);
     }
 
+    if (reffile == NULL) {
+        print_help_msg(fp_help, opt);
+        if(fp_help == stdout){
+            exit(EXIT_SUCCESS);
+        }
+        exit(EXIT_FAILURE);
+    }
+
     //initialise the core data structure
     core_t* core = init_core(bamfile, opt, realtime0);
 

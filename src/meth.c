@@ -704,6 +704,19 @@ static void print_meth_freq(FILE * output_file, stat_t ** stats, uint32_t seq_le
 
 }
 
+static void print_meth_freq_bedmethyl(FILE * output_file, stat_t ** stats, uint32_t seq_len, enum MOD_CODES print_mod_code){
+    for(int i=0;i<seq_len;i++){
+        stat_t * stat = stats[i];
+        if((print_mod_code !='*' && stat->mod_code != print_mod_code) || stat->is_cpg == 0 || stat->start < 0){
+            continue;
+        }
+
+        // chrom, start, end, mod_code, n_called, strand, start, end, "255,0,0",  n_called, freq
+        fprintf(output_file, "%s\t%d\t%d\t%c\t%d\t%c\t%d\t%d\t255,0,0\t%d\t%f\n", stat->chrom, stat->start, stat->end, stat->mod_code, stat->n_called, stat->strand, stat->start, stat->end, stat->n_called, stat->freq);
+    }
+
+}
+
 static void free_bases(base_t *bases, uint32_t len){
     for(int i=0;i<len;i++){
         free(bases[i].mods);
@@ -827,9 +840,16 @@ void destroy_mod(){
     destroy_ref(ref);
 }
 
-void print_stats(FILE * output_file){
+void print_stats(FILE * output_file, int is_bedmethyl){
     uint32_t meth_freqs_len = 0;
     stat_t ** stats = get_stats(stats_map, &meth_freqs_len);
-    print_meth_freq(output_file, stats, meth_freqs_len, MOD_5mC);
+
+    if (is_bedmethyl) {
+        print_meth_freq_bedmethyl(output_file, stats, meth_freqs_len, MOD_5mC);
+    } else {
+        print_meth_freq(output_file, stats, meth_freqs_len, MOD_5mC);
+    }
+    
+
     free(stats);
 }
