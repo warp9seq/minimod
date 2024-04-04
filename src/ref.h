@@ -33,14 +33,13 @@ SOFTWARE.
 #include <stdint.h>
 
 typedef struct {
-    int32_t num_ref;
-    char **ref_names;
-    int32_t *ref_lengths;
-    int32_t *ref_seq_lengths;
-    char **forward;
+    int32_t ref_seq_length;
+    char * forward;
 } ref_t;
 
-ref_t * load_ref(const char * genome);
-void destroy_ref(ref_t * ref);
+void load_ref(const char * genome);
+int has_chr(const char * chr);
+void destroy_ref();
+ref_t * get_ref(const char * chr);
 
 #endif

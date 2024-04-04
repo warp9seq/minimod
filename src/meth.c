@@ -115,7 +115,6 @@ typedef struct {
 KHASH_MAP_INIT_STR(str, stat_t *);
 
 khash_t(str)* stats_map;
-ref_t * ref;
 
 static const int valid_bases[256] = {
     ['A'] = 1, ['C'] = 1, ['G'] = 1, ['T'] = 1, ['U'] = 1, ['N'] = 1,
@@ -506,13 +505,17 @@ static base_t * get_bases(mod_tag_t *mod_tags, uint32_t mods_len, uint8_t * ml, 
         // check if the base belongs to a cpg site using the ref
         if(aln_pairs[i] != -1){ // if aligned
             int ref_pos = aln_pairs[i];
-            ASSERT_MSG(strcmp(tname, ref->ref_names[tid])==0, "chrom:%s ref_name:%s\n", tname, ref->ref_names[tid]);
-            ASSERT_MSG(ref_pos >= 0 && ref_pos < ref->ref_seq_lengths[tid], "ref_pos:%d ref_len:%d\n", ref_pos, ref->ref_seq_lengths[tid]);
-            ASSERT_MSG(ref->ref_seq_lengths[tid] == hdr->target_len[tid], "ref_len:%d target_len:%d\n", ref->ref_seq_lengths[tid], hdr->target_len[tid]);
-            
+
+            ASSERT_MSG(has_chr(tname), "Chrom %s not found in ref_map\n", tname);
+
+            ref_t *ref = get_ref(tname);
+
+            ASSERT_MSG(ref_pos >= 0 && ref_pos < ref->ref_seq_length, "ref_pos:%d ref_len:%d\n", ref_pos, ref->ref_seq_length);
+            ASSERT_MSG(ref->ref_seq_length == hdr->target_len[tid], "ref_len:%d target_len:%d\n", ref->ref_seq_length, hdr->target_len[tid]);
+                        
             // check if the base is a CpG site
-            char * ref_seq = ref->forward[tid];
-            int32_t ref_len = ref->ref_seq_lengths[tid];
+            char * ref_seq = ref->forward;
+            int32_t ref_len = ref->ref_seq_length;
             if(ref_pos+1 < ref_len && strand=='+' && ref_seq[ref_pos] == 'C' && ref_seq[ref_pos+1] == 'G'){
                 bases[i].is_cpg = 1;
             } else if(ref_pos-1 >= 0 && strand=='-' && ref_seq[ref_pos] == 'G' && ref_seq[ref_pos-1] == 'C'){
@@ -832,12 +835,12 @@ void meth_freq(core_t* core){
 
 void init_mod(const char * reffile){
     stats_map = kh_init(str);
-    ref = load_ref(reffile);
+    load_ref(reffile);
 }
 
 void destroy_mod(){
     free_stats_map(stats_map);
-    destroy_ref(ref);
+    destroy_ref();
 }
 
 void print_stats(FILE * output_file, int is_bedmethyl){

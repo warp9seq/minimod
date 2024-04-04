@@ -31,7 +31,6 @@ SOFTWARE.
 #include "minimod.h"
 #include "error.h"
 #include "misc.h"
-#include "ref.h"
 #include "meth.h"
 #include <assert.h>
 #include <getopt.h>

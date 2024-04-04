@@ -33,9 +33,13 @@ SOFTWARE.
 #include "ref.h"
 #include "error.h"
 #include "kseq.h"
-KSEQ_INIT(gzFile, gzread)
+#include "khash.h"
 
-ref_t * load_ref(const char * genome) {
+KSEQ_INIT(gzFile, gzread);
+KHASH_MAP_INIT_STR(refm, ref_t *);
+khash_t(refm)* ref_map;
+
+void load_ref(const char * genome) {
     gzFile fp;
     kseq_t *seq;
     int l;
@@ -45,51 +49,51 @@ ref_t * load_ref(const char * genome) {
     seq = kseq_init(fp);
     MALLOC_CHK(seq);
 
-    // initialize ref
-    ref_t *ref = (ref_t *) malloc(sizeof(ref_t));
-    int cap = 1;
-    ref->ref_lengths = (int32_t *) malloc(cap * sizeof(int32_t));
-    ref->ref_names = (char **) malloc(cap * sizeof(char *));
-    ref->ref_seq_lengths = (int32_t *) malloc(cap * sizeof(int32_t));
-    ref->forward = (char **) malloc(cap * sizeof(char *));
-    ref->num_ref = 0;
+    ref_map = kh_init(refm);
     
-    int i=0;
     while ((l = kseq_read(seq)) >= 0) {
         ASSERT_MSG(l == (int) seq->seq.l, "Sequence length mismatch: %d vs %d", l, (int) seq->seq.l);
-        if (i == cap) {
-            cap <<= 1;
-            ref->ref_names = (char **) realloc(ref->ref_names, cap * sizeof(char *));
-            ref->ref_lengths = (int32_t *) realloc(ref->ref_lengths, cap * sizeof(int32_t));
-            ref->ref_seq_lengths = (int32_t *) realloc(ref->ref_seq_lengths, cap * sizeof(int32_t));
-            ref->forward = (char **) realloc(ref->forward, cap * sizeof(char *));
-        }
-        ref->ref_lengths[i] = seq->seq.l;
-        ref->ref_names[i] = (char *) malloc(strlen(seq->name.s) + 1);
-        MALLOC_CHK(ref->ref_names[i]);
-        strcpy(ref->ref_names[i], seq->name.s);
-        ref->ref_seq_lengths[i] = seq->seq.l;
-        ref->forward[i] = (char *) malloc(seq->seq.l + 1);
-        MALLOC_CHK(ref->forward[i]);
-        strcpy(ref->forward[i], seq->seq.s);
 
-        i++;
+        // initialize ref
+        ref_t * ref = (ref_t *) malloc(sizeof(ref_t));
+        MALLOC_CHK(ref);
+        char * ref_name = (char *) malloc(strlen(seq->name.s) + 1);
+        MALLOC_CHK(ref_name);
+        strcpy(ref_name, seq->name.s);
+        ref->ref_seq_length = seq->seq.l;
+        ref->forward = (char *) malloc(seq->seq.l + 1);
+        MALLOC_CHK(ref->forward);
+        strcpy(ref->forward, seq->seq.s);
+
+        int ret;
+        khiter_t k = kh_put(refm, ref_map, ref_name, &ret);
+        kh_value(ref_map, k) = ref;
     }
-    ref->num_ref = i;    
+
     
     kseq_destroy(seq);
     gzclose(fp);
 
-    return ref;
 }
 
-void destroy_ref(ref_t * ref) {
-    for(int i = 0; i < ref->num_ref; i++) {
-        free(ref->ref_names[i]);
-        free(ref->forward[i]);
+int has_chr(const char * chr) {
+    khiter_t k = kh_get(refm, ref_map, chr);
+    return k != kh_end(ref_map);
+}
+
+ref_t * get_ref(const char * chr) {
+    khiter_t k = kh_get(refm, ref_map, chr);
+    return kh_value(ref_map, k);
+}
+
+void destroy_ref() {
+    khiter_t k;
+    for (k = kh_begin(ref_map); k != kh_end(ref_map); ++k) {
+        if (kh_exist(ref_map, k)) {
+            ref_t * ref = kh_value(ref_map, k);
+            free(ref->forward);
+            free(ref);
+        }
     }
-    free(ref->ref_names);
-    free(ref->ref_seq_lengths);
-    free(ref->forward);
-    free(ref);
+    kh_destroy(refm, ref_map);
 }

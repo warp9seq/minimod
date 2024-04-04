@@ -32,7 +32,6 @@ SOFTWARE.
 #include "misc.h"
 #include "error.h"
 #include "khash.h"
-#include "ref.h"
 #include <assert.h>
 #include <string.h>
 #include <stdio.h>

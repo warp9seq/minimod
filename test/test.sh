@@ -21,21 +21,31 @@ ex() {
     fi
 }
 
-echo "Test 1"
-ex  ./minimod view test/r84088_20230609_025659_1_A01_fmr1.bam > test/tmp.txt  || die "Running the tool failed"
-# diff -q test/example.exp test/tmp.txt || die "diff failed"
+mkdir -p test/tmp || die "Creating the tmp directory failed"
 
-echo "Test 2"
-ex  ./minimod view test/alignment.bam | awk 'NR>1{print $2"\t"$3}' | sort -n -k 1 > test/alignment_actual.tsv || die "Running the tool failed"
-diff -q test/alignment_actual.tsv test/alignment_expected.tsv || die "diff failed: Invalid alignment positions"
+if [ ! -f test/tmp/genome_chr22.fa ]; then
+    wget  -N -O test/tmp/genome_chr22.fa.gz "https://hgdownload.soe.ucsc.edu/goldenPath/hg38/chromosomes/chr22.fa.gz" || die "Downloading the genome chr22 failed"
+    gzip -d test/tmp/genome_chr22.fa.gz || die "Unzipping the genome chr22 failed"
+fi
 
-echo "Test 3"
-ex  ./minimod view test/example-ont.bam | awk 'NR>1{print $1"\t"$2"\t"$4"\t"$6"\t"$11"\t"$12}' | sort -n -k 1 -k 4 > test/example-ont_prob_actual.tsv || die "Running the tool failed"
-cat test/example-ont_prob_expected.tsv | sort -n -k 1 -k 4 > test/example-ont_prob_expected2.tsv
-diff -q test/example-ont_prob_actual.tsv test/example-ont_prob_expected2.tsv || die "diff failed: Invalid probabilities"
+echo "Test 1: view hifi"
+ex  ./minimod view -r test/tmp/genome_chr22.fa test/data/example-hifi.bam > test/tmp/test1.tsv  || die "Test 1: Running the tool failed"
+diff -q test/expected/test1.tsv test/tmp/test1.tsv || die "Test 1: diff failed"
 
-# echo "Test 4"
-# ex  ./minimod meth_freq test/example-ont.bam > test/example-ont_meth_freq_actual.tsv || die "Running the tool failed"
-# diff -q test/example-ont_meth_freq_actual.tsv test/example-ont_meth_freq_expected.tsv || die "diff failed: Invalid methylation frequencies"
+echo "Test 2: view ont"
+ex  ./minimod view -r test/tmp/genome_chr22.fa test/data/example-ont.bam > test/tmp/test2.tsv || die "Test 2: Running the tool failed"
+diff -q test/expected/test2.tsv test/tmp/test2.tsv || die "Test 2: diff failed"
 
-echo "Tests passed"
+echo "Test 3: meth_freq hifi"
+ex  ./minimod meth_freq -r test/tmp/genome_chr22.fa test/data/example-hifi.bam > test/tmp/test3.tsv  || die "Test 3: Running the tool failed"
+diff -q test/expected/test3.tsv test/tmp/test3.tsv || die "Test 1: diff failed"
+ex  ./minimod meth_freq -b -r test/tmp/genome_chr22.fa test/data/example-hifi.bam > test/tmp/test3.bedmethyl  || die "Test 3: Running the tool failed"
+diff -q test/expected/test3.bedmethyl test/tmp/test3.bedmethyl || die "Test 1: diff failed"
+
+echo "Test 4: meth_freq ont"
+ex  ./minimod meth_freq -r test/tmp/genome_chr22.fa test/data/example-ont.bam > test/tmp/test4.tsv || die "Test 4: Running the tool failed"
+diff -q test/expected/test4.tsv test/tmp/test4.tsv || die "Test 4: diff failed"
+ex  ./minimod meth_freq -b -r test/tmp/genome_chr22.fa test/data/example-ont.bam > test/tmp/test4.bedmethyl || die "Test 4: Running the tool failed"
+diff -q test/expected/test4.bedmethyl test/tmp/test4.bedmethyl || die "Test 4: diff failed"
+
+echo "ALL TESTS PASSED !"

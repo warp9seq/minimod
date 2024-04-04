@@ -43,3 +43,6 @@ Thumbs.db
 # binaries
 /minimod
 /htslib
+
+# test related
+/test/tmp
