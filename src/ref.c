@@ -93,6 +93,8 @@ void destroy_ref() {
             ref_t * ref = kh_value(ref_map, k);
             free(ref->forward);
             free(ref);
+            char * ref_name = (char *) kh_key(ref_map, k);
+            free(ref_name);
         }
     }
     kh_destroy(refm, ref_map);

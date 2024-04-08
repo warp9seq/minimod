@@ -83,7 +83,7 @@ typedef struct {
     int * is_skipped; // for 5 mod codes;
     int depth;
     int * is_called; // for 5 mod codes;
-    int is_cpg;
+    int is_aln_cpg;
 } base_t; // free in free_mods_per_base()
 
 enum MOD_CODES {
@@ -109,7 +109,7 @@ typedef struct {
     char mod_code;
     char mod_strand;
     char strand;
-    int is_cpg;
+    int is_aln_cpg;
 } stat_t;
 
 KHASH_MAP_INIT_STR(str, stat_t *);
@@ -338,6 +338,9 @@ static mod_tag_t *extract_mods(const char *mm_string, uint32_t *len_mods) {
 static void update_stats(base_t *bases, uint32_t seq_len, khash_t(str)* stats){
     for(int i=0;i<seq_len;i++){
         base_t base = bases[i];
+        if(base.is_aln_cpg == 0){
+            continue;
+        }
         for(int j=0;j<base.mods_len;j++){
             mod_t mod = base.mods[j];
             char *key = make_key(base.chrom, base.ref_pos, base.ref_pos, mod.mod_code, base.strand);
@@ -359,7 +362,7 @@ static void update_stats(base_t *bases, uint32_t seq_len, khash_t(str)* stats){
                 stat->n_mod = mod.mod_prob >= MOD_THRESHOLD ? 1 : 0;
                 stat->mod_strand = mod.mod_strand;
                 stat->depth = base.depth;
-                stat->is_cpg = base.is_cpg;
+                stat->is_aln_cpg = base.is_aln_cpg;
 
                 int ret;
                 k = kh_put(str, stats, key, &ret);
@@ -497,6 +500,7 @@ static base_t * get_bases(mod_tag_t *mod_tags, uint32_t mods_len, uint8_t * ml, 
         MALLOC_CHK(bases[i].is_skipped);
         bases[i].is_called = (int *)malloc(sizeof(int)*N_MOD_CODES);
         MALLOC_CHK(bases[i].is_called);
+        bases[i].is_aln_cpg = 0;
         for(int j=0;j<N_MOD_CODES;j++){
             bases[i].is_skipped[j] = 0;
             bases[i].is_called[j] = 0;
@@ -517,11 +521,9 @@ static base_t * get_bases(mod_tag_t *mod_tags, uint32_t mods_len, uint8_t * ml, 
             char * ref_seq = ref->forward;
             int32_t ref_len = ref->ref_seq_length;
             if(ref_pos+1 < ref_len && strand=='+' && ref_seq[ref_pos] == 'C' && ref_seq[ref_pos+1] == 'G'){
-                bases[i].is_cpg = 1;
+                bases[i].is_aln_cpg = 1;
             } else if(ref_pos-1 >= 0 && strand=='-' && ref_seq[ref_pos] == 'G' && ref_seq[ref_pos-1] == 'C'){
-                bases[i].is_cpg = 1;
-            } else {
-                bases[i].is_cpg = 0;
+                bases[i].is_aln_cpg = 1;
             }
 
             bases[i].ref_base = ref_seq[ref_pos];
@@ -642,7 +644,7 @@ static base_t * get_bases(mod_tag_t *mod_tags, uint32_t mods_len, uint8_t * ml, 
     }
 
     // free base_pos
-    for(int i=0;i<5;i++){
+    for(int i=0;i<N_BASES;i++){
         free(bases_pos[i]);
     }
 
@@ -699,7 +701,7 @@ static void print_meth_freq(FILE * output_file, stat_t ** stats, uint32_t seq_le
     print_meth_freq_hdr(output_file);
     for(int i=0;i<seq_len;i++){
         stat_t * stat = stats[i];
-        if((print_mod_code !='*' && stat->mod_code != print_mod_code) || stat->is_cpg == 0 || stat->start < 0){
+        if((print_mod_code !='*' && stat->mod_code != print_mod_code) || stat->is_aln_cpg == 0 ){
             continue;
         }
         fprintf(output_file, "%s\t%d\t%d\t%d\t%d\t%d\t%d\t%f\t%c\t%c\t%c\n", stat->chrom, stat->start, stat->end, stat->depth, stat->n_mod, stat->n_called, stat->n_skipped, stat->freq, stat->mod_code, stat->strand, stat->ref_base);
@@ -710,7 +712,7 @@ static void print_meth_freq(FILE * output_file, stat_t ** stats, uint32_t seq_le
 static void print_meth_freq_bedmethyl(FILE * output_file, stat_t ** stats, uint32_t seq_len, enum MOD_CODES print_mod_code){
     for(int i=0;i<seq_len;i++){
         stat_t * stat = stats[i];
-        if((print_mod_code !='*' && stat->mod_code != print_mod_code) || stat->is_cpg == 0 || stat->start < 0){
+        if((print_mod_code !='*' && stat->mod_code != print_mod_code) || stat->is_aln_cpg == 0 ){
             continue;
         }
 
