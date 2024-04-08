@@ -25,8 +25,16 @@ command:
 ### view
 Print base modification details to the standard output in tsv format. Following command writes the output to a file.
 ```bash
-minimod meth_freq reads.bam > meth.tsv
+basic options:
+   -r FILE                    reference genome fasta file
+   -h                         help
+   -o FILE                    output to file [stdout]
+   --version                  print version
+```
 
+Example
+```bash
+minimod view -r ref.fa reads.bam > meth.tsv
 ```
 <!-- | Field    | Definition    |
 |----------|-------------|
@@ -53,7 +61,18 @@ minimod meth_freq reads.bam > meth.tsv
 ### meth_freq
 Print methylation frequencies to the standard output in tsv format. Following command writes the output to a file.
 ```bash
-minimod meth_freq reads.bam > methfreq.tsv
+basic options:
+   -r FILE                    reference genome fasta file
+   -h                         help
+   -b                         output in bedMethyl format
+   -o FILE                    output to file [stdout]
+   --version                  print version
+```
+
+Example
+
+```bash
+minimod meth_freq -r ref.fa reads.bam > methfreq.tsv
 ```
 
 Output fields
@@ -69,17 +88,31 @@ Output fields
 | 8. freq | n_mod/n_called ratio |
 | 9. mod_code | modification code as in [SAMtags: 1.7 Base modifications](https://github.com/samtools/hts-specs/blob/master/SAMtags.pdf) |
 | 10. strand | strand (+/-) where the base modification is observed |
+| 11. ref_base | base charater as in reference |
 
 #### Sample methfreq.tsv
 ```
-chrom	start	end	depth	n_mod	n_called	n_skipped	freq	mod_code	strand
-chr22	20026776	20026776	1	1	1	0	1.000000	m	-
-chr22	20016594	20016594	2	0	2	0	0.000000	m	+
-chr22	20019069	20019069	1	1	1	0	1.000000	m	+
-chr22	19970705	19970705	1	0	1	0	0.000000	m	+
-chr22	19981716	19981716	1	1	1	0	1.000000	m	+
-chr22	20020909	20020909	3	0	3	0	0.000000	m	-
-chr22	19988672	19988672	2	2	2	0	1.000000	m	-
-chr22	20017060	20017060	1	0	1	0	0.000000	m	+
-chr22	20016854	20016854	5	0	2	0	0.000000	m	-
+chrom	start	end	depth	n_mod	n_called	n_skipped	freq	mod_code	strand	ref_base
+chr22	20016337	20016337	5	0	5	0	0.000000	m	-	G
+chr22	20016594	20016594	2	0	2	0	0.000000	m	+	C
+chr22	20017045	20017045	1	0	1	0	0.000000	m	+	C
+chr22	19970705	19970705	1	0	1	0	0.000000	m	+	C
+chr22	19981716	19981716	1	1	1	0	1.000000	m	+	C
+chr22	20020909	20020909	3	0	3	0	0.000000	m	-	G
+chr22	19995719	19995719	4	2	4	0	0.500000	m	+	C
+chr22	20017060	20017060	1	0	1	0	0.000000	m	+	C
+chr22	19971259	19971259	1	1	1	0	1.000000	m	+	C
+```
+
+#### Sample methfreq.bedmethyl
+```
+chr22	20016337	20016337	m	5	-	20016337	20016337	255,0,0	5	0.000000
+chr22	20016594	20016594	m	2	+	20016594	20016594	255,0,0	2	0.000000
+chr22	20017045	20017045	m	1	+	20017045	20017045	255,0,0	1	0.000000
+chr22	19970705	19970705	m	1	+	19970705	19970705	255,0,0	1	0.000000
+chr22	19981716	19981716	m	1	+	19981716	19981716	255,0,0	1	1.000000
+chr22	20020909	20020909	m	3	-	20020909	20020909	255,0,0	3	0.000000
+chr22	19995719	19995719	m	4	+	19995719	19995719	255,0,0	4	0.500000
+chr22	20017060	20017060	m	1	+	20017060	20017060	255,0,0	1	0.000000
+chr22	19971259	19971259	m	1	+	19971259	19971259	255,0,0	1	1.000000
 ```
