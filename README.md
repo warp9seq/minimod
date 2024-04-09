@@ -2,8 +2,8 @@
 
 A simple base modification kit.
 
-## Installation
-### Building from source
+# Installation
+## Building from source
 ```bash
 git clone https://github.com/warp9seq/minimod
 cd minimod
@@ -11,7 +11,7 @@ cd minimod
 make
 ```
 
-## Usage
+# Usage
 Usage information can be printed using ```minimod -h``` command.
 ```bash
 Usage: minimod <command> [options]
@@ -21,8 +21,7 @@ command:
          meth_freq     call methylation and output methylation frequency
 ```
 
-## Subtools
-### view
+## view
 Print base modification details to the standard output in tsv format. Following command writes the output to a file.
 ```bash
 basic options:
@@ -32,33 +31,45 @@ basic options:
    --version                  print version
 ```
 
-Example
+**Example**
 ```bash
 minimod view -r ref.fa reads.bam > meth.tsv
 ```
-<!-- | Field    | Definition    |
-|----------|-------------|
-| 1. read_id | name of the read |
-| 2. read_pos | 0 based position of the base on read sequence |
-| 3. ref_pos   | 0 based position of the base on reference sequence |
-| 4. chrom | chromosome name |
-| 5. mod_strand |  |
-| 6. ref_strand |  |
-| 7. ref_mod_strand |  |
-| 8. fw_soft_clipped_start |  |
-| 9. fw_soft_clipped_end |  |
-| 10. read_length |  |
-| 11. mod_qual |  |
-| 12. mod_code |  |
-| 13. base_qual |  |
-| 14. ref_kmer |  |
-| 15. query_kmer |  |
-| 16. canonical_base |  |
-| 17. modified_primary_base |  |
-| 18. inferred |  |
-| 19. flag |  | -->
 
-### meth_freq
+**Output fields**
+| Field    | Type | Definition    |
+|----------|-------------|-------------|
+| 1. read_id | str | name of the read |
+| 2. read_pos | int | position (0-based) of the base in read |
+| 3. ref_pos   | int | position (0-based) of the base in reference |
+| 4. chrom | str | chromosome |
+| 5. mod_strand | char | strand (+/-) where the base modification was observed (reported by sequencer) |
+| 6. read_strand | char | strand (+/-) of the read |
+| 7. read_length | int | length of read |
+| 8. mod_prob | float | probabiliy (0.0-1.0) of base modification |
+| 9. mod_code | char | base modification code as in [SAMtags: 1.7 Base modifications](https://github.com/samtools/hts-specs/blob/master/SAMtags.pdf)  |
+| 10. base_qual | int | basecall quality score (phred) |
+| 11. ref_base | char | base as in reference  |
+| 12. read_base | char | base as in read  |
+| 13. mod_base | char | base as in modification tag |
+| 14. flag | int | FLAG from alignment record |
+
+**Sample meth.tsv output**
+```bash
+read_id	read_pos	ref_pos	chrom	mod_strand	read_strand	read_length	mod_qual	mod_code	base_qual	ref_base	read_base	mod_base	flag
+m84088_230609_030819_s1/81921122/ccs	16597	20005265	chr22	+	+	16932	0.909804	m	40	c	C	C	0
+m84088_230609_030819_s1/81921122/ccs	16610	20005278	chr22	+	+	16932	0.317647	m	40	c	C	C	0
+m84088_230609_030819_s1/81921122/ccs	16876	20005544	chr22	+	+	16932	0.901961	m	40	c	C	C	0
+m84088_230609_030819_s1/81921122/ccs	16888	20005556	chr22	+	+	16932	0.854902	m	35	c	C	C	0
+m84088_230609_030819_s1/81921122/ccs	16916	20005584	chr22	+	+	16932	0.078431	m	40	c	C	C	0
+m84088_230609_030819_s1/46597904/ccs	91	20001933	chr22	+	-	11990	0.494118	m	40	G	A	C	16
+m84088_230609_030819_s1/46597904/ccs	123	20001901	chr22	+	-	11990	0.227451	m	40	G	A	C	16
+m84088_230609_030819_s1/46597904/ccs	201	20001823	chr22	+	-	11990	0.054902	m	40	G	A	C	16
+m84088_230609_030819_s1/46597904/ccs	423	20001601	chr22	+	-	11990	0.988235	m	40	g	C	C	16
+m84088_230609_030819_s1/46597904/ccs	493	20001531	chr22	+	-	11990	0.003922	m	40	g	C	C	16
+```
+
+## meth_freq
 Print methylation frequencies to the standard output in tsv format. Following command writes the output to a file.
 ```bash
 basic options:
@@ -69,28 +80,28 @@ basic options:
    --version                  print version
 ```
 
-Example
+**Example**
 
 ```bash
 minimod meth_freq -r ref.fa reads.bam > methfreq.tsv
 ```
 
-Output fields
-| Field    | Definition    |
-|----------|-------------|
-| 1. chrom | choromosome |
-| 2. start | position (0-based) of the base |
-| 3. end   | position (0-based) of the base |
-| 4. depth | number of reads covering the base |
-| 5. n_mod | number of reads with probability (>0.2) for base modification |
-| 6. n_called | number of reads called for base modification |
-| 7. n_skipped | number of reads skipped the base as having less likelihood for modification |
-| 8. freq | n_mod/n_called ratio |
-| 9. mod_code | modification code as in [SAMtags: 1.7 Base modifications](https://github.com/samtools/hts-specs/blob/master/SAMtags.pdf) |
-| 10. strand | strand (+/-) where the base modification is observed |
-| 11. ref_base | base charater as in reference |
+**Output fields**
+| Field    | Type | Definition    |
+|----------|-------------|-------------|
+| 1. chrom | str | choromosome |
+| 2. start | int | position (0-based) of the base |
+| 3. end   | int | position (0-based) of the base |
+| 4. depth | int | number of reads covering the base |
+| 5. n_mod | int | number of reads with probability (>0.2) for base modification |
+| 6. n_called | int | number of reads called for base modification |
+| 7. n_skipped | int | number of reads skipped the base as having less likelihood for modification |
+| 8. freq | float | n_mod/n_called ratio |
+| 9. mod_code | char | base modification code as in [SAMtags: 1.7 Base modifications](https://github.com/samtools/hts-specs/blob/master/SAMtags.pdf) |
+| 10. strand | char | strand (+/-) where the base modification was observed (reported by sequencer) |
+| 11. ref_base | char | base as in reference |
 
-#### Sample methfreq.tsv
+**Sample methfreq.tsv output**
 ```
 chrom	start	end	depth	n_mod	n_called	n_skipped	freq	mod_code	strand	ref_base
 chr22	20016337	20016337	5	0	5	0	0.000000	m	-	G
@@ -104,7 +115,7 @@ chr22	20017060	20017060	1	0	1	0	0.000000	m	+	C
 chr22	19971259	19971259	1	1	1	0	1.000000	m	+	C
 ```
 
-#### Sample methfreq.bedmethyl
+**Sample methfreq.bedmethyl output**
 ```
 chr22	20016337	20016337	m	5	-	20016337	20016337	255,0,0	5	0.000000
 chr22	20016594	20016594	m	2	+	20016594	20016594	255,0,0	2	0.000000

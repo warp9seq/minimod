@@ -354,7 +354,7 @@ static void update_stats(base_t *bases, uint32_t seq_len, khash_t(str)* stats){
                 stat->start = base.ref_pos;
                 stat->end = base.ref_pos;
                 stat->mod_code = mod.mod_code;
-                stat->strand = base.strand;
+                stat->strand = mod.mod_strand;
 
                 stat->ref_base = base.ref_base;
                 stat->n_called = base.is_called[mod_code_idx_lookup[(int)mod.mod_code]];
@@ -669,7 +669,7 @@ static stat_t ** get_stats(khash_t(str)* stats_map, uint32_t *meth_freqs_len){
 }
 
 static void print_meth_call_hdr(){
-    printf("read_id\tread_pos\tref_pos\tchrom\tmod_strand\tref_strand\tref_mod_strand\tfw_soft_clipped_start\tfw_soft_clipped_end\tread_length\tmod_qual\tmod_code\tbase_qual\tref_kmer\tquery_kmer\tref_base\tread_base\tmod_base\tflag\n");
+    printf("read_id\tread_pos\tref_pos\tchrom\tmod_strand\tread_strand\tread_length\tmod_prob\tmod_code\tbase_qual\tref_base\tread_base\tmod_base\tflag\n");
 }
 
 static void print_meth_freq_hdr(FILE * output_file){
@@ -692,7 +692,7 @@ static void print_mods(base_t *bases, uint32_t seq_len, bam_hdr_t *hdr, bam1_t *
             if((print_mod_code !='*' && mod.mod_code != print_mod_code) || base.ref_pos < 0){
                 continue;
             }
-            fprintf(stdout, "%s\t%d\t%d\t%s\t%c\t%c\t%c\t%d\t%d\t%d\t%f\t%c\t%d\t%s\t%s\t%c\t%c\t%c\t%d\n", qname, i, base.ref_pos, base.chrom, mod.mod_strand, base.strand, '*', -1, -1, seq_len, mod.mod_prob, mod.mod_code, base.qual, "*", "*", base.ref_base, base.base, mod.mod_base, flag);
+            fprintf(stdout, "%s\t%d\t%d\t%s\t%c\t%c\t%d\t%f\t%c\t%d\t%c\t%c\t%c\t%d\n", qname, i, base.ref_pos, base.chrom, mod.mod_strand, base.strand, seq_len, mod.mod_prob, mod.mod_code, base.qual, base.ref_base, base.base, mod.mod_base, flag);
         }
     }
 }
