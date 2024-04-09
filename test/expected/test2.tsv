@@ -1,4 +1,4 @@
-read_id	read_pos	ref_pos	chrom	mod_strand	read_strand	read_length	mod_qual	mod_code	base_qual	ref_base	read_base	mod_base	flag
+read_id	read_pos	ref_pos	chrom	mod_strand	read_strand	read_length	mod_prob	mod_code	base_qual	ref_base	read_base	mod_base	flag
 89870c83-8790-419f-acf8-8a8e93a0f3c9	186	19966677	chr22	+	+	52055	0.027451	h	29	c	C	C	0
 89870c83-8790-419f-acf8-8a8e93a0f3c9	186	19966677	chr22	+	+	52055	0.972549	m	29	c	C	C	0
 89870c83-8790-419f-acf8-8a8e93a0f3c9	266	19966761	chr22	+	+	52055	0.486275	h	6	c	C	C	0
