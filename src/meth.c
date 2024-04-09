@@ -103,12 +103,9 @@ typedef struct {
     int n_called;
     int n_skipped;
     double freq;
-    char base;
-    char ref_base;
-    char mod_base;
     char mod_code;
     char mod_strand;
-    char strand;
+    char ref_base;
     int is_aln_cpg;
 } stat_t;
 
@@ -354,7 +351,6 @@ static void update_stats(base_t *bases, uint32_t seq_len, khash_t(str)* stats){
                 stat->start = base.ref_pos;
                 stat->end = base.ref_pos;
                 stat->mod_code = mod.mod_code;
-                stat->strand = mod.mod_strand;
 
                 stat->ref_base = base.ref_base;
                 stat->n_called = base.is_called[mod_code_idx_lookup[(int)mod.mod_code]];
@@ -673,7 +669,7 @@ static void print_meth_call_hdr(){
 }
 
 static void print_meth_freq_hdr(FILE * output_file){
-    fprintf(output_file, "chrom\tstart\tend\tdepth\tn_mod\tn_called\tn_skipped\tfreq\tmod_code\tstrand\tref_base\n");
+    fprintf(output_file, "chrom\tstart\tend\tdepth\tn_mod\tn_called\tn_skipped\tfreq\tmod_code\tmod_strand\tref_base\n");
 }
 
 static void print_mods(base_t *bases, uint32_t seq_len, bam_hdr_t *hdr, bam1_t *record, enum MOD_CODES print_mod_code){
@@ -704,7 +700,7 @@ static void print_meth_freq(FILE * output_file, stat_t ** stats, uint32_t seq_le
         if((print_mod_code !='*' && stat->mod_code != print_mod_code) || stat->is_aln_cpg == 0 ){
             continue;
         }
-        fprintf(output_file, "%s\t%d\t%d\t%d\t%d\t%d\t%d\t%f\t%c\t%c\t%c\n", stat->chrom, stat->start, stat->end, stat->depth, stat->n_mod, stat->n_called, stat->n_skipped, stat->freq, stat->mod_code, stat->strand, stat->ref_base);
+        fprintf(output_file, "%s\t%d\t%d\t%d\t%d\t%d\t%d\t%f\t%c\t%c\t%c\n", stat->chrom, stat->start, stat->end, stat->depth, stat->n_mod, stat->n_called, stat->n_skipped, stat->freq, stat->mod_code, stat->mod_strand, stat->ref_base);
     }
 
 }
@@ -717,7 +713,7 @@ static void print_meth_freq_bedmethyl(FILE * output_file, stat_t ** stats, uint3
         }
 
         // chrom, start, end, mod_code, n_called, strand, start, end, "255,0,0",  n_called, freq
-        fprintf(output_file, "%s\t%d\t%d\t%c\t%d\t%c\t%d\t%d\t255,0,0\t%d\t%f\n", stat->chrom, stat->start, stat->end, stat->mod_code, stat->n_called, stat->strand, stat->start, stat->end, stat->n_called, stat->freq);
+        fprintf(output_file, "%s\t%d\t%d\t%c\t%d\t%c\t%d\t%d\t255,0,0\t%d\t%f\n", stat->chrom, stat->start, stat->end, stat->mod_code, stat->n_called, stat->mod_strand, stat->start, stat->end, stat->n_called, stat->freq);
     }
 
 }

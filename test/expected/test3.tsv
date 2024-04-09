@@ -1,4 +1,4 @@
-chrom	start	end	depth	n_mod	n_called	n_skipped	freq	mod_code	strand	ref_base
+chrom	start	end	depth	n_mod	n_called	n_skipped	freq	mod_code	mod_strand	ref_base
 chr22	20010870	20010870	5	4	5	0	0.800000	m	+	C
 chr22	20012417	20012417	4	3	4	0	0.750000	m	+	C
 chr22	19998451	19998451	9	3	9	0	0.333333	m	+	G
