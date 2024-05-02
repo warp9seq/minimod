@@ -1,6 +1,37 @@
 # minimod
 
-A simple base modification kit.
+A simple base modification kit. It takes a alignment BAM file and the reference FASTA as input, and outputs a base modifications (TSV or bedmethyl) and base modification frequency (TSV).
+
+Minimod reads base modification information encoded under MM:Z and ML:B:C SAM tags and relies on the [SAMtags](https://github.com/samtools/hts-specs/blob/master/SAMtags.pdf) specification.
+
+## Important !
+Make sure that following requirements are met during each step.
+
+### Base-calling
+- Use a basecalling model trained to identify modified bases.
+
+   Example: Base-calling a slow5 file using [buttery-eel](https://github.com/Psy-Fer/buttery-eel)
+   ```
+   buttery-eel --call_mods --config dna_r10.4.1_e8.2_400bps_5khz_modbases_5hmc_5mc_cg_hac.cfg -i reads.slow5 -o reads.sam -g path/to/guppy/bin
+   samtools fastq -TMM,ML reads.sam > reads.fastq
+   ```
+
+### Aligning
+- Avoid unmapped reads
+- Avoid secondary alignments
+- Use soft clipping for supplementary alignments
+
+   Corresponding minimap2 flags are as follows.
+   | Minimap2 Flag | Description |
+   |-|-|
+   |--sam-hit-only| Avoid unmapped reads.|
+   |-Y | Use soft clipping for supplementary alignments.|
+   |--secondary=no| Avoid secondary alignments |
+
+   Example: aligning ONT reads using [minimap2](https://github.com/lh3/minimap2)
+   ```
+   minimap2 -ax map-ont --sam-hit-only -Y --secondary=no ref.idx reads.fastq
+   ```
 
 # Installation
 ## Building from source
