@@ -126,7 +126,7 @@ minimod meth_freq -r ref.fa reads.bam > methfreq.tsv
 | 4. depth | int | number of reads covering the base |
 | 5. n_mod | int | number of reads with probability (>0.2) for base modification |
 | 6. n_called | int | number of reads called for base modification |
-| 7. n_skipped | int | number of reads skipped the base as having less likelihood for modification |
+| 7. n_skipped | int | number of reads skipped the base as having less likelihood (modification status is '.' as in [SAMtags: 1.7 Base modifications](https://github.com/samtools/hts-specs/blob/master/SAMtags.pdf)) |
 | 8. freq | float | n_mod/n_called ratio |
 | 9. mod_code | char | base modification code as in [SAMtags: 1.7 Base modifications](https://github.com/samtools/hts-specs/blob/master/SAMtags.pdf) |
 | 10. strand | char | strand (+/-) where the base modification was observed (reported by sequencer) |
