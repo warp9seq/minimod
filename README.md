@@ -1,11 +1,11 @@
 # minimod
 
-A simple base modification kit. It takes a alignment BAM file and the reference FASTA as input, and outputs a base modifications (TSV or bedmethyl) and base modification frequency (TSV).
+A simple base modification kit. It takes a alignment BAM file and the reference FASTA as input, and outputs a base modifications (TSV) and base modification frequency (TSV or bedmethyl).
 
 Minimod reads base modification information encoded under MM:Z and ML:B:C SAM tags and relies on the [SAMtags](https://github.com/samtools/hts-specs/blob/master/SAMtags.pdf) specification.
 
 ## Important !
-Make sure that following requirements are met during each step.
+Make sure that following requirements are met for each step.
 
 ### Base-calling
 - Use a basecalling model trained to identify modified bases.
@@ -57,6 +57,7 @@ Print base modification details to the standard output in tsv format. Following 
 ```bash
 basic options:
    -r FILE                    reference genome fasta file
+   -m FLOAT                   mmin modification threshold (inclusive, range 0.0 to 1.0) [0.0]
    -h                         help
    -o FILE                    output to file [stdout]
    --version                  print version
@@ -105,8 +106,9 @@ Print methylation frequencies to the standard output in tsv format. Following co
 ```bash
 basic options:
    -r FILE                    reference genome fasta file
-   -h                         help
    -b                         output in bedMethyl format
+   -m FLOAT                   min modification threshold (inclusive, range 0.0 to 1.0) [0.2]
+   -h                         help
    -o FILE                    output to file [stdout]
    --version                  print version
 ```

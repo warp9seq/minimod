@@ -43,17 +43,20 @@ SOFTWARE.
 #include <unistd.h>
 
 static struct option long_options[] = {
-    {"threads", required_argument, 0, 't'},        //0 number of threads [8]
-    {"batchsize", required_argument, 0, 'K'},      //1 batchsize - number of reads loaded at once [512]
-    {"max-bytes", required_argument, 0, 'B'},      //2 batchsize - number of bytes loaded at once
-    {"verbose", required_argument, 0, 'v'},        //3 verbosity level [1]
-    {"help", no_argument, 0, 'h'},                 //4
-    {"version", no_argument, 0, 'V'},              //5
-    {"output",required_argument, 0, 'o'},          //6 output to a file [stdout]
-    {"debug-break",required_argument, 0, 0},       //7 break after processing the first batch (used for debugging)
-    {"profile-cpu",required_argument, 0, 0},       //8 perform section by section (used for profiling - for CPU only)
-    {"accel",required_argument, 0, 0},             //9 accelerator
-    {"expand",no_argument, 0, 0},                  //10 expand view
+    {"reference", required_argument, 0, 'r'},      //0 reference genome fasta file [required]
+    {"bedmethyl", no_argument, 0, 'b'},            //1 output in bedMethyl format
+    {"mod_thresh", required_argument, 0, 'm'},     //2 min modification threshold 0.0 to 1.0 [0.2]
+    {"threads", required_argument, 0, 't'},        //3 number of threads [8]
+    {"batchsize", required_argument, 0, 'K'},      //4 batchsize - number of reads loaded at once [512]
+    {"max-bytes", required_argument, 0, 'B'},      //5 batchsize - number of bytes loaded at once
+    {"verbose", required_argument, 0, 'v'},        //6 verbosity level [1]
+    {"help", no_argument, 0, 'h'},                 //7
+    {"version", no_argument, 0, 'V'},              //8
+    {"output",required_argument, 0, 'o'},          //9 output to a file [stdout]
+    {"debug-break",required_argument, 0, 0},       //10 break after processing the first batch (used for debugging)
+    {"profile-cpu",required_argument, 0, 0},       //11 perform section by section (used for profiling - for CPU only)
+    {"accel",required_argument, 0, 0},             //12 accelerator
+    {"expand",no_argument, 0, 0},                  //13 expand view
     {0, 0, 0, 0}};
 
 
@@ -61,11 +64,12 @@ static inline void print_help_msg(FILE *fp_help, opt_t opt){
     fprintf(fp_help,"Usage: minimod meth_freq reads.bam\n");
     fprintf(fp_help,"\nbasic options:\n");
     fprintf(fp_help,"   -r FILE                    reference genome fasta file\n");
+    fprintf(fp_help,"   -b                         output in bedMethyl format\n");
+    fprintf(fp_help,"   -m FLOAT                   min modification threshold (inclusive, range 0.0 to 1.0) [0.2]\n");
     fprintf(fp_help,"   -t INT                     number of processing threads [%d]\n",opt.num_thread);
     fprintf(fp_help,"   -K INT                     batch size (max number of reads loaded at once) [%d]\n",opt.batch_size);
     fprintf(fp_help,"   -B FLOAT[K/M/G]            max number of bytes loaded at once [%.1fM]\n",opt.batch_size_bytes/(float)(1000*1000));
     fprintf(fp_help,"   -h                         help\n");
-    fprintf(fp_help,"   -b                         output in bedMethyl format\n");
     fprintf(fp_help,"   -o FILE                    output to file [stdout]\n");
     fprintf(fp_help,"   --verbose INT              verbosity level [%d]\n",(int)get_log_level());
     fprintf(fp_help,"   --version                  print version\n");
@@ -85,7 +89,7 @@ int meth_freq_main(int argc, char* argv[]) {
 
     double realtime0 = realtime();
 
-    const char* optstring = "r:t:B:K:v:o:hVb";
+    const char* optstring = "m:r:t:B:K:v:o:hVb";
 
     int longindex = 0;
     int32_t c = -1;
@@ -93,6 +97,7 @@ int meth_freq_main(int argc, char* argv[]) {
     const char *bamfile = NULL;
     const char *reffile = NULL;
     int bedmethyl_out = 0;
+    double mod_thresh = 0.2;
 
     FILE *fp_help = stderr;
 
@@ -130,19 +135,21 @@ int meth_freq_main(int argc, char* argv[]) {
             fp_help = stdout;
         } else if (c=='r'){
             reffile = optarg;
+        } else if (c=='m'){
+            mod_thresh = atof(optarg);
         } else if (c=='b'){
             bedmethyl_out = 1;
-        }else if(c == 0 && longindex == 7){ //debug break
+        }else if(c == 0 && longindex == 10){ //debug break
             opt.debug_break = atoi(optarg);
-        } else if(c == 0 && longindex == 8){ //sectional benchmark todo : warning for gpu mode
+        } else if(c == 0 && longindex == 11){ //sectional benchmark todo : warning for gpu mode
             yes_or_no(&opt.flag, MINIMOD_PRF, long_options[longindex].name, optarg, 1);
-        } else if(c == 0 && longindex == 9){ //accel
+        } else if(c == 0 && longindex == 12){ //accel
         #ifdef HAVE_ACC
             yes_or_no(&opt.flag, minimod_ACC, long_options[longindex].name, optarg, 1);
         #else
             WARNING("%s", "--accel has no effect when compiled for the CPU");
         #endif
-        } else if(c == 0 && longindex == 10){ //expand output
+        } else if(c == 0 && longindex == 13){ //expand output
             yes_or_no(&opt.flag, MINIMOD_EXP, long_options[longindex].name, "yes", 1);
         }
     }
@@ -176,7 +183,7 @@ int meth_freq_main(int argc, char* argv[]) {
     //initialise the core data structure
     core_t* core = init_core(bamfile, opt, realtime0);
 
-    init_mod(reffile);
+    init_meth(reffile, mod_thresh);
 
     meth_freq(core);
     print_stats(stdout, bedmethyl_out);

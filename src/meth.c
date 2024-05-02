@@ -46,7 +46,6 @@ SOFTWARE.
 #define INIT_MOD_CODES 2
 #define INIT_BASE_POS 100
 #define INIT_MOD_BASES 2
-#define MOD_THRESHOLD 0.2
 #define N_BASES 6 // A, C, G, T, N, U
 #define N_MOD_CODES 5 // 5mC, 5hmC, 5fC, 5caC, xC
 
@@ -112,6 +111,7 @@ typedef struct {
 KHASH_MAP_INIT_STR(str, stat_t *);
 
 khash_t(str)* stats_map;
+double mod_threshold = 0.2;
 
 static const int valid_bases[256] = {
     ['A'] = 1, ['C'] = 1, ['G'] = 1, ['T'] = 1, ['U'] = 1, ['N'] = 1,
@@ -355,7 +355,7 @@ static void update_stats(base_t *bases, uint32_t seq_len, khash_t(str)* stats){
                 stat->ref_base = base.ref_base;
                 stat->n_called = base.is_called[mod_code_idx_lookup[(int)mod.mod_code]];
                 stat->n_skipped = base.is_skipped[mod_code_idx_lookup[(int)mod.mod_code]];
-                stat->n_mod = mod.mod_prob >= MOD_THRESHOLD ? 1 : 0;
+                stat->n_mod = mod.mod_prob >= mod_threshold ? 1 : 0;
                 stat->mod_strand = mod.mod_strand;
                 stat->depth = base.depth;
                 stat->is_aln_cpg = base.is_aln_cpg;
@@ -368,7 +368,7 @@ static void update_stats(base_t *bases, uint32_t seq_len, khash_t(str)* stats){
                 stat_t * stat = kh_value(stats, k);
                 stat->n_called += base.is_called[mod_code_idx_lookup[(int)mod.mod_code]];
                 stat->n_skipped += base.is_skipped[mod_code_idx_lookup[(int)mod.mod_code]];
-                stat->n_mod += mod.mod_prob >= MOD_THRESHOLD ? 1 : 0;
+                stat->n_mod += mod.mod_prob >= mod_threshold ? 1 : 0;
                 stat->depth += base.depth;
             }
         }
@@ -685,7 +685,7 @@ static void print_mods(base_t *bases, uint32_t seq_len, bam_hdr_t *hdr, bam1_t *
         for(int j=0;j<bases[i].mods_len;j++){
             mod_t mod = bases[i].mods[j];
             base_t base = bases[i];
-            if((print_mod_code !='*' && mod.mod_code != print_mod_code) || base.ref_pos < 0){
+            if((print_mod_code !='*' && mod.mod_code != print_mod_code) || base.ref_pos < 0 || mod.mod_prob < mod_threshold){
                 continue;
             }
             fprintf(stdout, "%s\t%d\t%d\t%s\t%c\t%c\t%d\t%f\t%c\t%d\t%c\t%c\t%c\t%d\n", qname, i, base.ref_pos, base.chrom, mod.mod_strand, base.strand, seq_len, mod.mod_prob, mod.mod_code, base.qual, base.ref_base, base.base, mod.mod_base, flag);
@@ -831,8 +831,10 @@ void meth_freq(core_t* core){
     return;
 }
 
-void init_mod(const char * reffile){
+
+void init_meth(const char * reffile, double mod_thresh){
     stats_map = kh_init(str);
+    mod_threshold = mod_thresh;
     load_ref(reffile);
 }
 
