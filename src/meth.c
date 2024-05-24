@@ -665,11 +665,11 @@ static stat_t ** get_stats(khash_t(str)* stats_map, uint32_t *meth_freqs_len){
 }
 
 static void print_meth_call_hdr(){
-    printf("read_id\tread_pos\tref_pos\tchrom\tmod_strand\tread_strand\tread_length\tmod_prob\tmod_code\tbase_qual\tref_base\tread_base\tmod_base\tflag\n");
+    printf("ref_contig\tref_pos\tstrand\tread_id\tread_pos\tmod_code\tmod_prob\n");
 }
 
 static void print_meth_freq_hdr(FILE * output_file){
-    fprintf(output_file, "chrom\tstart\tend\tdepth\tn_mod\tn_called\tn_skipped\tfreq\tmod_code\tmod_strand\tref_base\n");
+    fprintf(output_file, "contig\tstart\tend\tstrand\tn_called\tn_mod\tfreq\tmod_code\n");
 }
 
 static void print_mods(base_t *bases, uint32_t seq_len, bam_hdr_t *hdr, bam1_t *record, enum MOD_CODES print_mod_code){
@@ -688,7 +688,7 @@ static void print_mods(base_t *bases, uint32_t seq_len, bam_hdr_t *hdr, bam1_t *
             if((print_mod_code !='*' && mod.mod_code != print_mod_code) || base.ref_pos < 0 || mod.mod_prob < mod_threshold){
                 continue;
             }
-            fprintf(stdout, "%s\t%d\t%d\t%s\t%c\t%c\t%d\t%f\t%c\t%d\t%c\t%c\t%c\t%d\n", qname, i, base.ref_pos, base.chrom, mod.mod_strand, base.strand, seq_len, mod.mod_prob, mod.mod_code, base.qual, base.ref_base, base.base, mod.mod_base, flag);
+            fprintf(stdout, "%s\t%d\t%c\t%s\t%d\t%c\t%f\n", base.chrom, base.ref_pos, mod.mod_strand, qname, i, mod.mod_code, mod.mod_prob);
         }
     }
 }
@@ -700,7 +700,7 @@ static void print_meth_freq(FILE * output_file, stat_t ** stats, uint32_t seq_le
         if((print_mod_code !='*' && stat->mod_code != print_mod_code) || stat->is_aln_cpg == 0 ){
             continue;
         }
-        fprintf(output_file, "%s\t%d\t%d\t%d\t%d\t%d\t%d\t%f\t%c\t%c\t%c\n", stat->chrom, stat->start, stat->end, stat->depth, stat->n_mod, stat->n_called, stat->n_skipped, stat->freq, stat->mod_code, stat->mod_strand, stat->ref_base);
+        fprintf(output_file, "%s\t%d\t%d\t%c\t%d\t%d\t%f\t%c\n", stat->chrom, stat->start, stat->end, stat->mod_strand, stat->n_called, stat->n_mod, stat->freq, stat->mod_code);
     }
 
 }
