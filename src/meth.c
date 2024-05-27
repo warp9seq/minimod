@@ -713,7 +713,7 @@ static void print_meth_freq_bedmethyl(FILE * output_file, stat_t ** stats, uint3
         }
 
         // chrom, start, end, mod_code, n_called, strand, start, end, "255,0,0",  n_called, freq
-        fprintf(output_file, "%s\t%d\t%d\t%c\t%d\t%c\t%d\t%d\t255,0,0\t%d\t%f\n", stat->chrom, stat->start, stat->end, stat->mod_code, stat->n_called, stat->mod_strand, stat->start, stat->end, stat->n_called, stat->freq);
+        fprintf(output_file, "%s\t%d\t%d\t%c\t%d\t%c\t%d\t%d\t255,0,0\t%d\t%f\n", stat->chrom, stat->start, (stat->end + 1), stat->mod_code, stat->n_called, stat->mod_strand, stat->start, stat->end, stat->n_called, stat->freq);
     }
 
 }
