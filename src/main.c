@@ -45,7 +45,7 @@ int print_usage(FILE *fp_help){
     fprintf(fp_help,"Usage: minimod <command> [options]\n\n");
     fprintf(fp_help,"command:\n");
     fprintf(fp_help,"         view          view base modifications\n");
-    fprintf(fp_help,"         meth_freq     call methylation and output methylation frequency\n");
+    fprintf(fp_help,"         meth-freq     call methylation and output methylation frequency\n");
 
     if(fp_help==stderr){
         return(EXIT_FAILURE);
@@ -67,7 +67,7 @@ int main(int argc, char* argv[]){
         return print_usage(stderr);
     } else if (strcmp(argv[1],"view")==0){
         ret=view_main(argc-1, argv+1);
-    } else if (strcmp(argv[1],"meth_freq")==0){
+    } else if (strcmp(argv[1],"meth-freq")==0){
         ret=meth_freq_main(argc-1, argv+1);
     } else if(strcmp(argv[1],"--version")==0 || strcmp(argv[1],"-V")==0){
         fprintf(stdout,"minimod %s\n",MINIMOD_VERSION);

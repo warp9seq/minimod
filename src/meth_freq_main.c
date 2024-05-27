@@ -61,7 +61,7 @@ static struct option long_options[] = {
 
 
 static inline void print_help_msg(FILE *fp_help, opt_t opt){
-    fprintf(fp_help,"Usage: minimod meth_freq reads.bam\n");
+    fprintf(fp_help,"Usage: minimod meth-freq reads.bam\n");
     fprintf(fp_help,"\nbasic options:\n");
     fprintf(fp_help,"   -r FILE                    reference genome fasta file\n");
     fprintf(fp_help,"   -b                         output in bedMethyl format\n");
