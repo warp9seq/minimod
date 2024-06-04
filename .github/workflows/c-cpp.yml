@@ -74,6 +74,12 @@ jobs:
         run: sudo apt-get install -y valgrind
       - name: memtest
         run: make memtest
+      - name: install clang
+        run: sudo apt-get install -y clang
+      - name: build-clang
+        run: make clean && make CC=clang -j8
+      - name: test-clang
+        run: make test
   ubuntu_20_icc:
     name: Ubuntu 20 icc
     runs-on: ubuntu-20.04
@@ -104,6 +110,17 @@ jobs:
   os_x_11:
     name: OSX 11
     runs-on: macos-11
+    steps:
+    - uses: actions/checkout@v2
+    - name: install htslib
+      run: ./scripts/install-hts.sh
+    - name: build
+      run: make -j8
+    - name: test
+      run: make test
+  os_x_12:
+    name: OSX 12
+    runs-on: macos-12
     steps:
     - uses: actions/checkout@v2
     - name: install htslib
