@@ -64,17 +64,43 @@ typedef struct {
 
 } opt_t;
 
+typedef struct {
+    const char * ref_contig;
+    int ref_pos;
+    char strand;
+    const char * read_id;
+    int read_pos;
+    char mod_code;
+    double mod_prob;
+} view_t;
+
+typedef struct {
+    char * contig;
+    int start;
+    int end;
+    char strand;
+    int n_called;
+    int n_mod;
+    double freq;
+    char mod_code;
+
+    int depth;
+    int n_skipped;
+    char ref_base;
+    int is_aln_cpg;
+} freq_t;
 
 /* a batch of read data (dynamic data based on the reads) */
 typedef struct {
-
-    int32_t n_rec;
-    int32_t capacity_rec;
-
-    char **mem_records;
-    size_t *mem_bytes;
+    //bam records
+    bam1_t** bam_recs;
+    int32_t cap_bam_recs;
+    int32_t n_bam_recs;
 
     double *means;
+    view_t ** view_output;
+    int32_t *view_output_lens;
+    int32_t *view_output_caps;
 
     //stats
     int64_t sum_bytes;

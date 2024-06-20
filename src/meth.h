@@ -33,3 +33,4 @@ void meth_freq(core_t* core);
 void init_meth(const char * ref, double mod_threshold);
 void destroy_mod();
 void print_stats(FILE * output_file, int is_bedmethyl);
+void view_single(core_t* core, db_t* db, int32_t i);

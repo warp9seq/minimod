@@ -38,6 +38,7 @@ SOFTWARE.
 #include "minimod.h"
 #include "misc.h"
 #include "error.h"
+#include "meth.h"
 
 #include <sys/wait.h>
 #include <unistd.h>
@@ -159,21 +160,30 @@ db_t* init_db(core_t* core) {
     db_t* db = (db_t*)(malloc(sizeof(db_t)));
     MALLOC_CHK(db);
 
-    db->capacity_rec = core->opt.batch_size;
-    db->n_rec = 0;
+    db->cap_bam_recs = core->opt.batch_size;
+    db->n_bam_recs = 0;
 
-    db->mem_records = (char**)(calloc(db->capacity_rec,sizeof(char*)));
-    MALLOC_CHK(db->mem_records);
-    db->mem_bytes = (size_t*)(calloc(db->capacity_rec,sizeof(size_t)));
-    MALLOC_CHK(db->mem_bytes);
+    db->bam_recs = (bam1_t**)(malloc(sizeof(bam1_t*) * db->cap_bam_recs));
+    MALLOC_CHK(db->bam_recs);
 
+    int32_t i = 0;
+    for (i = 0; i < db->cap_bam_recs; ++i) {
+        db->bam_recs[i] = bam_init1();
+        NULL_CHK(db->bam_recs[i]);
+    }
 
-    db->means = (double*)calloc(db->capacity_rec,sizeof(double));
+    db->view_output = (view_t**)(calloc(db->cap_bam_recs,sizeof(view_t*)));
+    MALLOC_CHK(db->view_output);
+    db->view_output_lens = (int32_t*)(calloc(db->cap_bam_recs,sizeof(int32_t)));
+    MALLOC_CHK(db->view_output_lens);
+    db->view_output_caps = (int32_t*)(calloc(db->cap_bam_recs,sizeof(int32_t)));
+    MALLOC_CHK(db->view_output_caps);
+
+    db->means = (double*)calloc(db->cap_bam_recs,sizeof(double));
     MALLOC_CHK(db->means);
 
     db->total_reads=0;
     db->sum_bytes=0;
-
 
     return db;
 }
@@ -183,18 +193,26 @@ ret_status_t load_db(core_t* core, db_t* db) {
 
     double load_start = realtime();
 
-    db->n_rec = 0;
+    db->n_bam_recs = 0;
     db->sum_bytes = 0;
     db->total_reads = 0;
 
     ret_status_t status={0,0};
-    //int32_t i = 0;
-    while (db->n_rec < db->capacity_rec && db->sum_bytes<core->opt.batch_size_bytes) {
-        //i=db->n_rec;
-
+    int32_t i = 0;
+    while (db->n_bam_recs < db->cap_bam_recs && db->sum_bytes<core->opt.batch_size_bytes) {
+        i=db->n_bam_recs;
+        
+        if(sam_itr_next(core->bam_fp, core->itr, db->bam_recs[i])>=0){
+            db->sum_bytes += db->bam_recs[i]->l_data;
+            db->total_reads++;
+            db->n_bam_recs++;
+        }else{
+            break;
+        }
+        i++;
     }
 
-    status.num_reads=db->n_rec;
+    status.num_reads=db->n_bam_recs;
     status.num_bytes=db->sum_bytes;
 
     double load_end = realtime();
@@ -206,8 +224,6 @@ ret_status_t load_db(core_t* core, db_t* db) {
 
 void parse_single(core_t* core,db_t* db, int32_t i){
 
-    assert(db->mem_bytes[i]>0);
-    assert(db->mem_records[i]!=NULL);
 
 
 }
@@ -230,7 +246,8 @@ void mean_single(core_t* core,db_t* db, int32_t i){
 }
 
 void work_per_single_read(core_t* core,db_t* db, int32_t i){
-    parse_single(core,db,i);
+    view_single(core,db,i);
+    // parse_single(core,db,i);
     //mean_single(core,db,i);
 }
 
@@ -277,15 +294,21 @@ void output_db(core_t* core, db_t* db) {
 
     double output_start = realtime();
 
-    int32_t i = 0;
-    for (i = 0; i < db->n_rec; i++) {
+    fprintf(stdout, "ref_contig\tref_pos\tstrand\tread_id\tread_pos\tmod_code\tmod_prob\n");
 
+    int32_t i = 0;
+    for (i = 0; i < db->n_bam_recs; i++) {
+        for(int32_t j=0;j<db->view_output_lens[i];j++){
+            view_t view = db->view_output[i][j];
+            fprintf(stdout, "%s\t%d\t%c\t%s\t%d\t%c\t%f\n", view.ref_contig, view.ref_pos, view.strand, view.read_id, view.read_pos, view.mod_code, view.mod_prob);
+        }
+        
     }
 
     core->sum_bytes += db->sum_bytes;
     core->total_reads += db->total_reads;
 
-    //core->read_index = core->read_index + db->n_rec;
+    //core->read_index = core->read_index + db->n_bam_recs;
     double output_end = realtime();
     core->output_time += (output_end-output_start);
 
@@ -294,8 +317,8 @@ void output_db(core_t* core, db_t* db) {
 /* partially free a data batch - only the read dependent allocations are freed */
 void free_db_tmp(db_t* db) {
     int32_t i = 0;
-    for (i = 0; i < db->n_rec; ++i) {
-        free(db->mem_records[i]);
+    for (i = 0; i < db->n_bam_recs; ++i) {
+        free(db->bam_recs[i]);
     }
 }
 
@@ -303,10 +326,14 @@ void free_db_tmp(db_t* db) {
 void free_db(db_t* db) {
 
     int32_t i = 0;
-    for (i = 0; i < db->capacity_rec; ++i) {
+    for (i = 0; i < db->cap_bam_recs; ++i) {
+
+        if(db->view_output[i]!=NULL){
+            free(db->view_output[i]);
+        }
     }
-    free(db->mem_records);
-    free(db->mem_bytes);
+    free(db->bam_recs);
+    // free(db->mem_bytes);
     free(db->means);
     free(db);
 }

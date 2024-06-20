@@ -178,58 +178,59 @@ int view_main(int argc, char* argv[]) {
 
     init_meth(reffile, mod_thresh);
 
-    simple_meth_view(core);
+    // simple_meth_view(core);
 
-    destroy_mod();
-    //int32_t counter=0;
+    // destroy_mod();
 
-    // //initialise a databatch
-    // db_t* db = init_db(core);
+    int32_t counter=0;
 
-    // ret_status_t status = {core->opt.batch_size,core->opt.batch_size_bytes};
-    // while (status.num_reads >= core->opt.batch_size || status.num_bytes>=core->opt.batch_size_bytes) {
+    //initialise a databatch
+    db_t* db = init_db(core);
 
-    //     //load a databatch
-    //     status = load_db(core, db);
+    ret_status_t status = {core->opt.batch_size,core->opt.batch_size_bytes};
+    while (status.num_reads >= core->opt.batch_size || status.num_bytes>=core->opt.batch_size_bytes) {
 
-    //     fprintf(stderr, "[%s::%.3f*%.2f] %d Entries (%.1fM bytes) loaded\n", __func__,
-    //             realtime() - realtime0, cputime() / (realtime() - realtime0),
-    //             status.num_reads,status.num_bytes/(1000.0*1000.0));
+        //load a databatch
+        status = load_db(core, db);
 
-    //     //process a databatch
-    //     process_db(core, db);
+        fprintf(stderr, "[%s::%.3f*%.2f] %d Entries (%.1fM bytes) loaded\n", __func__,
+                realtime() - realtime0, cputime() / (realtime() - realtime0),
+                status.num_reads,status.num_bytes/(1000.0*1000.0));
 
-    //     fprintf(stderr, "[%s::%.3f*%.2f] %d Entries (%.1fM bytes) processed\n", __func__,
-    //             realtime() - realtime0, cputime() / (realtime() - realtime0),
-    //             status.num_reads,status.num_bytes/(1000.0*1000.0));
+        //process a databatch
+        process_db(core, db);
 
-    //     //output print
-    //     output_db(core, db);
+        fprintf(stderr, "[%s::%.3f*%.2f] %d Entries (%.1fM bytes) processed\n", __func__,
+                realtime() - realtime0, cputime() / (realtime() - realtime0),
+                status.num_reads,status.num_bytes/(1000.0*1000.0));
 
-    //     //free temporary
-    //     free_db_tmp(db);
+        //output print
+        output_db(core, db);
 
-    //     if(opt.debug_break==counter){
-    //         break;
-    //     }
-    //     counter++;
-    // }
+        //free temporary
+        free_db_tmp(db);
 
-    //free the databatch
-    // free_db(db);
+        if(opt.debug_break==counter){
+            break;
+        }
+        counter++;
+    }
 
-    // fprintf(stderr, "[%s] total entries: %ld", __func__,(long)core->total_reads);
-    // fprintf(stderr,"\n[%s] total bytes: %.1f M",__func__,core->sum_bytes/(float)(1000*1000));
+    // free the databatch
+    free_db(db);
 
-    // fprintf(stderr, "\n[%s] Data loading time: %.3f sec", __func__,core->load_db_time);
-    // fprintf(stderr, "\n[%s] Data processing time: %.3f sec", __func__,core->process_db_time);
-    // if((core->opt.flag&MINIMOD_PRF)|| core->opt.flag & minimod_ACC){
-    //         fprintf(stderr, "\n[%s]     - Parse time: %.3f sec",__func__, core->parse_time);
-    //         fprintf(stderr, "\n[%s]     - Calc time: %.3f sec",__func__, core->calc_time);
-    // }
-    // fprintf(stderr, "\n[%s] Data output time: %.3f sec", __func__,core->output_time);
+    fprintf(stderr, "[%s] total entries: %ld", __func__,(long)core->total_reads);
+    fprintf(stderr,"\n[%s] total bytes: %.1f M",__func__,core->sum_bytes/(float)(1000*1000));
 
-    // fprintf(stderr,"\n");
+    fprintf(stderr, "\n[%s] Data loading time: %.3f sec", __func__,core->load_db_time);
+    fprintf(stderr, "\n[%s] Data processing time: %.3f sec", __func__,core->process_db_time);
+    if((core->opt.flag&MINIMOD_PRF)|| core->opt.flag & MINIMOD_ACC){
+            fprintf(stderr, "\n[%s]     - Parse time: %.3f sec",__func__, core->parse_time);
+            fprintf(stderr, "\n[%s]     - Calc time: %.3f sec",__func__, core->calc_time);
+    }
+    fprintf(stderr, "\n[%s] Data output time: %.3f sec", __func__,core->output_time);
+
+    fprintf(stderr,"\n");
 
     //free the core data structure
     free_core(core,opt);
