@@ -803,7 +803,7 @@ void view_single(core_t* core, db_t* db, int32_t i) {
     base_t * bases = get_bases(mod_tags, mods_len, ml, ml_len, aln_pairs, hdr, record);
     update_view_output(bases, db, seq_len, hdr, record, '*', i);
 
-    // free_bases(bases, seq_len);
+    free_bases(bases, seq_len);
     free(aln_pairs);
     free_mod_tags(mod_tags, mods_len);
     free(ml);

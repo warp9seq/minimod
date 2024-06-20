@@ -316,10 +316,10 @@ void output_db(core_t* core, db_t* db) {
 
 /* partially free a data batch - only the read dependent allocations are freed */
 void free_db_tmp(db_t* db) {
-    int32_t i = 0;
-    for (i = 0; i < db->n_bam_recs; ++i) {
-        free(db->bam_recs[i]);
-    }
+    // int32_t i = 0;
+    // for (i = 0; i < db->n_bam_recs; ++i) {
+    //     bam_destroy1(db->bam_recs[i]);
+    // }
 }
 
 /* completely free a data batch */
@@ -328,10 +328,16 @@ void free_db(db_t* db) {
     int32_t i = 0;
     for (i = 0; i < db->cap_bam_recs; ++i) {
 
+        if(db->bam_recs[i]!=NULL){
+            bam_destroy1(db->bam_recs[i]);
+        }
         if(db->view_output[i]!=NULL){
             free(db->view_output[i]);
         }
     }
+    free(db->view_output);
+    free(db->view_output_lens);
+    free(db->view_output_caps);
     free(db->bam_recs);
     // free(db->mem_bytes);
     free(db->means);
