@@ -172,13 +172,20 @@ db_t* init_db(core_t* core) {
         NULL_CHK(db->bam_recs[i]);
     }
 
-    db->view_output = (view_t**)(calloc(db->cap_bam_recs,sizeof(view_t*)));
-    MALLOC_CHK(db->view_output);
-    db->view_output_lens = (int32_t*)(calloc(db->cap_bam_recs,sizeof(int32_t)));
-    MALLOC_CHK(db->view_output_lens);
-    db->view_output_caps = (int32_t*)(calloc(db->cap_bam_recs,sizeof(int32_t)));
-    MALLOC_CHK(db->view_output_caps);
+    if (core->opt.subtool == VIEW) {
+        db->view_output = (view_t**)(calloc(db->cap_bam_recs,sizeof(view_t*)));
+        MALLOC_CHK(db->view_output);
+        db->view_output_lens = (int32_t*)(calloc(db->cap_bam_recs,sizeof(int32_t)));
+        MALLOC_CHK(db->view_output_lens);
+        db->view_output_caps = (int32_t*)(calloc(db->cap_bam_recs,sizeof(int32_t)));
+        MALLOC_CHK(db->view_output_caps);
+    }
 
+    if (core->opt.subtool == METH_FREQ) {
+        db->freq_map = kh_init(str);
+        db->bedmethyl_out = 0;
+    }
+    
     db->means = (double*)calloc(db->cap_bam_recs,sizeof(double));
     MALLOC_CHK(db->means);
 
@@ -246,9 +253,15 @@ void mean_single(core_t* core,db_t* db, int32_t i){
 }
 
 void work_per_single_read(core_t* core,db_t* db, int32_t i){
-    view_single(core,db,i);
-    // parse_single(core,db,i);
-    //mean_single(core,db,i);
+
+    if(core->opt.subtool==VIEW){
+        view_single(core,db,i);
+    }else if(core->opt.subtool==METH_FREQ){
+        meth_freq_single(core,db,i);
+    }else{
+        ERROR("Unknown subtool %d", core->opt.subtool);
+    }
+
 }
 
 void mean_db(core_t* core, db_t* db) {
@@ -293,17 +306,54 @@ void process_db(core_t* core,db_t* db){
 void output_db(core_t* core, db_t* db) {
 
     double output_start = realtime();
+    khash_t(str) *freq_map = db->freq_map;
 
-    fprintf(stdout, "ref_contig\tref_pos\tstrand\tread_id\tread_pos\tmod_code\tmod_prob\n");
+    if (core->opt.subtool == VIEW) {
+        fprintf(stdout, "ref_contig\tref_pos\tstrand\tread_id\tread_pos\tmod_code\tmod_prob\n");
 
-    int32_t i = 0;
-    for (i = 0; i < db->n_bam_recs; i++) {
-        for(int32_t j=0;j<db->view_output_lens[i];j++){
-            view_t view = db->view_output[i][j];
-            fprintf(stdout, "%s\t%d\t%c\t%s\t%d\t%c\t%f\n", view.ref_contig, view.ref_pos, view.strand, view.read_id, view.read_pos, view.mod_code, view.mod_prob);
+        int32_t i = 0;
+        for (i = 0; i < db->n_bam_recs; i++) {
+            for(int32_t j=0;j<db->view_output_lens[i];j++){
+                view_t view = db->view_output[i][j];
+                fprintf(stdout, "%s\t%d\t%c\t%s\t%d\t%c\t%f\n", view.ref_contig, view.ref_pos, view.strand, view.read_id, view.read_pos, view.mod_code, view.mod_prob);
+            }
+            
+        }
+    } else if (core->opt.subtool == METH_FREQ) {
+        if(db->bedmethyl_out) {
+            // chrom, start, end, mod_code, n_called, strand, start, end, "255,0,0",  n_called, freq
+            khint_t k;
+            for (k = kh_begin(freq_map); k != kh_end(freq_map); ++k) {
+                if (kh_exist(freq_map, k)) {
+                    freq_t* freq = kh_value(freq_map, k);
+                    if((db->mod_code !='*' && freq->mod_code != db->mod_code ) || freq->is_aln_cpg == 0 ){
+                        continue;
+                    }
+                    fprintf(stdout, "%s\t%d\t%d\t%c\t%d\t%c\t%d\t%d\t255,0,0\t%d\t%f\n", freq->contig, freq->start, (freq->end+1), freq->mod_code, freq->n_called, freq->strand, freq->start, freq->end, freq->n_called, freq->freq);
+                }
+            }
+            
+        } else{
+            // contig, start, end, strand, n_called, n_mod, freq, mod_code
+            fprintf(stdout, "contig\tstart\tend\tstrand\tn_called\tn_mod\tfreq\tmod_code\n");
+            khint_t k;
+            for (k = kh_begin(freq_map); k != kh_end(freq_map); ++k) {
+                if (kh_exist(freq_map, k)) {
+                    freq_t* freq = kh_value(freq_map, k);
+                    if((db->mod_code !='*' && freq->mod_code != db->mod_code ) || freq->is_aln_cpg == 0 ){
+                        continue;
+                    }
+                    fprintf(stdout, "%s\t%d\t%d\t%c\t%d\t%d\t%f\t%c\n", freq->contig, freq->start, freq->end, freq->strand, freq->n_called, freq->n_mod, freq->freq, freq->mod_code);
+                }
+            }
         }
         
+        
+    } else {
+        ERROR("Unknown subtool %d", core->opt.subtool);
     }
+
+    
 
     core->sum_bytes += db->sum_bytes;
     core->total_reads += db->total_reads;
@@ -323,23 +373,44 @@ void free_db_tmp(db_t* db) {
 }
 
 /* completely free a data batch */
-void free_db(db_t* db) {
+void free_db(core_t* core, db_t* db) {
 
     int32_t i = 0;
     for (i = 0; i < db->cap_bam_recs; ++i) {
-
         if(db->bam_recs[i]!=NULL){
             bam_destroy1(db->bam_recs[i]);
         }
-        if(db->view_output[i]!=NULL){
-            free(db->view_output[i]);
-        }
     }
-    free(db->view_output);
-    free(db->view_output_lens);
-    free(db->view_output_caps);
+
+    khash_t(str) *freq_map = db->freq_map;
+
+    if (core->opt.subtool == METH_FREQ) {
+        khint_t k;
+        for (k = kh_begin(freq_map); k != kh_end(freq_map); ++k) {
+            if (kh_exist(freq_map, k)) {
+                freq_t* freq = kh_value(freq_map, k);
+                free(freq->contig);
+                free(freq);
+                char *key = (char *) kh_key(freq_map, k);
+                free(key);
+            }
+        }
+        kh_destroy(str, freq_map);
+    } else if (core->opt.subtool == VIEW) {
+        for (i = 0; i < db->cap_bam_recs; ++i) {
+            if(db->view_output[i]!=NULL){
+                free(db->view_output[i]);
+            }
+        }
+        free(db->view_output);
+        free(db->view_output_lens);
+        free(db->view_output_caps);
+    }
+
+    
     free(db->bam_recs);
     // free(db->mem_bytes);
+
     free(db->means);
     free(db);
 }

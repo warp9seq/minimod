@@ -36,6 +36,7 @@ SOFTWARE.
 #include <stdlib.h>
 #include <htslib/hts.h>
 #include <htslib/sam.h>
+#include "khash.h"
 
 #define MINIMOD_VERSION "0.1.0"
 
@@ -61,6 +62,9 @@ typedef struct {
     int32_t debug_break;
 
     char *region_str; //the region string in format chr:start-end
+
+    // subtool executed
+    int8_t subtool; //0:view, 1:meth-freq
 
 } opt_t;
 
@@ -90,6 +94,9 @@ typedef struct {
     int is_aln_cpg;
 } freq_t;
 
+KHASH_MAP_INIT_STR(str, freq_t *);
+enum subtool {VIEW=0, METH_FREQ=1};
+
 /* a batch of read data (dynamic data based on the reads) */
 typedef struct {
     //bam records
@@ -98,9 +105,20 @@ typedef struct {
     int32_t n_bam_recs;
 
     double *means;
+
+    // input parameters
+    double mod_thresh;
+    char *ref_file;
+    char mod_code;
+
+    // view output
     view_t ** view_output;
     int32_t *view_output_lens;
     int32_t *view_output_caps;
+
+    // meth-freq output
+    void* freq_map;
+    int8_t bedmethyl_out;
 
     //stats
     int64_t sum_bytes;
@@ -204,7 +222,7 @@ void output_db(core_t* core, db_t* db);
 void free_db_tmp(db_t* db);
 
 /* completely free a data batch */
-void free_db(db_t* db);
+void free_db(core_t* core, db_t* db);
 
 /* free the core data structure */
 void free_core(core_t* core,opt_t opt);

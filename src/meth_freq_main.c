@@ -83,8 +83,6 @@ static inline void print_help_msg(FILE *fp_help, opt_t opt){
 
 }
 
-
-
 int meth_freq_main(int argc, char* argv[]) {
 
     double realtime0 = realtime();
@@ -103,6 +101,7 @@ int meth_freq_main(int argc, char* argv[]) {
 
     opt_t opt;
     init_opt(&opt); //initialise options to defaults
+    opt.subtool = METH_FREQ;
 
     //parse the user args
     while ((c = getopt_long(argc, argv, optstring, long_options, &longindex)) >= 0) {
@@ -183,12 +182,68 @@ int meth_freq_main(int argc, char* argv[]) {
     //initialise the core data structure
     core_t* core = init_core(bamfile, opt, realtime0);
 
-    init_meth(reffile, mod_thresh);
+    // meth_freq(core);
+    // print_stats(stdout, bedmethyl_out);
+    // destroy_mod();
 
-    meth_freq(core);
-    print_stats(stdout, bedmethyl_out);
+    int32_t counter=0;
 
-    destroy_mod();
+    //initialise a databatch
+    db_t* db = init_db(core);
+
+    db->ref_file = reffile;
+    db->mod_thresh = mod_thresh;
+    db->bedmethyl_out = bedmethyl_out;
+    db->mod_code = 'm';
+
+    init_meth(db);
+
+    //load the first data batch
+
+    ret_status_t status = {core->opt.batch_size,core->opt.batch_size_bytes};
+    while (status.num_reads >= core->opt.batch_size || status.num_bytes>=core->opt.batch_size_bytes) {
+
+        //load a databatch
+        status = load_db(core, db);
+
+        fprintf(stderr, "[%s::%.3f*%.2f] %d Entries (%.1fM bytes) loaded\n", __func__,
+                realtime() - realtime0, cputime() / (realtime() - realtime0),
+                status.num_reads,status.num_bytes/(1000.0*1000.0));
+
+        //process the data batch
+        process_db(core, db);
+
+        fprintf(stderr, "[%s::%.3f*%.2f] %d Entries (%.1fM bytes) processed\n", __func__,
+                realtime() - realtime0, cputime() / (realtime() - realtime0),
+                status.num_reads,status.num_bytes/(1000.0*1000.0));
+
+        //write the output
+        output_db(core, db);
+
+        //free the temporary data
+        free_db_tmp(db);
+
+        if(opt.debug_break>0 && counter>=opt.debug_break){
+            break;
+        }
+        counter++;
+    }
+
+    // free the databatch
+    free_db(core, db);
+
+    fprintf(stderr, "[%s] total entries: %ld", __func__,(long)core->total_reads);
+    fprintf(stderr,"\n[%s] total bytes: %.1f M",__func__,core->sum_bytes/(float)(1000*1000));
+
+    fprintf(stderr, "\n[%s] Data loading time: %.3f sec", __func__,core->load_db_time);
+    fprintf(stderr, "\n[%s] Data processing time: %.3f sec", __func__,core->process_db_time);
+    if((core->opt.flag&MINIMOD_PRF)|| core->opt.flag & MINIMOD_ACC){
+            fprintf(stderr, "\n[%s]     - Parse time: %.3f sec",__func__, core->parse_time);
+            fprintf(stderr, "\n[%s]     - Calc time: %.3f sec",__func__, core->calc_time);
+    }
+    fprintf(stderr, "\n[%s] Data output time: %.3f sec", __func__,core->output_time);
+
+    fprintf(stderr,"\n");
 
     //free the core data structure
     free_core(core,opt);

@@ -98,6 +98,7 @@ int view_main(int argc, char* argv[]) {
 
     opt_t opt;
     init_opt(&opt); //initialise options to defaults
+    opt.subtool = VIEW;
 
     //parse the user args
     while ((c = getopt_long(argc, argv, optstring, long_options, &longindex)) >= 0) {
@@ -176,8 +177,6 @@ int view_main(int argc, char* argv[]) {
     //initialise the core data structure
     core_t* core = init_core(bamfile, opt, realtime0);
 
-    init_meth(reffile, mod_thresh);
-
     // simple_meth_view(core);
 
     // destroy_mod();
@@ -186,6 +185,12 @@ int view_main(int argc, char* argv[]) {
 
     //initialise a databatch
     db_t* db = init_db(core);
+
+    db->ref_file = reffile;
+    db->mod_thresh = mod_thresh;
+    db->mod_code = 'm';
+
+    init_meth(db);
 
     ret_status_t status = {core->opt.batch_size,core->opt.batch_size_bytes};
     while (status.num_reads >= core->opt.batch_size || status.num_bytes>=core->opt.batch_size_bytes) {
@@ -217,7 +222,7 @@ int view_main(int argc, char* argv[]) {
     }
 
     // free the databatch
-    free_db(db);
+    free_db(core, db);
 
     fprintf(stderr, "[%s] total entries: %ld", __func__,(long)core->total_reads);
     fprintf(stderr,"\n[%s] total bytes: %.1f M",__func__,core->sum_bytes/(float)(1000*1000));
