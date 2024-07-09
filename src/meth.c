@@ -629,21 +629,21 @@ static base_t * get_bases(mod_tag_t *mod_tags, uint32_t mods_len, uint8_t * ml, 
 
 }
 
-static freq_t ** get_stats(khash_t(str)* freq_map, uint32_t *meth_freqs_len){
-    uint32_t len = 0;
-    freq_t ** stats = (freq_t **)malloc(sizeof(freq_t *)*kh_size(freq_map));
-    MALLOC_CHK(stats);
-    for (khiter_t k = kh_begin(freq_map); k != kh_end(freq_map); ++k) {
-        if (kh_exist(freq_map, k)) {
-            freq_t * stat = kh_value(freq_map, k);
-            stat->freq = (double)stat->n_mod/stat->n_called;
-            stats[len] = stat;
-            len++;
-        }
-    }
-    *meth_freqs_len = len;
-    return stats;
-}
+// static freq_t ** get_stats(khash_t(str)* freq_map, uint32_t *meth_freqs_len){
+//     uint32_t len = 0;
+//     freq_t ** stats = (freq_t **)malloc(sizeof(freq_t *)*kh_size(freq_map));
+//     MALLOC_CHK(stats);
+//     for (khiter_t k = kh_begin(freq_map); k != kh_end(freq_map); ++k) {
+//         if (kh_exist(freq_map, k)) {
+//             freq_t * stat = kh_value(freq_map, k);
+//             stat->freq = (double)stat->n_mod/stat->n_called;
+//             stats[len] = stat;
+//             len++;
+//         }
+//     }
+//     *meth_freqs_len = len;
+//     return stats;
+// }
 
 // static void print_meth_call_hdr(){
 //     printf("ref_contig\tref_pos\tstrand\tread_id\tread_pos\tmod_code\tmod_prob\n");

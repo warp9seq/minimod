@@ -90,8 +90,8 @@ int view_main(int argc, char* argv[]) {
     int longindex = 0;
     int32_t c = -1;
 
-    const char *bamfile = NULL;
-    const char *reffile = NULL;
+    char *bamfile = NULL;
+    char *reffile = NULL;
     double mod_thresh = 0.0;
 
     FILE *fp_help = stderr;
