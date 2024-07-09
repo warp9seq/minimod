@@ -38,24 +38,26 @@ diff -q test/expected/test2.tsv test/tmp/test2.tsv || die "Test 2: diff failed"
 
 echo "Test 3: meth-freq hifi"
 ex  ./minimod meth-freq -r test/tmp/genome_chr22.fa test/data/example-hifi.bam > test/tmp/test3.tsv  || die "Test 3: Running the tool failed"
-sort -k1,1 -k2,2n test/expected/test3.tsv > test/expected/test3.tsv.sorted
-sort -k1,1 -k2,2n test/tmp/test3.tsv > test/tmp/test3.tsv.sorted
+sort -k1,1 -k2,2n -k4,4 test/expected/test3.tsv > test/expected/test3.tsv.sorted
+sort -k1,1 -k2,2n -k4,4 test/tmp/test3.tsv > test/tmp/test3.tsv.sorted
 diff -q test/expected/test3.tsv.sorted test/tmp/test3.tsv.sorted || die "Test 3: tsv diff failed"
 
+echo "Test 4: meth-freq hifi bedmethyl output"
 ex  ./minimod meth-freq -b -r test/tmp/genome_chr22.fa test/data/example-hifi.bam > test/tmp/test3.bedmethyl  || die "Test 3: Running the tool failed"
-sort -k1,1 -k2,2n test/expected/test3.bedmethyl > test/expected/test3.bedmethyl.sorted
-sort -k1,1 -k2,2n test/tmp/test3.bedmethyl > test/tmp/test3.bedmethyl.sorted
+sort -k1,1 -k2,2n -k6,6 test/expected/test3.bedmethyl > test/expected/test3.bedmethyl.sorted
+sort -k1,1 -k2,2n -k6,6 test/tmp/test3.bedmethyl > test/tmp/test3.bedmethyl.sorted
 diff -q test/expected/test3.bedmethyl.sorted test/tmp/test3.bedmethyl.sorted || die "Test 3: bedmethyl diff failed"
 
-echo "Test 4: meth-freq ont"
+echo "Test 5: meth-freq ont"
 ex  ./minimod meth-freq -r test/tmp/genome_chr22.fa test/data/example-ont.bam > test/tmp/test4.tsv || die "Test 4: Running the tool failed"
-sort -k1,1 -k2,2n test/expected/test4.tsv > test/expected/test4.tsv.sorted
-sort -k1,1 -k2,2n test/tmp/test4.tsv > test/tmp/test4.tsv.sorted
+sort -k1,1 -k2,2n -k4,4 test/expected/test4.tsv > test/expected/test4.tsv.sorted
+sort -k1,1 -k2,2n -k4,4 test/tmp/test4.tsv > test/tmp/test4.tsv.sorted
 diff -q test/expected/test4.tsv.sorted test/tmp/test4.tsv.sorted || die "Test 4: tsv diff failed"
 
+echo "Test 6: meth-freq ont bedmethyl output"
 ex  ./minimod meth-freq -b -r test/tmp/genome_chr22.fa test/data/example-ont.bam > test/tmp/test4.bedmethyl || die "Test 4: Running the tool failed"
-sort -k1,1 -k2,2n test/expected/test4.bedmethyl > test/expected/test4.bedmethyl.sorted
-sort -k1,1 -k2,2n test/tmp/test4.bedmethyl > test/tmp/test4.bedmethyl.sorted
+sort -k1,1 -k2,2n -k6,6 test/expected/test4.bedmethyl > test/expected/test4.bedmethyl.sorted
+sort -k1,1 -k2,2n -k6,6 test/tmp/test4.bedmethyl > test/tmp/test4.bedmethyl.sorted
 diff -q test/expected/test4.bedmethyl.sorted test/tmp/test4.bedmethyl.sorted || die "Test 4: bedmethyl diff failed"
 
 echo "ALL TESTS PASSED !"
