@@ -110,9 +110,20 @@ jobs:
       run: make CC=icc -j8
     - name: test
       run: make test
-  os_x_11:
-    name: OSX 11
-    runs-on: macos-11
+  # os_x_11:
+  #   name: OSX 11
+  #   runs-on: macos-11
+  #   steps:
+  #   - uses: actions/checkout@v2
+  #   - name: install htslib
+  #     run: ./scripts/install-hts.sh
+  #   - name: build
+  #     run: make -j8
+  #   - name: test
+  #     run: make test
+  os_x_12:
+    name: OSX 12
+    runs-on: macos-12
     steps:
     - uses: actions/checkout@v2
     - name: install htslib
@@ -121,9 +132,9 @@ jobs:
       run: make -j8
     - name: test
       run: make test
-  os_x_12:
-    name: OSX 12
-    runs-on: macos-12
+  os_x_latest:
+    name: OSX Latest
+    runs-on: macos-latest
     steps:
     - uses: actions/checkout@v2
     - name: install htslib
