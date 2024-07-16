@@ -6,6 +6,9 @@ on:
   pull_request:
     branches: [ '*' ]
 
+env:
+  ACTIONS_ALLOW_UNSECURE_COMMANDS: true
+
 jobs:
   ubuntu_14:
     name: Ubuntu 14
