@@ -34,11 +34,11 @@ if [ ! -f test/tmp/genome_chr22.fa ]; then
 fi
 
 echo -e "${BLUE}Test 1: view hifi${NC}"
-ex  ./minimod view -r test/tmp/genome_chr22.fa test/data/example-hifi.bam > test/tmp/test1.tsv  || die "Test 1: Running the tool failed"
+ex  ./minimod view -r test/tmp/genome_chr22.fa -m 0.0 test/data/example-hifi.bam > test/tmp/test1.tsv  || die "Test 1: Running the tool failed"
 diff -q test/expected/test1.tsv test/tmp/test1.tsv || die "Test 1: diff failed"
 
 echo -e "${BLUE}Test 2: view ont${NC}"
-ex  ./minimod view -r test/tmp/genome_chr22.fa test/data/example-ont.bam > test/tmp/test2.tsv || die "Test 2: Running the tool failed"
+ex  ./minimod view -r test/tmp/genome_chr22.fa -m 0.0 test/data/example-ont.bam > test/tmp/test2.tsv || die "Test 2: Running the tool failed"
 diff -q test/expected/test2.tsv test/tmp/test2.tsv || die "Test 2: diff failed"
 
 echo -e "${BLUE}Test 3: meth-freq hifi${NC}"

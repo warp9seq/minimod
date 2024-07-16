@@ -32,6 +32,7 @@ SOFTWARE.
 #include "error.h"
 #include "misc.h"
 #include "meth.h"
+#include "ref.h"
 #include <assert.h>
 #include <getopt.h>
 #include <pthread.h>
@@ -42,7 +43,7 @@ SOFTWARE.
 
 static struct option long_options[] = {
     {"reference", required_argument, 0, 'r'},      //0 reference genome fasta file [required]
-    {"mod_thresh", required_argument, 0, 'm'},     //1 min modification threshold 0.0 to 1.0 [0.0]
+    {"mod_thresh", required_argument, 0, 'm'},     //1 min modification threshold 0.0 to 1.0 [0.2]
     {"threads", required_argument, 0, 't'},        //2 number of threads [8]
     {"batchsize", required_argument, 0, 'K'},      //3 batchsize - number of reads loaded at once [512]
     {"max-bytes", required_argument, 0, 'B'},      //4 batchsize - number of bytes loaded at once
@@ -91,8 +92,6 @@ int view_main(int argc, char* argv[]) {
     int32_t c = -1;
 
     char *bamfile = NULL;
-    char *reffile = NULL;
-    double mod_thresh = 0.0;
 
     FILE *fp_help = stderr;
 
@@ -130,9 +129,9 @@ int view_main(int argc, char* argv[]) {
         } else if (c=='h'){
             fp_help = stdout;
         } else if (c=='r'){
-            reffile = optarg;
+            opt.ref_file = optarg;
         } else if (c=='m'){
-            mod_thresh = atof(optarg);
+            opt.mod_thresh = atof(optarg);
         } else if(c == 0 && longindex == 9){ //debug break
             opt.debug_break = atoi(optarg);
         } else if(c == 0 && longindex == 10){ //sectional benchmark todo : warning for gpu mode
@@ -166,7 +165,7 @@ int view_main(int argc, char* argv[]) {
         exit(EXIT_FAILURE);
     }
 
-    if (reffile == NULL) {
+    if (opt.ref_file == NULL) {
         print_help_msg(fp_help, opt);
         if(fp_help == stdout){
             exit(EXIT_SUCCESS);
@@ -174,9 +173,10 @@ int view_main(int argc, char* argv[]) {
         exit(EXIT_FAILURE);
     }
 
+    load_ref(opt.ref_file);
+
     //initialise the core data structure
     core_t* core = init_core(bamfile, opt, realtime0);
-
     // simple_meth_view(core);
 
     // destroy_mod();
@@ -185,12 +185,6 @@ int view_main(int argc, char* argv[]) {
 
     //initialise a databatch
     db_t* db = init_db(core);
-
-    db->ref_file = reffile;
-    db->mod_thresh = mod_thresh;
-    db->mod_code = 'm';
-
-    init_meth(db);
 
     ret_status_t status = {core->opt.batch_size,core->opt.batch_size_bytes};
     while (status.num_reads >= core->opt.batch_size || status.num_bytes>=core->opt.batch_size_bytes) {
@@ -212,8 +206,8 @@ int view_main(int argc, char* argv[]) {
         //output print
         output_db(core, db);
 
-        //free temporary
-        free_db_tmp(db);
+        // //free temporary
+        // free_db_tmp(db);
 
         if(opt.debug_break==counter){
             break;

@@ -34,6 +34,7 @@ SOFTWARE.
 #include "error.h"
 #include "misc.h"
 #include "meth.h"
+#include "ref.h"
 #include <assert.h>
 #include <getopt.h>
 #include <pthread.h>
@@ -93,9 +94,6 @@ int meth_freq_main(int argc, char* argv[]) {
     int32_t c = -1;
 
     char *bamfile = NULL;
-    char *reffile = NULL;
-    int bedmethyl_out = 0;
-    double mod_thresh = 0.2;
 
     FILE *fp_help = stderr;
 
@@ -133,11 +131,11 @@ int meth_freq_main(int argc, char* argv[]) {
         } else if (c=='h'){
             fp_help = stdout;
         } else if (c=='r'){
-            reffile = optarg;
+            opt.ref_file = optarg;
         } else if (c=='m'){
-            mod_thresh = atof(optarg);
+            opt.mod_thresh = atof(optarg);
         } else if (c=='b'){
-            bedmethyl_out = 1;
+            opt.bedmethyl_out = 1;
         }else if(c == 0 && longindex == 10){ //debug break
             opt.debug_break = atoi(optarg);
         } else if(c == 0 && longindex == 11){ //sectional benchmark todo : warning for gpu mode
@@ -171,13 +169,15 @@ int meth_freq_main(int argc, char* argv[]) {
         exit(EXIT_FAILURE);
     }
 
-    if (reffile == NULL) {
+    if (opt.ref_file == NULL) {
         print_help_msg(fp_help, opt);
         if(fp_help == stdout){
             exit(EXIT_SUCCESS);
         }
         exit(EXIT_FAILURE);
     }
+
+    load_ref(opt.ref_file);
 
     //initialise the core data structure
     core_t* core = init_core(bamfile, opt, realtime0);
@@ -190,13 +190,6 @@ int meth_freq_main(int argc, char* argv[]) {
 
     //initialise a databatch
     db_t* db = init_db(core);
-
-    db->ref_file = reffile;
-    db->mod_thresh = mod_thresh;
-    db->bedmethyl_out = bedmethyl_out;
-    db->mod_code = 'm';
-
-    init_meth(db);
 
     //load the first data batch
 
@@ -220,14 +213,16 @@ int meth_freq_main(int argc, char* argv[]) {
         //write the output
         output_db(core, db);
 
-        //free the temporary data
-        free_db_tmp(db);
+        // //free the temporary data
+        // free_db_tmp(db);
 
         if(opt.debug_break>0 && counter>=opt.debug_break){
             break;
         }
         counter++;
     }
+
+    output_core(core);
 
     // free the databatch
     free_db(core, db);

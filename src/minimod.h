@@ -37,6 +37,7 @@ SOFTWARE.
 #include <htslib/hts.h>
 #include <htslib/sam.h>
 #include "khash.h"
+#include <pthread.h>
 
 #define MINIMOD_VERSION "0.1.0"
 
@@ -63,8 +64,12 @@ typedef struct {
 
     char *region_str; //the region string in format chr:start-end
 
-    // subtool executed
+    int8_t bedmethyl_out; //output in bedMethyl format, only for meth-freq
+    double mod_thresh;
+    char mod_code;
+
     int8_t subtool; //0:view, 1:meth-freq
+    char *ref_file;
 
 } opt_t;
 
@@ -79,7 +84,7 @@ typedef struct {
 } view_t;
 
 typedef struct {
-    char * contig;
+    const char * contig;
     int start;
     int end;
     char strand;
@@ -94,7 +99,7 @@ typedef struct {
     int is_aln_cpg;
 } freq_t;
 
-KHASH_MAP_INIT_STR(str, freq_t *);
+KHASH_MAP_INIT_STR(freqm, freq_t *);
 enum subtool {VIEW=0, METH_FREQ=1};
 
 /* a batch of read data (dynamic data based on the reads) */
@@ -105,20 +110,10 @@ typedef struct {
     int32_t n_bam_recs;
 
     double *means;
-
-    // input parameters
-    double mod_thresh;
-    char *ref_file;
-    char mod_code;
-
     // view output
     view_t ** view_output;
     int32_t *view_output_lens;
     int32_t *view_output_caps;
-
-    // meth-freq output
-    void* freq_map;
-    int8_t bedmethyl_out;
 
     //stats
     int64_t sum_bytes;
@@ -162,6 +157,11 @@ typedef struct {
     //stats //set by output_db
     int64_t sum_bytes;
     int64_t total_reads; //total number mapped entries in the bam file (after filtering based on flags, mapq etc)
+
+
+    //output maps
+    khash_t(freqm)* freq_map;
+    pthread_mutex_t freq_map_lock;
 
 } core_t;
 
@@ -217,6 +217,9 @@ void process_single(core_t* core, db_t* db, int32_t i);
 
 /* write the output for a processed data batch */
 void output_db(core_t* core, db_t* db);
+
+/* write the output for a all processed data batches */
+void output_core(core_t* core);
 
 /* partially free a data batch - only the read dependent allocations are freed */
 void free_db_tmp(db_t* db);

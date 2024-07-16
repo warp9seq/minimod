@@ -28,6 +28,9 @@ SOFTWARE.
 ******************************************************************************/
 #include "minimod.h"
 
-void init_meth(db_t* db);
+void init_meth(core_t* core);
 void view_single(core_t* core, db_t* db, int32_t i);
 void meth_freq_single(core_t* core, db_t* db, int32_t i);
+void print_view_output(core_t* core, db_t* db);
+void print_freq_output(core_t* core);
+void destroy_freq_map(khash_t(freqm)* freq_map);

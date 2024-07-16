@@ -26,16 +26,16 @@ endif
 $(BINARY): htslib/libhts.a $(OBJ)
 	$(CC) $(CFLAGS) $(OBJ) htslib/libhts.a $(LDFLAGS) -o $@
 
-$(BUILD_DIR)/main.o: src/main.c
+$(BUILD_DIR)/main.o: src/main.c src/minimod.h
 	$(CC) $(CFLAGS) $(CPPFLAGS) $< -c -o $@
 
 $(BUILD_DIR)/minimod.o: src/minimod.c src/misc.h src/error.h src/minimod.h
 	$(CC) $(CFLAGS) $(CPPFLAGS) $< -c -o $@
 
-$(BUILD_DIR)/view_main.o: src/view_main.c src/error.h
+$(BUILD_DIR)/view_main.o: src/view_main.c src/error.h src/minimod.h
 	$(CC) $(CFLAGS) $(CPPFLAGS) $< -c -o $@
 
-$(BUILD_DIR)/meth_freq_main.o: src/meth_freq_main.c src/error.h
+$(BUILD_DIR)/meth_freq_main.o: src/meth_freq_main.c src/error.h src/minimod.h
 	$(CC) $(CFLAGS) $(CPPFLAGS) $< -c -o $@
 
 $(BUILD_DIR)/thread.o: src/thread.c src/minimod.h

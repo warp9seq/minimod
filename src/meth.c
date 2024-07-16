@@ -40,6 +40,7 @@ SOFTWARE.
 #include <stdarg.h>
 #include <ctype.h>
 #include <stdbool.h>
+#include <pthread.h>
 
 #define INIT_MODS 100
 #define INIT_SKIP_COUNTS 100
@@ -66,7 +67,6 @@ typedef struct {
     int mod_strand;
     double mod_prob;
     char mod_base;
-    void * base;
 } mod_t;
 
 typedef struct {
@@ -146,6 +146,70 @@ static const char base_complement_lookup[256] = {
     ['u'] = 'a',
     ['n'] = 'n',
 };
+
+
+/*
+if((print_mod_code !='*' && mod.mod_code != print_mod_code) || base.ref_pos < 0 || mod.mod_prob < db->mod_thresh){
+//                 continue;
+//             }
+*/
+void print_view_output(core_t* core, db_t* db) {
+    fprintf(stdout, "ref_contig\tref_pos\tstrand\tread_id\tread_pos\tmod_code\tmod_prob\n");
+
+    int32_t i = 0;
+    for (i = 0; i < db->n_bam_recs; i++) {
+        for(int32_t j=0;j<db->view_output_lens[i];j++){
+            view_t view = db->view_output[i][j];
+            fprintf(stdout, "%s\t%d\t%c\t%s\t%d\t%c\t%f\n", view.ref_contig, view.ref_pos, view.strand, view.read_id, view.read_pos, view.mod_code, view.mod_prob);
+        }
+        
+    }
+}
+
+void print_freq_output(core_t* core) {
+    khash_t(freqm) *freq_map = core->freq_map;
+    if(core->opt.bedmethyl_out) {
+        // chrom, start, end, mod_code, n_called, strand, start, end, "255,0,0",  n_called, freq
+        khint_t k;
+        for (k = kh_begin(freq_map); k != kh_end(freq_map); ++k) {
+            if (kh_exist(freq_map, k)) {
+                freq_t* freq = kh_value(freq_map, k);
+                if((core->opt.mod_code !='*' && freq->mod_code != core->opt.mod_code ) || freq->is_aln_cpg == 0 ){
+                    continue;
+                }
+                fprintf(stdout, "%s\t%d\t%d\t%c\t%d\t%c\t%d\t%d\t255,0,0\t%d\t%f\n", freq->contig, freq->start, (freq->end+1), freq->mod_code, freq->n_called, freq->strand, freq->start, freq->end, freq->n_called, freq->freq);
+            }
+        }
+        
+    } else{
+        // contig, start, end, strand, n_called, n_mod, freq, mod_code
+        fprintf(stdout, "contig\tstart\tend\tstrand\tn_called\tn_mod\tfreq\tmod_code\n");
+        khint_t k;
+        for (k = kh_begin(freq_map); k != kh_end(freq_map); ++k) {
+            if (kh_exist(freq_map, k)) {
+                freq_t* freq = kh_value(freq_map, k);
+                if((core->opt.mod_code!='*' && freq->mod_code != core->opt.mod_code) || freq->is_aln_cpg == 0 ){
+                    continue;
+                }
+                fprintf(stdout, "%s\t%d\t%d\t%c\t%d\t%d\t%f\t%c\n", freq->contig, freq->start, freq->end, freq->strand, freq->n_called, freq->n_mod, freq->freq, freq->mod_code);
+            }
+        }
+    }
+}
+
+void destroy_freq_map(khash_t(freqm)* freq_map){
+    khint_t k;
+    for (k = kh_begin(freq_map); k != kh_end(freq_map); k++) {
+        if (kh_exist(freq_map, k)) {
+            char *key = (char *) kh_key(freq_map, k);
+            freq_t* freq = kh_value(freq_map, k);
+            free((char*)freq->contig);
+            free(freq);
+            free(key);
+        }
+    }
+    kh_destroy(freqm, freq_map);
+}
 
 char* make_key(const char *chrom, int start, int end, char mod_code, char strand){
     int start_strlen = snprintf(NULL, 0, "%d", start);
@@ -312,7 +376,9 @@ static mod_tag_t *extract_mods(const char *mm_string, uint32_t *len_mods) {
 
 }
 
-static void update_freqs_output(base_t *bases, db_t* db, uint32_t seq_len, khash_t(str)* stats){
+// freq_map is used by multiple threads, so need to lock it
+static void update_freq_map(base_t *bases, core_t* core, uint32_t seq_len){
+    pthread_mutex_lock(&(core->freq_map_lock));
     for(int i=0;i<seq_len;i++){
         base_t base = bases[i];
         if(base.is_aln_cpg == 0){
@@ -321,39 +387,42 @@ static void update_freqs_output(base_t *bases, db_t* db, uint32_t seq_len, khash
         for(int j=0;j<base.mods_len;j++){
             mod_t mod = base.mods[j];
             char *key = make_key(base.chrom, base.ref_pos, base.ref_pos, mod.mod_code, base.strand);
-            khiter_t k = kh_get(str, stats, key);
-            if (k == kh_end(stats)) {
-                freq_t * stat = (freq_t *)malloc(sizeof(freq_t));
-                MALLOC_CHK(stat);
-                stat->contig = (char *)malloc(strlen(base.chrom)+1);
-                MALLOC_CHK(stat->contig);
-                strcpy(stat->contig, base.chrom);
-                stat->start = base.ref_pos;
-                stat->end = base.ref_pos;
-                stat->mod_code = mod.mod_code;
+            khash_t(freqm) *freq_map = core->freq_map;
+            khiter_t k = kh_get(freqm, freq_map, key);
+            if (k == kh_end(freq_map)) { // not found, add to map
+                freq_t * freq = (freq_t *)malloc(sizeof(freq_t));
+                MALLOC_CHK(freq);
+                char* contig = (char *)calloc(strlen(base.chrom)+1, sizeof(char));
+                MALLOC_CHK(contig);
+                strcpy(contig, base.chrom);
+                freq->contig = contig;
+                freq->start = base.ref_pos;
+                freq->end = base.ref_pos;
+                freq->mod_code = mod.mod_code;
 
-                stat->ref_base = base.ref_base;
-                stat->n_called = base.is_called[mod_code_idx_lookup[(int)mod.mod_code]];
-                stat->n_skipped = base.is_skipped[mod_code_idx_lookup[(int)mod.mod_code]];
-                stat->n_mod = mod.mod_prob >= db->mod_thresh ? 1 : 0;
-                stat->strand = mod.mod_strand;
-                stat->depth = base.depth;
-                stat->is_aln_cpg = base.is_aln_cpg;
-                stat->freq = (double)stat->n_mod/stat->n_called;
+                freq->ref_base = base.ref_base;
+                freq->n_called = base.is_called[mod_code_idx_lookup[(int)mod.mod_code]];
+                freq->n_skipped = base.is_skipped[mod_code_idx_lookup[(int)mod.mod_code]];
+                freq->n_mod = mod.mod_prob >= core->opt.mod_thresh ? 1 : 0;
+                freq->strand = mod.mod_strand;
+                freq->depth = base.depth;
+                freq->is_aln_cpg = base.is_aln_cpg;
+                freq->freq = (double)freq->n_mod/freq->n_called;
                 int ret;
-                k = kh_put(str, stats, key, &ret);
-                kh_value(stats, k) = stat;
-            } else {
+                k = kh_put(freqm, freq_map, key, &ret);
+                kh_value(freq_map, k) = freq;
+            } else { // found, update the values
                 free(key);
-                freq_t * stat = kh_value(stats, k);
-                stat->n_called += base.is_called[mod_code_idx_lookup[(int)mod.mod_code]];
-                stat->n_skipped += base.is_skipped[mod_code_idx_lookup[(int)mod.mod_code]];
-                stat->n_mod += mod.mod_prob >= db->mod_thresh ? 1 : 0;
-                stat->depth += base.depth;
-                stat->freq = (double)stat->n_mod/stat->n_called;
+                freq_t * freq = kh_value(freq_map, k);
+                freq->n_called += base.is_called[mod_code_idx_lookup[(int)mod.mod_code]];
+                freq->n_skipped += base.is_skipped[mod_code_idx_lookup[(int)mod.mod_code]];
+                freq->n_mod += mod.mod_prob >= core->opt.mod_thresh ? 1 : 0;
+                freq->depth += base.depth;
+                freq->freq = (double)freq->n_mod/freq->n_called;
             }
         }
     }
+    pthread_mutex_unlock(&(core->freq_map_lock));
 }
 
 static int * get_aln(bam_hdr_t *hdr, bam1_t *record){
@@ -596,7 +665,6 @@ static base_t * get_bases(mod_tag_t *mod_tags, uint32_t mods_len, uint8_t * ml, 
                     MALLOC_CHK(base.mods);
                 }
 
-                base.mods[mod_i].base = &bases[read_pos];
                 base.mods[mod_i].mod_code = mod.mod_codes[k];
                 base.mods[mod_i].mod_strand = mod.strand;
                 base.mods[mod_i].mod_prob = mod_prob;
@@ -629,31 +697,7 @@ static base_t * get_bases(mod_tag_t *mod_tags, uint32_t mods_len, uint8_t * ml, 
 
 }
 
-// static freq_t ** get_stats(khash_t(str)* freq_map, uint32_t *meth_freqs_len){
-//     uint32_t len = 0;
-//     freq_t ** stats = (freq_t **)malloc(sizeof(freq_t *)*kh_size(freq_map));
-//     MALLOC_CHK(stats);
-//     for (khiter_t k = kh_begin(freq_map); k != kh_end(freq_map); ++k) {
-//         if (kh_exist(freq_map, k)) {
-//             freq_t * stat = kh_value(freq_map, k);
-//             stat->freq = (double)stat->n_mod/stat->n_called;
-//             stats[len] = stat;
-//             len++;
-//         }
-//     }
-//     *meth_freqs_len = len;
-//     return stats;
-// }
-
-// static void print_meth_call_hdr(){
-//     printf("ref_contig\tref_pos\tstrand\tread_id\tread_pos\tmod_code\tmod_prob\n");
-// }
-
-// static void print_meth_freq_hdr(FILE * output_file){
-//     fprintf(output_file, "contig\tstart\tend\tstrand\tn_called\tn_mod\tfreq\tmod_code\n");
-// }
-
-static void update_view_output(base_t *bases, db_t* db, uint32_t seq_len, bam_hdr_t *hdr, bam1_t *record, enum MOD_CODES print_mod_code, int32_t i){
+static void update_view_output(base_t *bases, core_t* core, db_t* db, uint32_t seq_len, bam_hdr_t *hdr, bam1_t *record, int32_t i){
 
     int32_t tid = record->core.tid;
     assert(tid < hdr->n_targets);
@@ -671,14 +715,17 @@ static void update_view_output(base_t *bases, db_t* db, uint32_t seq_len, bam_hd
         for(int j=0;j<bases[seq_i].mods_len;j++){
             mod_t mod = bases[seq_i].mods[j];
             base_t base = bases[seq_i];
-            if((print_mod_code !='*' && mod.mod_code != print_mod_code) || base.ref_pos < 0 || mod.mod_prob < db->mod_thresh){
+            if((core->opt.mod_code !='*' && mod.mod_code != core->opt.mod_code) || base.ref_pos < 0 || mod.mod_prob < core->opt.mod_thresh){
                 continue;
             }
             // fprintf(stdout, "%s\t%d\t%c\t%s\t%d\t%c\t%f\n", base.chrom, base.ref_pos, mod.mod_strand, qname, seq_i, mod.mod_code, mod.mod_prob);
             db->view_output[i][view_i].ref_contig = base.chrom;
             db->view_output[i][view_i].ref_pos = base.ref_pos;
             db->view_output[i][view_i].strand = mod.mod_strand;
-            db->view_output[i][view_i].read_id = qname;
+            char * read_id = (char *)malloc(strlen(qname)+1);
+            MALLOC_CHK(read_id);
+            strcpy(read_id, qname);
+            db->view_output[i][view_i].read_id = read_id;
             db->view_output[i][view_i].read_pos = seq_i;
             db->view_output[i][view_i].mod_code = mod.mod_code;
             db->view_output[i][view_i].mod_prob = mod.mod_prob;
@@ -696,52 +743,6 @@ static void update_view_output(base_t *bases, db_t* db, uint32_t seq_len, bam_hd
     db->view_output_lens[i] = view_i;
 }
 
-// static void print_mods(base_t *bases, uint32_t seq_len, bam_hdr_t *hdr, bam1_t *record, enum MOD_CODES print_mod_code){
-
-//     int32_t tid = record->core.tid;
-//     assert(tid < hdr->n_targets);
-//     const char *qname = bam_get_qname(record);
-
-//     // uint16_t flag = record->core.flag;
-
-
-//     for(int i=0;i<seq_len;i++){
-//         for(int j=0;j<bases[i].mods_len;j++){
-//             mod_t mod = bases[i].mods[j];
-//             base_t base = bases[i];
-//             if((print_mod_code !='*' && mod.mod_code != print_mod_code) || base.ref_pos < 0 || mod.mod_prob < db->mod_thresh){
-//                 continue;
-//             }
-//             fprintf(stdout, "%s\t%d\t%c\t%s\t%d\t%c\t%f\n", base.chrom, base.ref_pos, mod.mod_strand, qname, i, mod.mod_code, mod.mod_prob);
-//         }
-//     }
-// }
-
-// static void print_meth_freq(FILE * output_file, freq_t ** stats, uint32_t seq_len, enum MOD_CODES print_mod_code){
-//     print_meth_freq_hdr(output_file);
-//     for(int i=0;i<seq_len;i++){
-//         freq_t * stat = stats[i];
-//         if((print_mod_code !='*' && stat->mod_code != print_mod_code) || stat->is_aln_cpg == 0 ){
-//             continue;
-//         }
-//         fprintf(output_file, "%s\t%d\t%d\t%c\t%d\t%d\t%f\t%c\n", stat->contig, stat->start, stat->end, stat->strand, stat->n_called, stat->n_mod, stat->freq, stat->mod_code);
-//     }
-
-// }
-
-// static void print_meth_freq_bedmethyl(FILE * output_file, freq_t ** stats, uint32_t seq_len, enum MOD_CODES print_mod_code){
-//     for(int i=0;i<seq_len;i++){
-//         freq_t * stat = stats[i];
-//         if((print_mod_code !='*' && stat->mod_code != print_mod_code) || stat->is_aln_cpg == 0 ){
-//             continue;
-//         }
-
-//         // chrom, start, end, mod_code, n_called, strand, start, end, "255,0,0",  n_called, freq
-//         fprintf(output_file, "%s\t%d\t%d\t%c\t%d\t%c\t%d\t%d\t255,0,0\t%d\t%f\n", stat->contig, stat->start, (stat->end + 1), stat->mod_code, stat->n_called, stat->strand, stat->start, stat->end, stat->n_called, stat->freq);
-//     }
-
-// }
-
 static void free_bases(base_t *bases, uint32_t len){
     for(int i=0;i<len;i++){
         free(bases[i].mods);
@@ -750,19 +751,6 @@ static void free_bases(base_t *bases, uint32_t len){
     }
     free(bases);
 }
-
-// static void free_freq_map(khash_t(str)* freq_map){
-//     //free keys
-//     for (khiter_t k = kh_begin(freq_map); k != kh_end(freq_map); ++k) {
-//         if (kh_exist(freq_map, k)) {
-//             freq_t * stat = kh_value(freq_map, k);
-//             free((char *) stat->contig);
-//             free((char *)kh_key(freq_map, k));
-//             free(kh_value(freq_map, k));
-//         }
-//     }
-//     kh_destroy(str, freq_map);
-// }
 
 static void free_mod_tags(mod_tag_t *mod_tags, uint32_t len){
     for(int i=0;i<len;i++){
@@ -797,7 +785,7 @@ void view_single(core_t* core, db_t* db, int32_t i) {
 
     int * aln_pairs = get_aln(hdr, record);
     base_t * bases = get_bases(mod_tags, mods_len, ml, ml_len, aln_pairs, hdr, record);
-    update_view_output(bases, db, seq_len, hdr, record, '*', i);
+    update_view_output(bases, core, db, seq_len, hdr, record, i);
 
     free_bases(bases, seq_len);
     free(aln_pairs);
@@ -805,49 +793,6 @@ void view_single(core_t* core, db_t* db, int32_t i) {
     free(ml);
 
 }
-
-// void simple_meth_view(core_t* core){
-
-//     print_meth_call_hdr();
-    
-//     bam1_t *record = bam_init1();
-//     while(sam_itr_next(core->bam_fp, core->itr, record) >= 0){
-
-//         uint32_t seq_len = record->core.l_qseq;
-
-//         if(seq_len==0){
-//             continue;
-//         }
-
-//         const char *mm = get_mm_tag_ptr(record);
-//         uint32_t ml_len;
-//         uint8_t *ml = get_ml_tag(record, &ml_len);
-
-//         if(ml == NULL || ml_len <= 0){
-//             free(ml);
-//             continue;
-//         }
-
-//         uint32_t mods_len = 0;
-//         mod_tag_t *mod_tags = extract_mods(mm, &mods_len);
-
-//         bam_hdr_t *hdr = core->bam_hdr;
-
-//         int * aln_pairs = get_aln(hdr, record);
-//         base_t * bases = get_bases(mod_tags, mods_len, ml, ml_len, aln_pairs, hdr, record);
-        
-//         print_mods(bases, seq_len, hdr, record, '*');
-
-//         free_bases(bases, seq_len);
-//         free(aln_pairs);
-//         free_mod_tags(mod_tags, mods_len);
-//         free(ml);
-
-//     }
-    
-//     bam_destroy1(record);
-//     return;
-// }
 
 void meth_freq_single(core_t* core, db_t* db, int32_t i) {
     bam1_t *record = db->bam_recs[i];
@@ -874,7 +819,7 @@ void meth_freq_single(core_t* core, db_t* db, int32_t i) {
 
     int * aln_pairs = get_aln(hdr, record);
     base_t * bases = get_bases(mod_tags, mods_len, ml, ml_len, aln_pairs, hdr, record);
-    update_freqs_output(bases, db, seq_len, db->freq_map);
+    update_freq_map(bases, core, seq_len);
 
     free_bases(bases, seq_len);
     free(aln_pairs);
@@ -882,67 +827,3 @@ void meth_freq_single(core_t* core, db_t* db, int32_t i) {
     free(ml);
 
 }
-
-// void meth_freq(core_t* core){
-
-//     bam1_t *record = bam_init1();
-//     while(sam_itr_next(core->bam_fp, core->itr, record) >= 0){
-
-//         uint32_t seq_len = record->core.l_qseq;
-
-//         if(seq_len==0){
-//             continue;
-//         }
-
-//         const char *mm = get_mm_tag_ptr(record);
-//         uint32_t ml_len;
-//         uint8_t *ml = get_ml_tag(record, &ml_len);
-
-//         if(ml == NULL || ml_len <= 0){
-//             free(ml);
-//             continue;
-//         }
-
-//         uint32_t mods_len = 0;
-//         mod_tag_t *mod_tags = extract_mods(mm, &mods_len);
-
-//         bam_hdr_t *hdr = core->bam_hdr;
-
-//         int * aln_pairs = get_aln(hdr, record);
-
-//         base_t * bases = get_bases(mod_tags, mods_len, ml, ml_len, aln_pairs, hdr, record);
-//         update_freqs_output(bases, seq_len, freq_map);
-
-//         free_bases(bases, seq_len);
-//         free(aln_pairs);
-//         free_mod_tags(mod_tags, mods_len);
-//         free(ml);
-//     }
-
-//     bam_destroy1(record);
-//     return;
-// }
-
-
-void init_meth(db_t* db){
-    load_ref(db->ref_file);
-}
-
-// void destroy_mod(){
-//     free_freq_map(freq_map);
-//     destroy_ref();
-// }
-
-// void print_stats(FILE * output_file, int is_bedmethyl){
-//     uint32_t meth_freqs_len = 0;
-//     freq_t ** stats = get_stats(freq_map, &meth_freqs_len);
-
-//     if (is_bedmethyl) {
-//         print_meth_freq_bedmethyl(output_file, stats, meth_freqs_len, MOD_5mC);
-//     } else {
-//         print_meth_freq(output_file, stats, meth_freqs_len, MOD_5mC);
-//     }
-    
-
-//     free(stats);
-// }
