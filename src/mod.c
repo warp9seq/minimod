@@ -47,7 +47,6 @@ SOFTWARE.
 #define INIT_MOD_CODES 2
 #define INIT_BASE_POS 100
 #define INIT_MOD_BASES 2
-#define MOD_THRESHOLD 0.2
 
 typedef struct {
     char base;

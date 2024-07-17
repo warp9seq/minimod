@@ -34,11 +34,11 @@ if [ ! -f test/tmp/genome_chr22.fa ]; then
 fi
 
 testname="Test 1: view hifi"
-echo -e "${BLUE}${testname}{NC}"
+echo -e "${BLUE}${testname}${NC}"
 ex  ./minimod view -r test/tmp/genome_chr22.fa -m 0.0 -t 8 test/data/example-hifi.bam > test/tmp/test1.tsv  || die "${testname} Running the tool failed"
 diff -q test/expected/test1.tsv test/tmp/test1.tsv || die "${testname} diff failed"
 
-testname="Test 2: view ontt"
+testname="Test 2: view ont"
 echo -e "${BLUE}${testname}${NC}"
 ex  ./minimod view -r test/tmp/genome_chr22.fa -m 0.0 -t 8 test/data/example-ont.bam > test/tmp/test2.tsv || die "${testname} Running the tool failed"
 diff -q test/expected/test2.tsv test/tmp/test2.tsv || die "${testname} diff failed"
@@ -46,30 +46,38 @@ diff -q test/expected/test2.tsv test/tmp/test2.tsv || die "${testname} diff fail
 testname="Test 3: meth-freq hifi"
 echo -e "${BLUE}${testname}${NC}"
 ex  ./minimod meth-freq -r test/tmp/genome_chr22.fa -t 8 test/data/example-hifi.bam > test/tmp/test3.tsv  || die "${testname} Running the tool failed"
-sort -k1,1 -k2,2n -k4,4 test/expected/test3.tsv > test/expected/test3.tsv.sorted
+sort -k1,1 -k2,2n -k4,4 test/expected/test3.tsv > test/tmp/test3.exp.tsv.sorted
 sort -k1,1 -k2,2n -k4,4 test/tmp/test3.tsv > test/tmp/test3.tsv.sorted
-diff -q test/expected/test3.tsv.sorted test/tmp/test3.tsv.sorted || die "${testname} diff failed"
+diff -q test/tmp/test3.exp.tsv.sorted test/tmp/test3.tsv.sorted || die "${testname} diff failed"
 
 testname="Test 4: meth-freq hifi bedmethyl output"
 echo -e "${BLUE}${testname}${NC}"
-ex  ./minimod meth-freq -b -r test/tmp/genome_chr22.fa -t 8 test/data/example-hifi.bam > test/tmp/test3.bedmethyl  || die "${testname} Running the tool failed"
-sort -k1,1 -k2,2n -k6,6 test/expected/test3.bedmethyl > test/expected/test3.bedmethyl.sorted
-sort -k1,1 -k2,2n -k6,6 test/tmp/test3.bedmethyl > test/tmp/test3.bedmethyl.sorted
-diff -q test/expected/test3.bedmethyl.sorted test/tmp/test3.bedmethyl.sorted || die "${testname} diff failed"
+ex  ./minimod meth-freq -b -r test/tmp/genome_chr22.fa -t 8 test/data/example-hifi.bam > test/tmp/test4.bedmethyl  || die "${testname} Running the tool failed"
+sort -k1,1 -k2,2n -k6,6 test/expected/test4.bedmethyl > test/tmp/test4.bedmethyl.exp.sorted
+sort -k1,1 -k2,2n -k6,6 test/tmp/test4.bedmethyl > test/tmp/test4.bedmethyl.sorted
+diff -q test/tmp/test4.bedmethyl.exp.sorted test/tmp/test4.bedmethyl.sorted || die "${testname} diff failed"
 
 testname="Test 5: meth-freq ont"
 echo -e "${BLUE}${testname}${NC}"
-ex  ./minimod meth-freq -r test/tmp/genome_chr22.fa -t 8 test/data/example-ont.bam > test/tmp/test4.tsv || die "${testname} Running the tool failed"
-sort -k1,1 -k2,2n -k4,4 test/expected/test4.tsv > test/expected/test4.tsv.sorted
-sort -k1,1 -k2,2n -k4,4 test/tmp/test4.tsv > test/tmp/test4.tsv.sorted
-diff -q test/expected/test4.tsv.sorted test/tmp/test4.tsv.sorted || die "${testname} diff failed"
+ex  ./minimod meth-freq -r test/tmp/genome_chr22.fa -t 8 test/data/example-ont.bam > test/tmp/test5.tsv || die "${testname} Running the tool failed"
+sort -k1,1 -k2,2n -k4,4 test/expected/test5.tsv > test/tmp/test5.exp.tsv.sorted
+sort -k1,1 -k2,2n -k4,4 test/tmp/test5.tsv > test/tmp/test5.tsv.sorted
+diff -q test/tmp/test5.exp.tsv.sorted test/tmp/test5.tsv.sorted || die "${testname} diff failed"
 
 testname="Test 6: meth-freq ont bedmethyl output"
 echo -e "${BLUE}${testname}${NC}"
-ex  ./minimod meth-freq -b -r test/tmp/genome_chr22.fa -t 8 test/data/example-ont.bam > test/tmp/test4.bedmethyl || die "${testname} Running the tool failed"
-sort -k1,1 -k2,2n -k6,6 test/expected/test4.bedmethyl > test/expected/test4.bedmethyl.sorted
-sort -k1,1 -k2,2n -k6,6 test/tmp/test4.bedmethyl > test/tmp/test4.bedmethyl.sorted
-diff -q test/expected/test4.bedmethyl.sorted test/tmp/test4.bedmethyl.sorted || die "${testname} diff failed"
+ex  ./minimod meth-freq -b -r test/tmp/genome_chr22.fa -t 8 test/data/example-ont.bam > test/tmp/test6.bedmethyl || die "${testname} Running the tool failed"
+sort -k1,1 -k2,2n -k6,6 test/expected/test6.bedmethyl > test/tmp/test6.bedmethyl.exp.sorted
+sort -k1,1 -k2,2n -k6,6 test/tmp/test6.bedmethyl > test/tmp/test6.bedmethyl.sorted
+diff -q test/tmp/test6.bedmethyl.exp.sorted test/tmp/test6.bedmethyl.sorted || die "${testname} diff failed"
+
+testname="Test 7: meth-freq ont with mod threshold"
+echo -e "${BLUE}${testname}${NC}"
+ex  ./minimod meth-freq -r test/tmp/genome_chr22.fa -m 0.2 -t 8 test/data/example-ont.bam > test/tmp/test7.tsv || die "${testname} Running the tool failed"
+sort -k1,1 -k2,2n -k4,4 test/expected/test7.tsv > test/tmp/test7.exp.tsv.sorted
+sort -k1,1 -k2,2n -k4,4 test/tmp/test7.tsv > test/tmp/test7.tsv.sorted
+diff -q test/tmp/test7.exp.tsv.sorted test/tmp/test7.tsv.sorted || die "${testname} diff failed"
+
 
 # ======= Extensive tests (prerequisits: buttery-eel, minimap2) - tested on gtgpu =======
 # blow5=/home/hasindu/scratch/hg2_prom_lsk114_5khz/chr22/PGXXXX230339_reads_chr22.blow5
