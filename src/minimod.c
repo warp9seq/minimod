@@ -381,7 +381,8 @@ void init_opt(opt_t* opt) {
     opt->debug_break=-1;
 
     opt->mod_codes = "m";
-    opt->mod_thresh = 0.2;
+    opt->mod_threshes = (double*)malloc(sizeof(double)*1);
+    opt->mod_threshes[0] = 0.2;
 
 #ifdef HAVE_ACC
     opt->flag |= MINIMOD_ACC;

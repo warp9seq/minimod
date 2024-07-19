@@ -43,8 +43,8 @@ SOFTWARE.
 
 static struct option long_options[] = {
     {"reference", required_argument, 0, 'r'},      //0 reference genome fasta file [required]
-    {"mod_thresh", required_argument, 0, 'm'},     //1 min modification threshold 0.0 to 1.0 [0.2]
     {"mod_codes", required_argument, 0, 'c'},      //2 modification codes (ex. m , h or mh) [m]
+    {"mod_thresh", required_argument, 0, 'm'},     //1 min modification threshold 0.0 to 1.0 [0.2]
     {"threads", required_argument, 0, 't'},        //3 number of threads [8]
     {"batchsize", required_argument, 0, 'K'},      //4 batchsize - number of reads loaded at once [512]
     {"max-bytes", required_argument, 0, 'B'},      //5 batchsize - number of bytes loaded at once
@@ -63,8 +63,8 @@ static inline void print_help_msg(FILE *fp_help, opt_t opt){
     fprintf(fp_help,"Usage: minimod view reads.bam\n");
     fprintf(fp_help,"\nbasic options:\n");
     fprintf(fp_help,"   -r FILE                    reference genome fasta file\n");
-    fprintf(fp_help,"   -m FLOAT                   min modification threshold (inclusive, range 0.0 to 1.0) [0.0]\n");
     fprintf(fp_help,"   -c STR                     modification codes (ex. m , h or mh) [m]\n");
+    fprintf(fp_help,"   -m FLOAT                   min modification thresholds (inclusive, range 0.0 to 1.0) (ex. 0.2 or 0.2,0.3 for multiple mod coded in same order as in -c) [0.0]\n");
     fprintf(fp_help,"   -t INT                     number of processing threads [%d]\n",opt.num_thread);
     fprintf(fp_help,"   -K INT                     batch size (max number of reads loaded at once) [%d]\n",opt.batch_size);
     fprintf(fp_help,"   -B FLOAT[K/M/G]            max number of bytes loaded at once [%.1fM]\n",opt.batch_size_bytes/(float)(1000*1000));
@@ -83,6 +83,25 @@ static inline void print_help_msg(FILE *fp_help, opt_t opt){
 }
 
 
+static double * parse_mod_threshes(const char* mod_codes, char* mod_thresh_str){
+    int32_t n_mods = strlen(mod_codes);
+    double* mod_threshes = (double*)malloc(n_mods*sizeof(double));
+    if(mod_thresh_str==NULL){
+        for(int32_t i=0;i<n_mods;i++){
+            mod_threshes[i] = 0.2;
+        }
+    } else {
+        char* token = strtok(mod_thresh_str, ",");
+        int32_t i=0;
+        while(token!=NULL){
+            mod_threshes[i] = atof(token);
+            token = strtok(NULL, ",");
+            i++;
+        }
+    }
+    return mod_threshes;
+}
+
 
 int view_main(int argc, char* argv[]) {
 
@@ -94,6 +113,7 @@ int view_main(int argc, char* argv[]) {
     int32_t c = -1;
 
     char *bamfile = NULL;
+    char *mod_threshes_str = NULL;
 
     FILE *fp_help = stderr;
 
@@ -132,10 +152,10 @@ int view_main(int argc, char* argv[]) {
             fp_help = stdout;
         } else if (c=='r'){
             opt.ref_file = optarg;
-        } else if (c=='m'){
-            opt.mod_thresh = atof(optarg);
         } else if (c=='c') {
             opt.mod_codes = optarg;
+        } else if (c=='m'){
+            mod_threshes_str = optarg;
         } else if(c == 0 && longindex == 10){ //debug break
             opt.debug_break = atoi(optarg);
         } else if(c == 0 && longindex == 11){ //sectional benchmark todo : warning for gpu mode
@@ -176,6 +196,8 @@ int view_main(int argc, char* argv[]) {
         }
         exit(EXIT_FAILURE);
     }
+
+    opt.mod_threshes = parse_mod_threshes(opt.mod_codes,mod_threshes_str);
 
     load_ref(opt.ref_file);
 

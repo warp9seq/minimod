@@ -65,7 +65,7 @@ typedef struct {
     char *region_str; //the region string in format chr:start-end
 
     int8_t bedmethyl_out; //output in bedMethyl format, only for meth-freq
-    double mod_thresh;
+    double* mod_threshes;
     char* mod_codes;
 
     int8_t subtool; //0:view, 1:meth-freq
@@ -81,6 +81,8 @@ typedef struct {
     int read_pos;
     char mod_code;
     double mod_prob;
+    int is_aln;
+    int is_cpg;
 } view_t;
 
 typedef struct {
@@ -96,7 +98,8 @@ typedef struct {
     int depth;
     int n_skipped;
     char ref_base;
-    int is_aln_cpg;
+    int is_aln;
+    int is_cpg;
 } freq_t;
 
 KHASH_MAP_INIT_STR(freqm, freq_t *);

@@ -97,6 +97,18 @@ echo -e "${BLUE}${testname}${NC}"
 ex  ./minimod view -r test/tmp/genome_chr22.fa -m 0.2 -t 8 test/data/example-ont.bam > test/tmp/test10.tsv || die "${testname} Running the tool failed"
 diff -q test/expected/test10.tsv test/tmp/test10.tsv || die "${testname} diff failed"
 
+testname="Test 11: view ont with mod codes m and h with different thresholds"
+echo -e "${BLUE}${testname}${NC}"
+ex  ./minimod view -r test/tmp/genome_chr22.fa -c "mh" -m "0.2,0.5"  -t 8 test/data/example-ont.bam > test/tmp/test11.tsv || die "${testname} Running the tool failed"
+diff -q test/expected/test11.tsv test/tmp/test11.tsv || die "${testname} diff failed"
+
+testname="Test 12: meth-freq ont with mod codes m and h with different thresholds"
+echo -e "${BLUE}${testname}${NC}"
+ex  ./minimod meth-freq -c "mh" -m "0.2,0.5" -r test/tmp/genome_chr22.fa -t 8 test/data/example-ont.bam > test/tmp/test12.tsv || die "${testname} Running the tool failed"
+sort -k1,1 -k2,2n -k4,4 test/expected/test12.tsv > test/tmp/test12.exp.tsv.sorted
+sort -k1,1 -k2,2n -k4,4 test/tmp/test12.tsv > test/tmp/test12.tsv.sorted
+diff -q test/tmp/test12.exp.tsv.sorted test/tmp/test12.tsv.sorted || die "${testname} diff failed"
+
 # ======= Extensive tests (prerequisits: buttery-eel, minimap2) - tested on gtgpu =======
 # blow5=/home/hasindu/scratch/hg2_prom_lsk114_5khz/chr22/PGXXXX230339_reads_chr22.blow5
 # guppybin=/data/suneth/tools/ont-dorado-server/bin
