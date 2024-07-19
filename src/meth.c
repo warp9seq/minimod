@@ -148,11 +148,22 @@ static const char base_complement_lookup[256] = {
 };
 
 
-/*
-if((print_mod_code !='*' && mod.mod_code != print_mod_code) || base.ref_pos < 0 || mod.mod_prob < db->mod_thresh){
-//                 continue;
-//             }
-*/
+static int is_required_mod_code(char mod_code, char * mod_codes){
+
+    if(mod_codes[0] == '*') {
+        return 1;
+    }
+
+    int i=0;
+    while(mod_codes[i] != '\0'){
+        if(mod_codes[i] == mod_code){
+            return 1;
+        }
+        i++;
+    }
+    return 0;
+}
+
 void print_view_output(core_t* core, db_t* db) {
     fprintf(stdout, "ref_contig\tref_pos\tstrand\tread_id\tread_pos\tmod_code\tmod_prob\n");
 
@@ -160,6 +171,9 @@ void print_view_output(core_t* core, db_t* db) {
     for (i = 0; i < db->n_bam_recs; i++) {
         for(int32_t j=0;j<db->view_output_lens[i];j++){
             view_t view = db->view_output[i][j];
+            if(view.ref_pos < 0 || view.mod_prob < core->opt.mod_thresh || is_required_mod_code(view.mod_code, core->opt.mod_codes) == 0) {
+                continue;
+            }
             fprintf(stdout, "%s\t%d\t%c\t%s\t%d\t%c\t%f\n", view.ref_contig, view.ref_pos, view.strand, view.read_id, view.read_pos, view.mod_code, view.mod_prob);
         }
         
@@ -174,7 +188,7 @@ void print_freq_output(core_t* core) {
         for (k = kh_begin(freq_map); k != kh_end(freq_map); ++k) {
             if (kh_exist(freq_map, k)) {
                 freq_t* freq = kh_value(freq_map, k);
-                if((core->opt.mod_code !='*' && freq->mod_code != core->opt.mod_code ) || freq->is_aln_cpg == 0 ){
+                if(freq->is_aln_cpg == 0 || is_required_mod_code(freq->mod_code, core->opt.mod_codes) == 0) {
                     continue;
                 }
                 fprintf(stdout, "%s\t%d\t%d\t%c\t%d\t%c\t%d\t%d\t255,0,0\t%d\t%f\n", freq->contig, freq->start, (freq->end+1), freq->mod_code, freq->n_called, freq->strand, freq->start, freq->end, freq->n_called, freq->freq);
@@ -188,7 +202,7 @@ void print_freq_output(core_t* core) {
         for (k = kh_begin(freq_map); k != kh_end(freq_map); ++k) {
             if (kh_exist(freq_map, k)) {
                 freq_t* freq = kh_value(freq_map, k);
-                if((core->opt.mod_code!='*' && freq->mod_code != core->opt.mod_code) || freq->is_aln_cpg == 0 ){
+                if(freq->is_aln_cpg == 0 || is_required_mod_code(freq->mod_code, core->opt.mod_codes) == 0) {
                     continue;
                 }
                 fprintf(stdout, "%s\t%d\t%d\t%c\t%d\t%d\t%f\t%c\n", freq->contig, freq->start, freq->end, freq->strand, freq->n_called, freq->n_mod, freq->freq, freq->mod_code);
@@ -715,9 +729,7 @@ static void update_view_output(base_t *bases, core_t* core, db_t* db, uint32_t s
         for(int j=0;j<bases[seq_i].mods_len;j++){
             mod_t mod = bases[seq_i].mods[j];
             base_t base = bases[seq_i];
-            if((core->opt.mod_code !='*' && mod.mod_code != core->opt.mod_code) || base.ref_pos < 0 || mod.mod_prob < core->opt.mod_thresh){
-                continue;
-            }
+
             // fprintf(stdout, "%s\t%d\t%c\t%s\t%d\t%c\t%f\n", base.chrom, base.ref_pos, mod.mod_strand, qname, seq_i, mod.mod_code, mod.mod_prob);
             db->view_output[i][view_i].ref_contig = base.chrom;
             db->view_output[i][view_i].ref_pos = base.ref_pos;

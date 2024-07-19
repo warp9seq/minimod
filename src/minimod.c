@@ -380,7 +380,7 @@ void init_opt(opt_t* opt) {
 
     opt->debug_break=-1;
 
-    opt->mod_code = 'm';
+    opt->mod_codes = "m";
     opt->mod_thresh = 0.2;
 
 #ifdef HAVE_ACC

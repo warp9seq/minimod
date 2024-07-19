@@ -78,6 +78,20 @@ sort -k1,1 -k2,2n -k4,4 test/expected/test7.tsv > test/tmp/test7.exp.tsv.sorted
 sort -k1,1 -k2,2n -k4,4 test/tmp/test7.tsv > test/tmp/test7.tsv.sorted
 diff -q test/tmp/test7.exp.tsv.sorted test/tmp/test7.tsv.sorted || die "${testname} diff failed"
 
+testname="Test 8: meth-freq ont with mod codes m and h"
+echo -e "${BLUE}${testname}${NC}"
+ex  ./minimod meth-freq -c "mh" -r test/tmp/genome_chr22.fa -t 8 test/data/example-ont.bam > test/tmp/test8.tsv || die "${testname} Running the tool failed"
+sort -k1,1 -k2,2n -k4,4 test/expected/test8.tsv > test/tmp/test8.exp.tsv.sorted
+sort -k1,1 -k2,2n -k4,4 test/tmp/test8.tsv > test/tmp/test8.tsv.sorted
+diff -q test/tmp/test8.exp.tsv.sorted test/tmp/test8.tsv.sorted || die "${testname} diff failed"
+
+testname="Test 9: meth-freq ont with mod codes h only"
+echo -e "${BLUE}${testname}${NC}"
+ex  ./minimod meth-freq -c "h" -r test/tmp/genome_chr22.fa -t 8 test/data/example-ont.bam > test/tmp/test9.tsv || die "${testname} Running the tool failed"
+sort -k1,1 -k2,2n -k4,4 test/expected/test9.tsv > test/tmp/test9.exp.tsv.sorted
+sort -k1,1 -k2,2n -k4,4 test/tmp/test9.tsv > test/tmp/test9.tsv.sorted
+diff -q test/tmp/test9.exp.tsv.sorted test/tmp/test9.tsv.sorted || die "${testname} diff failed"
+
 
 # ======= Extensive tests (prerequisits: buttery-eel, minimap2) - tested on gtgpu =======
 # blow5=/home/hasindu/scratch/hg2_prom_lsk114_5khz/chr22/PGXXXX230339_reads_chr22.blow5
