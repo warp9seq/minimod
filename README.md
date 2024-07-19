@@ -25,14 +25,17 @@ command:
 
 # Examples
 ```bash
-# base modification details tsv format
+# output base modification of type m (5-methylcytosine) in tsv format
 minimod view -r ref.fa reads.bam > meth.tsv
 
-# methylation frequencies tsv format.
+# output base modification frequencies of type m (5-methylcytosine) in tsv format
 minimod meth-freq -r ref.fa reads.bam > methfreq.tsv
 
-# methylation frequencies bed format.
-minimod meth-freq -r ref.fa -b reads.bam > methfreq.tsv
+# output base modification of type m (5-methylcytosine) in bed format
+minimod meth-freq -r ref.fa -b reads.bam > methfreq.bedmethyl
+
+# output base modification of types m (5-methylcytosine) and h (5-hydroxymethylcytosine) in tsv format
+minimod view -c "mh" -r ref.fa reads.bam > meth.tsv
 ```
 
 # minimod view
@@ -43,7 +46,8 @@ Print base modification details to the standard output in tsv format. Following 
 ```bash
 basic options:
    -r FILE                    reference genome fasta file
-   -m FLOAT                   min modification threshold (inclusive, range 0.0 to 1.0) [0.0]
+   -m FLOAT                   min modification threshold (inclusive, range 0.0 to 1.0) [0.2]
+   -c STR                     modification codes (ex. m , h or mh) [m]
    -h                         help
    -o FILE                    output to file [stdout]
    --version                  print version
@@ -83,6 +87,7 @@ basic options:
    -r FILE                    reference genome fasta file
    -b                         output in bedMethyl format
    -m FLOAT                   min modification threshold (inclusive, range 0.0 to 1.0) [0.2]
+   -c STR                     modification codes (ex. m , h or mh) [m]
    -h                         help
    -o FILE                    output to file [stdout]
    --version                  print version
