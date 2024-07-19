@@ -92,6 +92,10 @@ sort -k1,1 -k2,2n -k4,4 test/expected/test9.tsv > test/tmp/test9.exp.tsv.sorted
 sort -k1,1 -k2,2n -k4,4 test/tmp/test9.tsv > test/tmp/test9.tsv.sorted
 diff -q test/tmp/test9.exp.tsv.sorted test/tmp/test9.tsv.sorted || die "${testname} diff failed"
 
+testname="Test 10: view ont with mod threshold"
+echo -e "${BLUE}${testname}${NC}"
+ex  ./minimod view -r test/tmp/genome_chr22.fa -m 0.2 -t 8 test/data/example-ont.bam > test/tmp/test10.tsv || die "${testname} Running the tool failed"
+diff -q test/expected/test10.tsv test/tmp/test10.tsv || die "${testname} diff failed"
 
 # ======= Extensive tests (prerequisits: buttery-eel, minimap2) - tested on gtgpu =======
 # blow5=/home/hasindu/scratch/hg2_prom_lsk114_5khz/chr22/PGXXXX230339_reads_chr22.blow5
