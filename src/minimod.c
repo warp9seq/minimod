@@ -160,6 +160,8 @@ void free_core(core_t* core,opt_t opt) {
         pthread_mutex_destroy(&core->freq_map_lock);
     }
 
+    free(opt.mod_threshes);
+
 #ifdef HAVE_ACC
     if (core->opt.flag & MINIMOD_ACC) {
         VERBOSE("%s","Freeing accelator");
@@ -381,8 +383,6 @@ void init_opt(opt_t* opt) {
     opt->debug_break=-1;
 
     opt->mod_codes = "m";
-    opt->mod_threshes = (double*)malloc(sizeof(double)*1);
-    opt->mod_threshes[0] = 0.2;
 
 #ifdef HAVE_ACC
     opt->flag |= MINIMOD_ACC;
