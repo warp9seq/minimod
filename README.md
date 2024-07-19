@@ -144,7 +144,7 @@ chr22	19973437	19973438	m	1	+	19973437	19973437	255,0,0	1	1.000000
 | 10. freq | float | n_mod/n_called ratio |
 
 # Important !
-Make sure that following requirements are met for each step.
+Make sure that following requirements are met for each step in base modification calling pipeline.
 
 ## Base-calling
 - Use a basecalling model trained to identify modified bases.
