@@ -49,7 +49,7 @@ basic options:
    -m FLOAT                   min modification threshold (inclusive, range 0.0 to 1.0) [0.2]
    -c STR                     modification codes (ex. m , h or mh) [m]
    -h                         help
-   -o FILE                    output to file [stdout]
+   -p INT                     print progress no more than every INT seconds [10]
    --version                  print version
 ```
 
@@ -89,7 +89,7 @@ basic options:
    -m FLOAT                   min modification threshold (inclusive, range 0.0 to 1.0) [0.2]
    -c STR                     modification codes (ex. m , h or mh) [m]
    -h                         help
-   -o FILE                    output to file [stdout]
+   -p INT                     print progress no more than every INT seconds [10]
    --version                  print version
 ```
 

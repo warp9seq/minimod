@@ -67,7 +67,6 @@ static inline void print_help_msg(FILE *fp_help, opt_t opt){
     fprintf(fp_help,"   -B FLOAT[K/M/G]            max number of bytes loaded at once [%.1fM]\n",opt.batch_size_bytes/(float)(1000*1000));
     fprintf(fp_help,"   -h                         help\n");
     fprintf(fp_help,"   -p INT                     print progress no more than every INT seconds [10]\n");
-    fprintf(fp_help,"   -o FILE                    output to file [stdout]\n");
     fprintf(fp_help,"   --verbose INT              verbosity level [%d]\n",(int)get_log_level());
     fprintf(fp_help,"   --version                  print version\n");
 
