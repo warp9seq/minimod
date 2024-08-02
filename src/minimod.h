@@ -119,8 +119,8 @@ typedef struct {
 
     //stats
     int64_t sum_bytes;
-    int64_t total_reads; //total number mapped entries in the bam file (after filtering based on flags, mapq etc)
-
+    int32_t skipped_reads; //reads skipped due to various reasons
+    int32_t skipped_reads_bytes;
 
 } db_t;
 
@@ -158,8 +158,9 @@ typedef struct {
 
     //stats //set by output_db
     int64_t sum_bytes;
-    int64_t total_reads; //total number mapped entries in the bam file (after filtering based on flags, mapq etc)
-
+    int64_t total_reads; //total number entries in the bam file 
+    int32_t skipped_reads; //reads skipped due to various reasons
+    int32_t skipped_reads_bytes;
 
     //output maps
     khash_t(freqm)* freq_map;

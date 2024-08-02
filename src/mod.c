@@ -156,13 +156,12 @@ const char *get_mm_tag_ptr(bam1_t *record){
     if(data == NULL){
         WARNING("%s tag not found in read %s",tag, bam_get_qname(record));
         return NULL;
-        //exit(EXIT_FAILURE);
     }
 
     const char *mm_str = bam_aux2Z(data);
     if(mm_str == NULL){
         WARNING("%s tag could not be decoded for %s. Is it type Z?",tag, bam_get_qname(record));
-        exit(EXIT_FAILURE);
+        return NULL;
     }
 
     return mm_str;
@@ -176,14 +175,13 @@ uint8_t *get_ml_tag(bam1_t *record, uint32_t *len_ptr){
     if(data == NULL){
         WARNING("%s tag not found in read %s",tag, bam_get_qname(record));
         return NULL;
-        //exit(EXIT_FAILURE);
     }
 
     // check if the type of the tag is array of integers
     const char aux_type = data[0];
     if (aux_type != 'B') {
         ERROR("%s tag is not of type B in read %s",tag, bam_get_qname(record));
-        exit(EXIT_FAILURE);
+        return NULL;
     }
 
     // get the array len
@@ -193,7 +191,7 @@ uint8_t *get_ml_tag(bam1_t *record, uint32_t *len_ptr){
     const char aux_array_type = data[1];
     if (aux_array_type != 'C') {
         ERROR("%s array tag type '%c' is not of type C in read %s",tag, aux_array_type, bam_get_qname(record));
-        exit(EXIT_FAILURE);
+        return NULL;
     }
 
     // get the actual stuff
@@ -781,7 +779,7 @@ static base_t * get_bases(mod_tag_t *mod_tags, uint32_t mods_len, uint8_t * ml, 
 
 }
 
-static void update_view_output(base_t *bases, core_t* core, db_t* db, uint32_t seq_len, bam_hdr_t *hdr, bam1_t *record, int32_t i){
+static void update_view_output(base_t *bases, db_t* db, uint32_t seq_len, bam_hdr_t *hdr, bam1_t *record, int32_t i){
 
     int32_t tid = record->core.tid;
     assert(tid < hdr->n_targets);
@@ -849,11 +847,15 @@ void view_single(core_t* core, db_t* db, int32_t i) {
     uint32_t seq_len = record->core.l_qseq;
 
     if(record->core.flag & BAM_FUNMAP){
+        db->skipped_reads++;
+        db->skipped_reads_bytes += record->l_data;
         WARNING("Skipping unmapped read %s", bam_get_qname(record));
         return;
     }
 
     if(seq_len==0){
+        db->skipped_reads++;
+        db->skipped_reads_bytes += record->l_data;
         WARNING("Skipping read %s with 0 length", bam_get_qname(record));
         return;
     }
@@ -862,7 +864,9 @@ void view_single(core_t* core, db_t* db, int32_t i) {
     uint32_t ml_len;
     uint8_t *ml = get_ml_tag(record, &ml_len);
 
-    if(ml == NULL || ml_len <= 0){
+    if(mm == NULL || ml == NULL || ml_len <= 0){
+        db->skipped_reads++;
+        db->skipped_reads_bytes += record->l_data;
         free(ml);
         return;
     }
@@ -874,7 +878,7 @@ void view_single(core_t* core, db_t* db, int32_t i) {
 
     int * aln_pairs = get_aln(hdr, record);
     base_t * bases = get_bases(mod_tags, mods_len, ml, ml_len, aln_pairs, hdr, record);
-    update_view_output(bases, core, db, seq_len, hdr, record, i);
+    update_view_output(bases, db, seq_len, hdr, record, i);
 
     free_bases(bases, seq_len);
     free(aln_pairs);
@@ -889,11 +893,15 @@ void mod_freq_single(core_t* core, db_t* db, int32_t i) {
     uint32_t seq_len = record->core.l_qseq;
 
     if(record->core.flag & BAM_FUNMAP){
+        db->skipped_reads++;
+        db->skipped_reads_bytes += record->l_data;
         WARNING("Skipping unmapped read %s", bam_get_qname(record));
         return;
     }
 
     if(seq_len==0){
+        db->skipped_reads++;
+        db->skipped_reads_bytes += record->l_data;
         WARNING("Skipping read %s with 0 length", bam_get_qname(record));
         return;
     }
@@ -902,7 +910,9 @@ void mod_freq_single(core_t* core, db_t* db, int32_t i) {
     uint32_t ml_len;
     uint8_t *ml = get_ml_tag(record, &ml_len);
 
-    if(ml == NULL || ml_len <= 0){
+    if(mm == NULL || ml == NULL || ml_len <= 0){
+        db->skipped_reads++;
+        db->skipped_reads_bytes += record->l_data;
         free(ml);
         return;
     }

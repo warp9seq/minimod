@@ -62,6 +62,8 @@ core_t* init_core(const char *bamfilename, opt_t opt,double realtime0) {
 
     core->sum_bytes=0;
     core->total_reads=0;
+    core->skipped_reads=0;
+    core->skipped_reads_bytes=0;
 
     // load bam file
     core->bam_fp = sam_open(bamfilename, "r");
@@ -200,8 +202,9 @@ db_t* init_db(core_t* core) {
     db->means = (double*)calloc(db->cap_bam_recs,sizeof(double));
     MALLOC_CHK(db->means);
 
-    db->total_reads=0;
     db->sum_bytes=0;
+    db->skipped_reads=0;
+    db->skipped_reads_bytes=0;
 
     return db;
 }
@@ -213,21 +216,17 @@ ret_status_t load_db(core_t* core, db_t* db) {
 
     db->n_bam_recs = 0;
     db->sum_bytes = 0;
-    db->total_reads = 0;
+    db->skipped_reads = 0;
+    db->skipped_reads_bytes = 0;
 
     ret_status_t status={0,0};
-    int32_t i = 0;
     while (db->n_bam_recs < db->cap_bam_recs && db->sum_bytes<core->opt.batch_size_bytes) {
-        i=db->n_bam_recs;
-        
-        if(sam_itr_next(core->bam_fp, core->itr, db->bam_recs[i])>=0){
-            db->sum_bytes += db->bam_recs[i]->l_data;
-            db->total_reads++;
+        if(sam_itr_next(core->bam_fp, core->itr, db->bam_recs[db->n_bam_recs])>=0){
+            db->sum_bytes += db->bam_recs[db->n_bam_recs]->l_data;
             db->n_bam_recs++;
         }else{
             break;
         }
-        i++;
     }
 
     status.num_reads=db->n_bam_recs;
@@ -323,7 +322,9 @@ void output_db(core_t* core, db_t* db) {
     }
 
     core->sum_bytes += db->sum_bytes;
-    core->total_reads += db->total_reads;
+    core->total_reads += db->n_bam_recs;
+    core->skipped_reads += db->skipped_reads;
+    core->skipped_reads_bytes += db->skipped_reads_bytes;
 
     //core->read_index = core->read_index + db->n_bam_recs;
     double output_end = realtime();

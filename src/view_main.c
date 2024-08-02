@@ -223,6 +223,10 @@ int view_main(int argc, char* argv[]) {
         //process a databatch
         process_db(core, db);
 
+        fprintf(stderr, "[%s::%.3f*%.2f] %d Entries (%.1fM bytes) skipped\n", __func__,
+                realtime() - realtime0, cputime() / (realtime() - realtime0),
+                db->skipped_reads,db->skipped_reads_bytes/(1000.0*1000.0));
+
         fprintf(stderr, "[%s::%.3f*%.2f] %d Entries (%.1fM bytes) processed\n", __func__,
                 realtime() - realtime0, cputime() / (realtime() - realtime0),
                 status.num_reads,status.num_bytes/(1000.0*1000.0));
@@ -230,8 +234,10 @@ int view_main(int argc, char* argv[]) {
         //output print
         output_db(core, db);
 
-        // //free temporary
-        // free_db_tmp(db);
+        //check if 90% of total reads are skipped
+        if(core->skipped_reads>0.9*core->total_reads){
+            WARNING("%s","90% of the reads are skipped. Check if the BAM file is sorted, contains MM, ML tags.");
+        }
 
         if(opt.debug_break==counter){
             break;
@@ -244,6 +250,7 @@ int view_main(int argc, char* argv[]) {
 
     fprintf(stderr, "[%s] total entries: %ld", __func__,(long)core->total_reads);
     fprintf(stderr,"\n[%s] total bytes: %.1f M",__func__,core->sum_bytes/(float)(1000*1000));
+    fprintf(stderr,"\n[%s] total skipped entries: %ld",__func__,(long)core->skipped_reads);
 
     fprintf(stderr, "\n[%s] Data loading time: %.3f sec", __func__,core->load_db_time);
     fprintf(stderr, "\n[%s] Data processing time: %.3f sec", __func__,core->process_db_time);
