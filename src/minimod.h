@@ -159,8 +159,8 @@ typedef struct {
     //stats //set by output_db
     int64_t sum_bytes;
     int64_t total_reads; //total number entries in the bam file 
-    int32_t skipped_reads; //reads skipped due to various reasons
-    int32_t skipped_reads_bytes;
+    int64_t skipped_reads; //reads skipped due to various reasons
+    int64_t skipped_reads_bytes;
 
     //output maps
     khash_t(freqm)* freq_map;

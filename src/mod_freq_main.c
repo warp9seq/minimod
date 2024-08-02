@@ -105,6 +105,7 @@ static double * parse_mod_threshes(const char* mod_codes, char* mod_thresh_str){
 int mod_freq_main(int argc, char* argv[]) {
 
     double realtime0 = realtime();
+    double realtime_prog = realtime();
 
     const char* optstring = "m:c:t:B:K:v:o:hVb";
 
@@ -114,6 +115,7 @@ int mod_freq_main(int argc, char* argv[]) {
     char *ref_file = NULL;
     char *bam_file = NULL;
     char *mod_threshes_str = NULL;
+    int progress_interval = 10; //seconds
 
     FILE *fp_help = stderr;
 
@@ -223,23 +225,21 @@ int mod_freq_main(int argc, char* argv[]) {
     ret_status_t status = {core->opt.batch_size,core->opt.batch_size_bytes};
     while (status.num_reads >= core->opt.batch_size || status.num_bytes>=core->opt.batch_size_bytes) {
 
-        //load a databatch
-        status = load_db(core, db);
+        //print progress
+        if(realtime()-realtime_prog > progress_interval){
+            fprintf(stderr, "[%s::%.3f*%.2f] %ld Entries (%.1fM bytes) loaded\t %ld Entries (%.1fM bytes) skipped\t %ld Entries (%.1fM bytes) processed\n", __func__,
+                    realtime() - realtime0, cputime() / (realtime() - realtime0),
+                    core->total_reads,core->sum_bytes/(1000.0*1000.0),
+                    core->skipped_reads,core->skipped_reads_bytes/(1000.0*1000.0),
+                    (core->total_reads-core->skipped_reads),(core->sum_bytes-core->skipped_reads_bytes)/(1000.0*1000.0));
+            realtime_prog = realtime();
+        }
 
-        fprintf(stderr, "[%s::%.3f*%.2f] %d Entries (%.1fM bytes) loaded\n", __func__,
-                realtime() - realtime0, cputime() / (realtime() - realtime0),
-                status.num_reads,db->sum_bytes/(1000.0*1000.0));
+        //load a databatch
+        status = load_db(core, db);            
 
         //process the data batch
         process_db(core, db);
-
-        fprintf(stderr, "[%s::%.3f*%.2f] %d Entries (%.1fM bytes) skipped\n", __func__,
-                realtime() - realtime0, cputime() / (realtime() - realtime0),
-                db->skipped_reads,db->skipped_reads_bytes/(1000.0*1000.0));
-
-        fprintf(stderr, "[%s::%.3f*%.2f] %d Entries (%.1fM bytes) processed\n", __func__,
-                realtime() - realtime0, cputime() / (realtime() - realtime0),
-                status.num_reads-db->skipped_reads,(db->sum_bytes-db->skipped_reads_bytes)/(1000.0*1000.0));
 
         //write the output
         output_db(core, db);
