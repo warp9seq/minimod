@@ -41,27 +41,25 @@ SOFTWARE.
 #include <unistd.h>
 
 static struct option long_options[] = {
-    {"reference", required_argument, 0, 'r'},      //0 reference genome fasta file [required]
-    {"mod_codes", required_argument, 0, 'c'},      //2 modification codes (ex. m , h or mh) [m]
+    {"mod_codes", required_argument, 0, 'c'},      //0 modification codes (ex. m , h or mh) [m]
     {"mod_thresh", required_argument, 0, 'm'},     //1 min modification threshold 0.0 to 1.0 [0.2]
-    {"threads", required_argument, 0, 't'},        //3 number of threads [8]
-    {"batchsize", required_argument, 0, 'K'},      //4 batchsize - number of reads loaded at once [512]
-    {"max-bytes", required_argument, 0, 'B'},      //5 batchsize - number of bytes loaded at once
-    {"verbose", required_argument, 0, 'v'},        //6 verbosity level [1]
-    {"help", no_argument, 0, 'h'},                 //7
-    {"version", no_argument, 0, 'V'},              //8
-    {"output",required_argument, 0, 'o'},          //9 output to a file [stdout]
-    {"debug-break",required_argument, 0, 0},       //10 break after processing the first batch (used for debugging)
-    {"profile-cpu",required_argument, 0, 0},       //11 perform section by section (used for profiling - for CPU only)
-    {"accel",required_argument, 0, 0},             //12 accelerator
-    {"expand",no_argument, 0, 0},                  //13 expand view
+    {"threads", required_argument, 0, 't'},        //2 number of threads [8]
+    {"batchsize", required_argument, 0, 'K'},      //3 batchsize - number of reads loaded at once [512]
+    {"max-bytes", required_argument, 0, 'B'},      //4 batchsize - number of bytes loaded at once
+    {"verbose", required_argument, 0, 'v'},        //5 verbosity level [1]
+    {"help", no_argument, 0, 'h'},                 //6
+    {"version", no_argument, 0, 'V'},              //7
+    {"output",required_argument, 0, 'o'},          //8 output to a file [stdout]
+    {"debug-break",required_argument, 0, 0},       //9 break after processing the first batch (used for debugging)
+    {"profile-cpu",required_argument, 0, 0},       //10 perform section by section (used for profiling - for CPU only)
+    {"accel",required_argument, 0, 0},             //11 accelerator
+    {"expand",no_argument, 0, 0},                  //12 expand view
     {0, 0, 0, 0}};
 
 
 static inline void print_help_msg(FILE *fp_help, opt_t opt){
-    fprintf(fp_help,"Usage: minimod view reads.bam\n");
+    fprintf(fp_help,"Usage: minimod view ref.fa reads.bam\n");
     fprintf(fp_help,"\nbasic options:\n");
-    fprintf(fp_help,"   -r FILE                    reference genome fasta file\n");
     fprintf(fp_help,"   -c STR                     modification codes (ex. m , h or mh) [m]\n");
     fprintf(fp_help,"   -m FLOAT                   min modification thresholds (inclusive, range 0.0 to 1.0) (ex. 0.2 or 0.2,0.3 for multiple mod coded in same order as in -c) [0.0]\n");
     fprintf(fp_help,"   -t INT                     number of processing threads [%d]\n",opt.num_thread);
@@ -106,12 +104,13 @@ int view_main(int argc, char* argv[]) {
 
     double realtime0 = realtime();
 
-    const char* optstring = "m:c:r:t:B:K:v:o:hV";
+    const char* optstring = "m:c:t:B:K:v:o:hV";
 
     int longindex = 0;
     int32_t c = -1;
 
-    char *bamfile = NULL;
+    char *ref_file = NULL;
+    char *bam_file = NULL;
     char *mod_threshes_str = NULL;
 
     FILE *fp_help = stderr;
@@ -149,38 +148,28 @@ int view_main(int argc, char* argv[]) {
             exit(EXIT_SUCCESS);
         } else if (c=='h'){
             fp_help = stdout;
-        } else if (c=='r'){
-            opt.ref_file = optarg;
         } else if (c=='c') {
             opt.mod_codes = optarg;
         } else if (c=='m'){
             mod_threshes_str = optarg;
-        } else if(c == 0 && longindex == 10){ //debug break
+        } else if(c == 0 && longindex == 9){ //debug break
             opt.debug_break = atoi(optarg);
-        } else if(c == 0 && longindex == 11){ //sectional benchmark todo : warning for gpu mode
+        } else if(c == 0 && longindex == 10){ //sectional benchmark todo : warning for gpu mode
             yes_or_no(&opt.flag, MINIMOD_PRF, long_options[longindex].name, optarg, 1);
-        } else if(c == 0 && longindex == 12){ //accel
+        } else if(c == 0 && longindex == 11){ //accel
         #ifdef HAVE_ACC
             yes_or_no(&opt.flag, minimod_ACC, long_options[longindex].name, optarg, 1);
         #else
             WARNING("%s", "--accel has no effect when compiled for the CPU");
         #endif
-        } else if(c == 0 && longindex == 13){ //expand output
+        } else if(c == 0 && longindex == 12){ //expand output
             yes_or_no(&opt.flag, MINIMOD_EXP, long_options[longindex].name, "yes", 1);
         }
     }
 
     // No arguments given
-    if (argc - optind != 1 || fp_help == stdout) {
-        print_help_msg(fp_help, opt);
-        if(fp_help == stdout){
-            exit(EXIT_SUCCESS);
-        }
-        exit(EXIT_FAILURE);
-    }
-    bamfile = argv[optind];
-
-    if (bamfile == NULL) {
+    if (argc - optind != 2 || fp_help == stdout) {
+        WARNING("%s","Missing arguments");
         print_help_msg(fp_help, opt);
         if(fp_help == stdout){
             exit(EXIT_SUCCESS);
@@ -188,7 +177,20 @@ int view_main(int argc, char* argv[]) {
         exit(EXIT_FAILURE);
     }
 
-    if (opt.ref_file == NULL) {
+    ref_file = argv[optind];
+    bam_file = argv[optind+1];
+
+    if (ref_file == NULL) {
+        WARNING("%s","Reference file not provided");
+        print_help_msg(fp_help, opt);
+        if(fp_help == stdout){
+            exit(EXIT_SUCCESS);
+        }
+        exit(EXIT_FAILURE);
+    }
+
+    if (bam_file == NULL) {
+        WARNING("%s","BAM file not provided");
         print_help_msg(fp_help, opt);
         if(fp_help == stdout){
             exit(EXIT_SUCCESS);
@@ -198,11 +200,11 @@ int view_main(int argc, char* argv[]) {
 
     opt.mod_threshes = parse_mod_threshes(opt.mod_codes,mod_threshes_str);
 
-    load_ref(opt.ref_file);
+    load_ref(ref_file);
 
     //initialise the core data structure
-    core_t* core = init_core(bamfile, opt, realtime0);
-    
+    core_t* core = init_core(bam_file, opt, realtime0);
+
     int32_t counter=0;
 
     //initialise a databatch

@@ -69,7 +69,6 @@ typedef struct {
     char* mod_codes;
 
     int8_t subtool; //0:view, 1:mod-freq
-    char *ref_file;
 
 } opt_t;
 

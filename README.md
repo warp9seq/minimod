@@ -26,21 +26,21 @@ command:
 # Examples
 ```bash
 # output base modification of type m (5-methylcytosine) in tsv format
-minimod view -r ref.fa reads.bam > mods.tsv
+minimod view ref.fa reads.bam > mods.tsv
 
 # output base modification frequencies of type m (5-methylcytosine) in tsv format
-minimod mod-freq -r ref.fa reads.bam > modfreqs.tsv
+minimod mod-freq ref.fa reads.bam > modfreqs.tsv
 
 # output base modification of type m (5-methylcytosine) in bed format
-minimod mod-freq -r ref.fa -b reads.bam > modfreqs.bedmethyl
+minimod mod-freq -b ref.fa reads.bam > modfreqs.bedmethyl
 
 # output base modification of types m (5-methylcytosine) and h (5-hydroxymethylcytosine) in tsv format
-minimod view -c "mh" -r ref.fa reads.bam > mods.tsv
+minimod view -c "mh" ref.fa reads.bam > mods.tsv
 ```
 
 # minimod view
 ```bash
-minimod view -r ref.fa reads.bam > mods.tsv
+minimod view ref.fa reads.bam > mods.tsv
 ```
 Print base modification details to the standard output in tsv format. Following command writes the output to a file.
 ```bash
@@ -79,7 +79,7 @@ chr22	19979948	+	m84088_230609_030819_s1/55512555/ccs	98	m	0.623529
 
 # minimod mod-freq
 ```bash
-minimod mod-freq -r ref.fa reads.bam > modfreqs.tsv
+minimod mod-freq ref.fa reads.bam > modfreqs.tsv
 ```
 Print base modification frequencies to the standard output in tsv format. Following command writes the output to a file.
 ```bash
