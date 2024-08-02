@@ -864,11 +864,18 @@ void view_single(core_t* core, db_t* db, int32_t i) {
     uint32_t ml_len;
     uint8_t *ml = get_ml_tag(record, &ml_len);
 
-    if(mm == NULL || ml == NULL || ml_len <= 0){
+    if(mm == NULL || ml == NULL){
         db->skipped_reads++;
         db->skipped_reads_bytes += record->l_data;
         free(ml);
-        WARNING("Skipping read %s with no MM or ML tag", bam_get_qname(record));
+        return;
+    }
+
+    if(ml_len <= 0){
+        db->skipped_reads++;
+        db->skipped_reads_bytes += record->l_data;
+        free(ml);
+        WARNING("Skipping read %s with empty ML tag", bam_get_qname(record));
         return;
     }
 
@@ -911,11 +918,18 @@ void mod_freq_single(core_t* core, db_t* db, int32_t i) {
     uint32_t ml_len;
     uint8_t *ml = get_ml_tag(record, &ml_len);
 
-    if(mm == NULL || ml == NULL || ml_len <= 0){
+    if(mm == NULL || ml == NULL){
         db->skipped_reads++;
         db->skipped_reads_bytes += record->l_data;
         free(ml);
-        WARNING("Skipping read %s with no MM or ML tag", bam_get_qname(record));
+        return;
+    }
+
+    if(ml_len <= 0){
+        db->skipped_reads++;
+        db->skipped_reads_bytes += record->l_data;
+        free(ml);
+        WARNING("Skipping read %s with empty ML tag", bam_get_qname(record));
         return;
     }
 
