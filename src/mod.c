@@ -868,6 +868,7 @@ void view_single(core_t* core, db_t* db, int32_t i) {
         db->skipped_reads++;
         db->skipped_reads_bytes += record->l_data;
         free(ml);
+        WARNING("Skipping read %s with no MM or ML tag", bam_get_qname(record));
         return;
     }
 
@@ -914,6 +915,7 @@ void mod_freq_single(core_t* core, db_t* db, int32_t i) {
         db->skipped_reads++;
         db->skipped_reads_bytes += record->l_data;
         free(ml);
+        WARNING("Skipping read %s with no MM or ML tag", bam_get_qname(record));
         return;
     }
 

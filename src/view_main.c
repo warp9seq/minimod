@@ -229,7 +229,7 @@ int view_main(int argc, char* argv[]) {
 
         fprintf(stderr, "[%s::%.3f*%.2f] %d Entries (%.1fM bytes) processed\n", __func__,
                 realtime() - realtime0, cputime() / (realtime() - realtime0),
-                status.num_reads,status.num_bytes/(1000.0*1000.0));
+                status.num_reads-db->skipped_reads,(db->sum_bytes-db->skipped_reads_bytes)/(1000.0*1000.0));
 
         //output print
         output_db(core, db);

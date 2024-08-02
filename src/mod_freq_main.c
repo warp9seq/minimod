@@ -228,7 +228,7 @@ int mod_freq_main(int argc, char* argv[]) {
 
         fprintf(stderr, "[%s::%.3f*%.2f] %d Entries (%.1fM bytes) loaded\n", __func__,
                 realtime() - realtime0, cputime() / (realtime() - realtime0),
-                db->n_bam_recs,db->sum_bytes/(1000.0*1000.0));
+                status.num_reads,db->sum_bytes/(1000.0*1000.0));
 
         //process the data batch
         process_db(core, db);
@@ -239,14 +239,14 @@ int mod_freq_main(int argc, char* argv[]) {
 
         fprintf(stderr, "[%s::%.3f*%.2f] %d Entries (%.1fM bytes) processed\n", __func__,
                 realtime() - realtime0, cputime() / (realtime() - realtime0),
-                db->n_bam_recs,db->sum_bytes/(1000.0*1000.0));
+                status.num_reads-db->skipped_reads,(db->sum_bytes-db->skipped_reads_bytes)/(1000.0*1000.0));
 
         //write the output
         output_db(core, db);
 
         //check if 90% of total reads are skipped
         if(core->skipped_reads>0.9*core->total_reads){
-            WARNING("%s","90% of the reads are skipped. Check if the BAM file is sorted, contains MM, ML tags.");
+            WARNING("%s","90% of the reads are skipped. Possible causes: unmapped bam, negative sequence lengths, or missing MM, ML tags (not performed base modification aware basecalling). Refer https://github.com/warp9seq/minimod for more information.");
         }
 
         if(opt.debug_break>0 && counter>=opt.debug_break){
