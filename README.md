@@ -45,7 +45,6 @@ minimod view ref.fa reads.bam > mods.tsv
 Print base modification details to the standard output in tsv format. Following command writes the output to a file.
 ```bash
 basic options:
-   -r FILE                    reference genome fasta file
    -m FLOAT                   min modification threshold (inclusive, range 0.0 to 1.0) [0.2]
    -c STR                     modification codes (ex. m , h or mh) [m]
    -h                         help
@@ -84,7 +83,6 @@ minimod mod-freq ref.fa reads.bam > modfreqs.tsv
 Print base modification frequencies to the standard output in tsv format. Following command writes the output to a file.
 ```bash
 basic options:
-   -r FILE                    reference genome fasta file
    -b                         output in bedmethyl format
    -m FLOAT                   min modification threshold (inclusive, range 0.0 to 1.0) [0.2]
    -c STR                     modification codes (ex. m , h or mh) [m]
