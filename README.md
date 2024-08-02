@@ -20,27 +20,27 @@ Usage: minimod <command> [options]
 
 command:
          view          view base modifications
-         meth-freq     call methylation and output methylation frequency
+         mod-freq      output base modifications frequencies
 ```
 
 # Examples
 ```bash
 # output base modification of type m (5-methylcytosine) in tsv format
-minimod view -r ref.fa reads.bam > meth.tsv
+minimod view -r ref.fa reads.bam > mods.tsv
 
 # output base modification frequencies of type m (5-methylcytosine) in tsv format
-minimod meth-freq -r ref.fa reads.bam > methfreq.tsv
+minimod mod-freq -r ref.fa reads.bam > modfreqs.tsv
 
 # output base modification of type m (5-methylcytosine) in bed format
-minimod meth-freq -r ref.fa -b reads.bam > methfreq.bedmethyl
+minimod mod-freq -r ref.fa -b reads.bam > modfreqs.bedmethyl
 
 # output base modification of types m (5-methylcytosine) and h (5-hydroxymethylcytosine) in tsv format
-minimod view -c "mh" -r ref.fa reads.bam > meth.tsv
+minimod view -c "mh" -r ref.fa reads.bam > mods.tsv
 ```
 
 # minimod view
 ```bash
-minimod view -r ref.fa reads.bam > meth.tsv
+minimod view -r ref.fa reads.bam > mods.tsv
 ```
 Print base modification details to the standard output in tsv format. Following command writes the output to a file.
 ```bash
@@ -53,7 +53,7 @@ basic options:
    --version                  print version
 ```
 
-**Sample meth.tsv output**
+**Sample mods.tsv output**
 ```bash
 ref_contig	ref_pos	strand	read_id	read_pos	mod_code	mod_prob
 chr22	19979864	+	m84088_230609_030819_s1/55512555/ccs	14	m	0.709804
@@ -75,17 +75,17 @@ chr22	19979948	+	m84088_230609_030819_s1/55512555/ccs	98	m	0.623529
 | 4. read_id | str | name of the read |
 | 5. read_pos | int | position (0-based) of the base in read |
 | 6. mod_code | char | base modification code as in [SAMtags: 1.7 Base modifications](https://github.com/samtools/hts-specs/blob/master/SAMtags.pdf)  |
-| 7. mod_prob | float | probabiliy (0.0-1.0) of base modification |
+| 7. mod_prob | float | probability (0.0-1.0) of base modification |
 
-# minimod meth-freq
+# minimod mod-freq
 ```bash
-minimod meth-freq -r ref.fa reads.bam > methfreq.tsv
+minimod mod-freq -r ref.fa reads.bam > modfreqs.tsv
 ```
-Print methylation frequencies to the standard output in tsv format. Following command writes the output to a file.
+Print base modification frequencies to the standard output in tsv format. Following command writes the output to a file.
 ```bash
 basic options:
    -r FILE                    reference genome fasta file
-   -b                         output in bedMethyl format
+   -b                         output in bedmethyl format
    -m FLOAT                   min modification threshold (inclusive, range 0.0 to 1.0) [0.2]
    -c STR                     modification codes (ex. m , h or mh) [m]
    -h                         help
@@ -93,7 +93,7 @@ basic options:
    --version                  print version
 ```
 
-**Sample methfreq.tsv output**
+**Sample modfreqs.tsv output**
 ```
 contig	start	end	strand	n_called	n_mod	freq	mod_code
 chr22	20016337	20016337	+	5	0	0.000000	m
@@ -117,7 +117,7 @@ chr22	19971259	19971259	+	1	1	1.000000	m
 | 7. freq | float | n_mod/n_called ratio |
 | 8. mod_code | char | base modification code as in [SAMtags: 1.7 Base modifications](https://github.com/samtools/hts-specs/blob/master/SAMtags.pdf) |
 
-**Sample methfreq.bedmethyl output**
+**Sample modfreqs.bedmethyl output**
 ```
 chr22	20016337	20016338	m	5	+	20016337	20016337	255,0,0	5	0.000000
 chr22	20016594	20016595	m	2	+	20016594	20016594	255,0,0	2	0.000000

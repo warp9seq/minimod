@@ -31,7 +31,6 @@ SOFTWARE.
 #include "minimod.h"
 #include "error.h"
 #include "misc.h"
-#include "meth.h"
 #include "ref.h"
 #include <assert.h>
 #include <getopt.h>
@@ -203,10 +202,7 @@ int view_main(int argc, char* argv[]) {
 
     //initialise the core data structure
     core_t* core = init_core(bamfile, opt, realtime0);
-    // simple_meth_view(core);
-
-    // destroy_mod();
-
+    
     int32_t counter=0;
 
     //initialise a databatch

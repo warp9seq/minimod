@@ -36,9 +36,9 @@ SOFTWARE.
 #include <string.h>
 
 #include "minimod.h"
+#include "mod.h"
 #include "misc.h"
 #include "error.h"
-#include "meth.h"
 #include "khash.h"
 
 #include <sys/wait.h>
@@ -119,7 +119,7 @@ core_t* init_core(const char *bamfilename, opt_t opt,double realtime0) {
         }
     }
 
-    if (opt.subtool == METH_FREQ) {
+    if (opt.subtool == MOD_FREQ) {
         core->freq_map = kh_init(freqm);
         if(pthread_mutex_init(&core->freq_map_lock, NULL) != 0){
             ERROR("%s","Mutex init failed");
@@ -155,7 +155,7 @@ void free_core(core_t* core,opt_t opt) {
     hts_idx_destroy(core->bam_idx);
     sam_close(core->bam_fp);
 
-    if (opt.subtool == METH_FREQ) {
+    if (opt.subtool == MOD_FREQ) {
         destroy_freq_map(core->freq_map);
         pthread_mutex_destroy(&core->freq_map_lock);
     }
@@ -267,8 +267,8 @@ void work_per_single_read(core_t* core,db_t* db, int32_t i){
 
     if(core->opt.subtool==VIEW){
         view_single(core,db,i);
-    }else if(core->opt.subtool==METH_FREQ){
-        meth_freq_single(core,db,i);
+    }else if(core->opt.subtool==MOD_FREQ){
+        mod_freq_single(core,db,i);
     }else{
         ERROR("Unknown subtool %d", core->opt.subtool);
     }
@@ -332,7 +332,7 @@ void output_db(core_t* core, db_t* db) {
 }
 
 void output_core(core_t* core) {
-    if(core->opt.subtool == METH_FREQ){
+    if(core->opt.subtool == MOD_FREQ){
         print_freq_output(core);
     }
 }

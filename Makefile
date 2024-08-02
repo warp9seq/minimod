@@ -7,14 +7,13 @@ BINARY = minimod
 OBJ = $(BUILD_DIR)/main.o \
       $(BUILD_DIR)/minimod.o \
       $(BUILD_DIR)/view_main.o \
-	  $(BUILD_DIR)/meth_freq_main.o \
+	  $(BUILD_DIR)/mod_freq_main.o \
       $(BUILD_DIR)/thread.o \
 	  $(BUILD_DIR)/misc.o \
 	  $(BUILD_DIR)/misc_p.o \
 	  $(BUILD_DIR)/error.o \
 	  $(BUILD_DIR)/mod.o \
-	  $(BUILD_DIR)/ref.o \
-	  $(BUILD_DIR)/meth.o
+	  $(BUILD_DIR)/ref.o
 
 ifdef asan
 	CFLAGS += -fsanitize=address -fno-omit-frame-pointer
@@ -35,7 +34,7 @@ $(BUILD_DIR)/minimod.o: src/minimod.c src/misc.h src/error.h src/minimod.h
 $(BUILD_DIR)/view_main.o: src/view_main.c src/error.h src/minimod.h
 	$(CC) $(CFLAGS) $(CPPFLAGS) $< -c -o $@
 
-$(BUILD_DIR)/meth_freq_main.o: src/meth_freq_main.c src/error.h src/minimod.h
+$(BUILD_DIR)/mod_freq_main.o: src/mod_freq_main.c src/error.h src/minimod.h
 	$(CC) $(CFLAGS) $(CPPFLAGS) $< -c -o $@
 
 $(BUILD_DIR)/thread.o: src/thread.c src/minimod.h
@@ -54,9 +53,6 @@ $(BUILD_DIR)/mod.o: src/mod.c src/mod.h
 	$(CC) $(CFLAGS) $(CPPFLAGS) $< -c -o $@
 
 $(BUILD_DIR)/ref.o: src/ref.c src/kseq.h src/error.h
-	$(CC) $(CFLAGS) $(CPPFLAGS) $< -c -o $@
-
-$(BUILD_DIR)/meth.o: src/meth.c src/meth.h src/khash.h
 	$(CC) $(CFLAGS) $(CPPFLAGS) $< -c -o $@
 
 htslib/libhts.a:

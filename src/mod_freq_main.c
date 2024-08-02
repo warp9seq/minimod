@@ -1,6 +1,6 @@
 /**
- * @file meth_freq.c
- * @brief entry point to meth_freq
+ * @file mod_freq.c
+ * @brief entry point to mod_freq
  * @author Hasindu Gamaarachchi (hasindu@unsw.edu.au)
  * @author Suneth Samarasinghe (suneth@unsw.edu.au)
 
@@ -33,7 +33,6 @@ SOFTWARE.
 #include "minimod.h"
 #include "error.h"
 #include "misc.h"
-#include "meth.h"
 #include "ref.h"
 #include <assert.h>
 #include <getopt.h>
@@ -63,7 +62,7 @@ static struct option long_options[] = {
 
 
 static inline void print_help_msg(FILE *fp_help, opt_t opt){
-    fprintf(fp_help,"Usage: minimod meth-freq reads.bam\n");
+    fprintf(fp_help,"Usage: minimod mod-freq reads.bam\n");
     fprintf(fp_help,"\nbasic options:\n");
     fprintf(fp_help,"   -r FILE                    reference genome fasta file\n");
     fprintf(fp_help,"   -b                         output in bedMethyl format\n");
@@ -105,7 +104,7 @@ static double * parse_mod_threshes(const char* mod_codes, char* mod_thresh_str){
     return mod_threshes;
 }
 
-int meth_freq_main(int argc, char* argv[]) {
+int mod_freq_main(int argc, char* argv[]) {
 
     double realtime0 = realtime();
 
@@ -121,7 +120,7 @@ int meth_freq_main(int argc, char* argv[]) {
 
     opt_t opt;
     init_opt(&opt); //initialise options to defaults
-    opt.subtool = METH_FREQ;
+    opt.subtool = MOD_FREQ;
 
     //parse the user args
     while ((c = getopt_long(argc, argv, optstring, long_options, &longindex)) >= 0) {
@@ -208,7 +207,7 @@ int meth_freq_main(int argc, char* argv[]) {
     //initialise the core data structure
     core_t* core = init_core(bamfile, opt, realtime0);
 
-    // meth_freq(core);
+    // mod_freq(core);
     // print_stats(stdout, bedmethyl_out);
     // destroy_mod();
 

@@ -64,11 +64,11 @@ typedef struct {
 
     char *region_str; //the region string in format chr:start-end
 
-    int8_t bedmethyl_out; //output in bedMethyl format, only for meth-freq
+    int8_t bedmethyl_out; //output in bedMethyl format, only for mod-freq
     double* mod_threshes;
     char* mod_codes;
 
-    int8_t subtool; //0:view, 1:meth-freq
+    int8_t subtool; //0:view, 1:mod-freq
     char *ref_file;
 
 } opt_t;
@@ -103,7 +103,7 @@ typedef struct {
 } freq_t;
 
 KHASH_MAP_INIT_STR(freqm, freq_t *);
-enum subtool {VIEW=0, METH_FREQ=1};
+enum subtool {VIEW=0, MOD_FREQ=1};
 
 /* a batch of read data (dynamic data based on the reads) */
 typedef struct {
