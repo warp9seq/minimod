@@ -52,7 +52,7 @@ static struct option long_options[] = {
     {"verbose", required_argument, 0, 'v'},        //6 verbosity level [1]
     {"help", no_argument, 0, 'h'},                 //7
     {"version", no_argument, 0, 'V'},              //8
-    {"output",required_argument, 0, 'o'},          //9 output to a file [stdout]
+    {"prog-interval",required_argument, 0, 'p'},   //9 progress interval
     {"debug-break",required_argument, 0, 0},       //10 break after processing the first batch (used for debugging)
     {"profile-cpu",required_argument, 0, 0},       //11 perform section by section (used for profiling - for CPU only)
     {"accel",required_argument, 0, 0},             //12 accelerator
@@ -70,7 +70,7 @@ static inline void print_help_msg(FILE *fp_help, opt_t opt){
     fprintf(fp_help,"   -K INT                     batch size (max number of reads loaded at once) [%d]\n",opt.batch_size);
     fprintf(fp_help,"   -B FLOAT[K/M/G]            max number of bytes loaded at once [%.1fM]\n",opt.batch_size_bytes/(float)(1000*1000));
     fprintf(fp_help,"   -h                         help\n");
-    fprintf(fp_help,"   -o FILE                    output to file [stdout]\n");
+    fprintf(fp_help,"   -p INT                     print progress no more than every INT seconds [10]\n");
     fprintf(fp_help,"   --verbose INT              verbosity level [%d]\n",(int)get_log_level());
     fprintf(fp_help,"   --version                  print version\n");
 
@@ -107,7 +107,7 @@ int mod_freq_main(int argc, char* argv[]) {
     double realtime0 = realtime();
     double realtime_prog = realtime();
 
-    const char* optstring = "m:c:t:B:K:v:o:hVb";
+    const char* optstring = "m:c:t:B:K:v:p:hVb";
 
     int longindex = 0;
     int32_t c = -1;
@@ -147,6 +147,8 @@ int mod_freq_main(int argc, char* argv[]) {
         } else if (c=='v'){
             int v = atoi(optarg);
             set_log_level((enum log_level_opt)v);
+        } else if (c=='p'){
+            progress_interval = atoi(optarg);
         } else if (c=='V'){
             fprintf(stdout,"minimod %s\n",MINIMOD_VERSION);
             exit(EXIT_SUCCESS);
@@ -158,17 +160,17 @@ int mod_freq_main(int argc, char* argv[]) {
             opt.mod_codes = optarg;
         } else if (c=='b'){
             opt.bedmethyl_out = 1;
-        }else if(c == 0 && longindex == 10){ //debug break
+        }else if(c == 0 && longindex == 9){ //debug break
             opt.debug_break = atoi(optarg);
-        } else if(c == 0 && longindex == 11){ //sectional benchmark todo : warning for gpu mode
+        } else if(c == 0 && longindex == 10){ //sectional benchmark todo : warning for gpu mode
             yes_or_no(&opt.flag, MINIMOD_PRF, long_options[longindex].name, optarg, 1);
-        } else if(c == 0 && longindex == 12){ //accel
+        } else if(c == 0 && longindex == 11){ //accel
         #ifdef HAVE_ACC
             yes_or_no(&opt.flag, minimod_ACC, long_options[longindex].name, optarg, 1);
         #else
             WARNING("%s", "--accel has no effect when compiled for the CPU");
         #endif
-        } else if(c == 0 && longindex == 13){ //expand output
+        } else if(c == 0 && longindex == 12){ //expand output
             yes_or_no(&opt.flag, MINIMOD_EXP, long_options[longindex].name, "yes", 1);
         }
     }
@@ -206,6 +208,8 @@ int mod_freq_main(int argc, char* argv[]) {
 
     opt.mod_threshes = parse_mod_threshes(opt.mod_codes,mod_threshes_str);
 
+    //load the reference genome
+    fprintf(stderr, "[%s] Loading reference genome %s\n", __func__, ref_file);
     load_ref(ref_file);
 
     //initialise the core data structure
@@ -246,7 +250,7 @@ int mod_freq_main(int argc, char* argv[]) {
 
         //check if 90% of total reads are skipped
         if(core->skipped_reads>0.9*core->total_reads){
-            WARNING("%s","90% of the reads are skipped. Possible causes: unmapped bam, negative sequence lengths, or missing MM, ML tags (not performed base modification aware basecalling). Refer https://github.com/warp9seq/minimod for more information.");
+            WARNING("%s","90% of the reads are skipped. Possible causes: unmapped bam, zero sequence lengths, or missing MM, ML tags (not performed base modification aware basecalling). Refer https://github.com/warp9seq/minimod for more information.");
         }
 
         if(opt.debug_break>0 && counter>=opt.debug_break){
@@ -264,6 +268,8 @@ int mod_freq_main(int argc, char* argv[]) {
     fprintf(stderr,"\n[%s] total bytes: %.1f M",__func__,core->sum_bytes/(float)(1000*1000));
     fprintf(stderr,"\n[%s] total skipped entries: %ld",__func__,(long)core->skipped_reads);
     fprintf(stderr,"\n[%s] total skipped bytes: %.1f M",__func__,core->skipped_reads_bytes/(float)(1000*1000));
+    fprintf(stderr,"\n[%s] total processed entries: %ld",__func__,(long)(core->total_reads-core->skipped_reads));
+    fprintf(stderr,"\n[%s] total processed bytes: %.1f M",__func__,(core->sum_bytes-core->skipped_reads_bytes)/(float)(1000*1000));
 
     fprintf(stderr, "\n[%s] Data loading time: %.3f sec", __func__,core->load_db_time);
     fprintf(stderr, "\n[%s] Data processing time: %.3f sec", __func__,core->process_db_time);

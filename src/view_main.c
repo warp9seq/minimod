@@ -49,7 +49,7 @@ static struct option long_options[] = {
     {"verbose", required_argument, 0, 'v'},        //5 verbosity level [1]
     {"help", no_argument, 0, 'h'},                 //6
     {"version", no_argument, 0, 'V'},              //7
-    {"output",required_argument, 0, 'o'},          //8 output to a file [stdout]
+    {"prog-interval",required_argument, 0, 'p'},   //8 progress interval
     {"debug-break",required_argument, 0, 0},       //9 break after processing the first batch (used for debugging)
     {"profile-cpu",required_argument, 0, 0},       //10 perform section by section (used for profiling - for CPU only)
     {"accel",required_argument, 0, 0},             //11 accelerator
@@ -66,6 +66,7 @@ static inline void print_help_msg(FILE *fp_help, opt_t opt){
     fprintf(fp_help,"   -K INT                     batch size (max number of reads loaded at once) [%d]\n",opt.batch_size);
     fprintf(fp_help,"   -B FLOAT[K/M/G]            max number of bytes loaded at once [%.1fM]\n",opt.batch_size_bytes/(float)(1000*1000));
     fprintf(fp_help,"   -h                         help\n");
+    fprintf(fp_help,"   -p INT                     print progress no more than every INT seconds [10]\n");
     fprintf(fp_help,"   -o FILE                    output to file [stdout]\n");
     fprintf(fp_help,"   --verbose INT              verbosity level [%d]\n",(int)get_log_level());
     fprintf(fp_help,"   --version                  print version\n");
@@ -103,8 +104,9 @@ static double * parse_mod_threshes(const char* mod_codes, char* mod_thresh_str){
 int view_main(int argc, char* argv[]) {
 
     double realtime0 = realtime();
+    double realtime_prog = realtime();
 
-    const char* optstring = "m:c:t:B:K:v:o:hV";
+    const char* optstring = "m:c:t:B:K:v:p:hV";
 
     int longindex = 0;
     int32_t c = -1;
@@ -112,6 +114,7 @@ int view_main(int argc, char* argv[]) {
     char *ref_file = NULL;
     char *bam_file = NULL;
     char *mod_threshes_str = NULL;
+    int progress_interval = 10; //seconds
 
     FILE *fp_help = stderr;
 
@@ -143,6 +146,8 @@ int view_main(int argc, char* argv[]) {
         } else if (c=='v'){
             int v = atoi(optarg);
             set_log_level((enum log_level_opt)v);
+        } else if (c=='p'){
+            progress_interval = atoi(optarg);
         } else if (c=='V'){
             fprintf(stdout,"minimod %s\n",MINIMOD_VERSION);
             exit(EXIT_SUCCESS);
@@ -200,6 +205,8 @@ int view_main(int argc, char* argv[]) {
 
     opt.mod_threshes = parse_mod_threshes(opt.mod_codes,mod_threshes_str);
 
+    //load the reference genome
+    fprintf(stderr, "[%s] Loading reference genome %s\n", __func__, ref_file);
     load_ref(ref_file);
 
     //initialise the core data structure
@@ -212,24 +219,22 @@ int view_main(int argc, char* argv[]) {
 
     ret_status_t status = {core->opt.batch_size,core->opt.batch_size_bytes};
     while (status.num_reads >= core->opt.batch_size || status.num_bytes>=core->opt.batch_size_bytes) {
+        
+        //print progress
+        if(realtime()-realtime_prog > progress_interval){
+            fprintf(stderr, "[%s::%.3f*%.2f] %ld Entries (%.1fM bytes) loaded\t %ld Entries (%.1fM bytes) skipped\t %ld Entries (%.1fM bytes) processed\n", __func__,
+                    realtime() - realtime0, cputime() / (realtime() - realtime0),
+                    core->total_reads,core->sum_bytes/(1000.0*1000.0),
+                    core->skipped_reads,core->skipped_reads_bytes/(1000.0*1000.0),
+                    (core->total_reads-core->skipped_reads),(core->sum_bytes-core->skipped_reads_bytes)/(1000.0*1000.0));
+            realtime_prog = realtime();
+        }
 
         //load a databatch
         status = load_db(core, db);
 
-        fprintf(stderr, "[%s::%.3f*%.2f] %d Entries (%.1fM bytes) loaded\n", __func__,
-                realtime() - realtime0, cputime() / (realtime() - realtime0),
-                status.num_reads,status.num_bytes/(1000.0*1000.0));
-
         //process a databatch
         process_db(core, db);
-
-        fprintf(stderr, "[%s::%.3f*%.2f] %d Entries (%.1fM bytes) skipped\n", __func__,
-                realtime() - realtime0, cputime() / (realtime() - realtime0),
-                db->skipped_reads,db->skipped_reads_bytes/(1000.0*1000.0));
-
-        fprintf(stderr, "[%s::%.3f*%.2f] %d Entries (%.1fM bytes) processed\n", __func__,
-                realtime() - realtime0, cputime() / (realtime() - realtime0),
-                status.num_reads-db->skipped_reads,(db->sum_bytes-db->skipped_reads_bytes)/(1000.0*1000.0));
 
         //output print
         output_db(core, db);
@@ -251,6 +256,9 @@ int view_main(int argc, char* argv[]) {
     fprintf(stderr, "[%s] total entries: %ld", __func__,(long)core->total_reads);
     fprintf(stderr,"\n[%s] total bytes: %.1f M",__func__,core->sum_bytes/(float)(1000*1000));
     fprintf(stderr,"\n[%s] total skipped entries: %ld",__func__,(long)core->skipped_reads);
+    fprintf(stderr,"\n[%s] total skipped bytes: %.1f M",__func__,core->skipped_reads_bytes/(float)(1000*1000));
+    fprintf(stderr,"\n[%s] total processed entries: %ld",__func__,(long)(core->total_reads-core->skipped_reads));
+    fprintf(stderr,"\n[%s] total processed bytes: %.1f M",__func__,(core->sum_bytes-core->skipped_reads_bytes)/(float)(1000*1000));
 
     fprintf(stderr, "\n[%s] Data loading time: %.3f sec", __func__,core->load_db_time);
     fprintf(stderr, "\n[%s] Data processing time: %.3f sec", __func__,core->process_db_time);
