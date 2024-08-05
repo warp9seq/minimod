@@ -49,6 +49,7 @@ basic options:
    -c STR                     modification codes (ex. m , h or mh) [m]
    -h                         help
    -p INT                     print progress no more than every INT seconds [10]
+   -o FILE                    output file
    --version                  print version
 ```
 
@@ -88,6 +89,7 @@ basic options:
    -c STR                     modification codes (ex. m , h or mh) [m]
    -h                         help
    -p INT                     print progress no more than every INT seconds [10]
+   -o FILE                    output file
    --version                  print version
 ```
 
