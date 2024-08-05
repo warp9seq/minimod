@@ -242,7 +242,7 @@ static int is_required_mod_code_and_thresh(char mod_code, char * mod_codes, doub
 }
 
 void print_view_output(core_t* core, db_t* db) {
-    fprintf(stdout, "ref_contig\tref_pos\tstrand\tread_id\tread_pos\tmod_code\tmod_prob\n");
+    fprintf(core->opt.output_fp, "ref_contig\tref_pos\tstrand\tread_id\tread_pos\tmod_code\tmod_prob\n");
 
     int32_t i = 0;
     for (i = 0; i < db->n_bam_recs; i++) {
@@ -251,9 +251,13 @@ void print_view_output(core_t* core, db_t* db) {
             if(view.is_aln == 0 ||  is_required_mod_code_and_thresh(view.mod_code, core->opt.mod_codes, view.mod_prob, core->opt.mod_threshes) == 0){
                 continue;
             }
-            fprintf(stdout, "%s\t%d\t%c\t%s\t%d\t%c\t%f\n", view.ref_contig, view.ref_pos, view.strand, view.read_id, view.read_pos, view.mod_code, view.mod_prob);
+            fprintf(core->opt.output_fp, "%s\t%d\t%c\t%s\t%d\t%c\t%f\n", view.ref_contig, view.ref_pos, view.strand, view.read_id, view.read_pos, view.mod_code, view.mod_prob);
         }
         
+    }
+
+    if(core->opt.output_fp != stdout){
+        fclose(core->opt.output_fp);
     }
 }
 
@@ -268,13 +272,13 @@ void print_freq_output(core_t* core) {
                 if(freq->is_aln == 0 || freq->is_cpg == 0 || is_required_mod_code(freq->mod_code, core->opt.mod_codes) == 0) {
                     continue;
                 }
-                fprintf(stdout, "%s\t%d\t%d\t%c\t%d\t%c\t%d\t%d\t255,0,0\t%d\t%f\n", freq->contig, freq->start, (freq->end+1), freq->mod_code, freq->n_called, freq->strand, freq->start, freq->end, freq->n_called, freq->freq);
+                fprintf(core->opt.output_fp, "%s\t%d\t%d\t%c\t%d\t%c\t%d\t%d\t255,0,0\t%d\t%f\n", freq->contig, freq->start, (freq->end+1), freq->mod_code, freq->n_called, freq->strand, freq->start, freq->end, freq->n_called, freq->freq);
             }
         }
         
     } else{
         // contig, start, end, strand, n_called, n_mod, freq, mod_code
-        fprintf(stdout, "contig\tstart\tend\tstrand\tn_called\tn_mod\tfreq\tmod_code\n");
+        fprintf(core->opt.output_fp, "contig\tstart\tend\tstrand\tn_called\tn_mod\tfreq\tmod_code\n");
         khint_t k;
         for (k = kh_begin(freq_map); k != kh_end(freq_map); ++k) {
             if (kh_exist(freq_map, k)) {
@@ -282,9 +286,13 @@ void print_freq_output(core_t* core) {
                 if(freq->is_aln == 0 || freq->is_cpg == 0  || is_required_mod_code(freq->mod_code, core->opt.mod_codes) == 0) {
                     continue;
                 }
-                fprintf(stdout, "%s\t%d\t%d\t%c\t%d\t%d\t%f\t%c\n", freq->contig, freq->start, freq->end, freq->strand, freq->n_called, freq->n_mod, freq->freq, freq->mod_code);
+                fprintf(core->opt.output_fp, "%s\t%d\t%d\t%c\t%d\t%d\t%f\t%c\n", freq->contig, freq->start, freq->end, freq->strand, freq->n_called, freq->n_mod, freq->freq, freq->mod_code);
             }
         }
+    }
+
+    if(core->opt.output_fp != stdout){
+        fclose(core->opt.output_fp);
     }
 }
 

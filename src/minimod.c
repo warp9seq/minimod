@@ -384,6 +384,7 @@ void init_opt(opt_t* opt) {
     opt->debug_break=-1;
 
     opt->mod_codes = "m";
+    opt->output_fp = stdout;
 
 #ifdef HAVE_ACC
     opt->flag |= MINIMOD_ACC;

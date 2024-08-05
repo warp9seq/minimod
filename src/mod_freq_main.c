@@ -57,6 +57,7 @@ static struct option long_options[] = {
     {"profile-cpu",required_argument, 0, 0},       //11 perform section by section (used for profiling - for CPU only)
     {"accel",required_argument, 0, 0},             //12 accelerator
     {"expand",no_argument, 0, 0},                  //13 expand view
+    {"output",required_argument, 0, 'o'},            //13 output file
     {0, 0, 0, 0}};
 
 
@@ -71,6 +72,7 @@ static inline void print_help_msg(FILE *fp_help, opt_t opt){
     fprintf(fp_help,"   -B FLOAT[K/M/G]            max number of bytes loaded at once [%.1fM]\n",opt.batch_size_bytes/(float)(1000*1000));
     fprintf(fp_help,"   -h                         help\n");
     fprintf(fp_help,"   -p INT                     print progress no more than every INT seconds [10]\n");
+    fprintf(fp_help,"   -o FILE                    output file\n");
     fprintf(fp_help,"   --verbose INT              verbosity level [%d]\n",(int)get_log_level());
     fprintf(fp_help,"   --version                  print version\n");
 
@@ -107,7 +109,7 @@ int mod_freq_main(int argc, char* argv[]) {
     double realtime0 = realtime();
     double realtime_prog = realtime();
 
-    const char* optstring = "m:c:t:B:K:v:p:hVb";
+    const char* optstring = "m:c:t:B:K:v:p:o:hVb";
 
     int longindex = 0;
     int32_t c = -1;
@@ -149,6 +151,13 @@ int mod_freq_main(int argc, char* argv[]) {
             set_log_level((enum log_level_opt)v);
         } else if (c=='p'){
             progress_interval = atoi(optarg);
+        } else if (c=='o'){
+            FILE *fp = fopen(optarg, "w");
+            if (fp == NULL) {
+                ERROR("Cannot open file %s for writing", optarg);
+                exit(EXIT_FAILURE);
+            }
+            opt.output_fp = fp;
         } else if (c=='V'){
             fprintf(stdout,"minimod %s\n",MINIMOD_VERSION);
             exit(EXIT_SUCCESS);

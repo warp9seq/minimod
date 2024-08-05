@@ -67,6 +67,7 @@ typedef struct {
     int8_t bedmethyl_out; //output in bedMethyl format, only for mod-freq
     double* mod_threshes;
     char* mod_codes;
+    FILE* output_fp;
 
     int8_t subtool; //0:view, 1:mod-freq
 
