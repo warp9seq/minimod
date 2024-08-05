@@ -92,12 +92,12 @@ typedef struct {
     char strand;
     int n_called;
     int n_mod;
-    double freq;
+    // double freq;
     char mod_code;
 
-    int depth;
-    int n_skipped;
-    char ref_base;
+    // int depth;
+    // int n_skipped;
+    // char ref_base;
     int is_aln;
     int is_cpg;
 } freq_t;
@@ -111,6 +111,11 @@ typedef struct {
     bam1_t** bam_recs;
     int32_t cap_bam_recs;
     int32_t n_bam_recs;
+
+    //mod tags
+    const char ** mm;
+    uint32_t * ml_lens;
+    uint8_t ** ml;
 
     double *means;
     // view output

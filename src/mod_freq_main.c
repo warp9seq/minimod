@@ -249,7 +249,7 @@ int mod_freq_main(int argc, char* argv[]) {
         }
 
         //load a databatch
-        status = load_db(core, db);            
+        status = load_db(core, db);
 
         //process the data batch
         process_db(core, db);

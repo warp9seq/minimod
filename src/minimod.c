@@ -184,6 +184,13 @@ db_t* init_db(core_t* core) {
     db->bam_recs = (bam1_t**)(malloc(sizeof(bam1_t*) * db->cap_bam_recs));
     MALLOC_CHK(db->bam_recs);
 
+    db->mm = (const char**)(malloc(sizeof(char*) * db->cap_bam_recs));
+    MALLOC_CHK(db->mm);
+    db->ml_lens = (uint32_t*)(malloc(sizeof(uint32_t) * db->cap_bam_recs));
+    MALLOC_CHK(db->ml_lens);
+    db->ml = (uint8_t**)(malloc(sizeof(uint8_t*) * db->cap_bam_recs));
+    MALLOC_CHK(db->ml);
+
     int32_t i = 0;
     for (i = 0; i < db->cap_bam_recs; ++i) {
         db->bam_recs[i] = bam_init1();
@@ -222,7 +229,46 @@ ret_status_t load_db(core_t* core, db_t* db) {
     ret_status_t status={0,0};
     while (db->n_bam_recs < db->cap_bam_recs && db->sum_bytes<core->opt.batch_size_bytes) {
         if(sam_itr_next(core->bam_fp, core->itr, db->bam_recs[db->n_bam_recs])>=0){
-            db->sum_bytes += db->bam_recs[db->n_bam_recs]->l_data;
+            bam1_t* rec = db->bam_recs[db->n_bam_recs];
+
+            db->sum_bytes += rec->l_data;
+            
+            if(rec->core.flag & BAM_FUNMAP){
+                db->skipped_reads++;
+                db->skipped_reads_bytes += rec->l_data;
+                WARNING("Skipping unmapped read %s",bam_get_qname(rec));
+                continue;
+            }
+
+            if(rec->core.l_qseq == 0){
+                db->skipped_reads++;
+                db->skipped_reads_bytes += rec->l_data;
+                WARNING("Skipping read with 0 length %s",bam_get_qname(rec));
+                continue;
+            }
+
+            const char *mm = get_mm_tag_ptr(rec);
+            uint32_t ml_len;
+            uint8_t *ml = get_ml_tag(rec, &ml_len);
+
+            if(mm == NULL || ml == NULL){
+                db->skipped_reads++;
+                db->skipped_reads_bytes += rec->l_data;
+                free(ml);
+                continue;
+            }
+
+            if(ml_len <= 0){
+                db->skipped_reads++;
+                db->skipped_reads_bytes += rec->l_data;
+                free(ml);
+                WARNING("Skipping read %s with empty ML tag", bam_get_qname(rec));
+                continue;
+            }
+
+            db->mm[db->n_bam_recs] = mm;
+            db->ml_lens[db->n_bam_recs] = ml_len;
+            db->ml[db->n_bam_recs] = ml;
             db->n_bam_recs++;
         }else{
             break;
@@ -333,9 +379,14 @@ void output_db(core_t* core, db_t* db) {
 }
 
 void output_core(core_t* core) {
+    double output_start = realtime();
+
     if(core->opt.subtool == MOD_FREQ){
         print_freq_output(core);
     }
+
+    double output_end = realtime();
+    core->output_time += (output_end-output_start);
 }
 
 // /* partially free a data batch - only the read dependent allocations are freed */
