@@ -47,7 +47,6 @@ SOFTWARE.
 #define INIT_BASE_POS 100
 #define INIT_MOD_BASES 1
 #define N_BASES 6 // A, C, G, T, N, U
-#define N_MOD_CODES 5 // 5mC, 5hmC, 5fC, 5caC, xC
 
 typedef struct {
     char base;
@@ -59,7 +58,7 @@ typedef struct {
     int skip_counts_cap;
     int skip_counts_len;
     char status_flag;
-} mod_tag_t; // free in free_mod_tags()
+} mod_tag_t;
 
 typedef struct {
     char mod_code;
@@ -71,19 +70,13 @@ typedef struct {
 typedef struct {
     char base;
     char ref_base;
-    uint8_t qual;
-    const char * chrom;
     int ref_pos;
     mod_t * mods;
     int mods_cap;
     int mods_len;
-    char strand;
-    // int * is_skipped; // for 5 mod codes;
-    // int depth;
-    int * is_called; // for 5 mod codes;
     int is_aln;
     int is_cpg;
-} base_t; // free in free_mods_per_base()
+} base_t;
 
 static const int valid_bases[256] = {
     ['A'] = 1, ['C'] = 1, ['G'] = 1, ['T'] = 1, ['U'] = 1, ['N'] = 1,
@@ -114,14 +107,6 @@ static const int base_idx_lookup[256] = {
     ['t'] = 3,
     ['u'] = 4,
     ['n'] = 5,
-};
-
-static const int mod_code_idx_lookup[256] = {
-    ['m'] = 0,
-    ['h'] = 1,
-    ['f'] = 2,
-    ['c'] = 3,
-    ['C'] = 4,
 };
 
 static const char base_complement_lookup[256] = {
@@ -475,46 +460,50 @@ static double mod_thresh(char mod_code, char * mod_codes, double * mod_threshes)
 }
 
 // freq_map is used by multiple threads, so need to lock it
-static void update_freq_map(base_t *bases, core_t* core, uint32_t seq_len){
+static void update_freq_map(base_t *bases, core_t* core, bam1_t *record, bam_hdr_t *hdr){
+    // const char *qname = bam_get_qname(record);
+    int8_t rev = bam_is_rev(record);
+
+    int32_t tid = record->core.tid;
+    assert(tid < hdr->n_targets);
+    const char *tname = tid >= 0 ? hdr->target_name[tid] : "*";
+
+    uint32_t seq_len = record->core.l_qseq;
+
+    char strand = rev ? '-' : '+';
+
     pthread_mutex_lock(&(core->freq_map_lock));
     for(int i=0;i<seq_len;i++){
         base_t base = bases[i];
         for(int j=0;j<base.mods_len;j++){
             mod_t mod = base.mods[j];
-            char *key = make_key(base.chrom, base.ref_pos, base.ref_pos, mod.mod_code, base.strand);
+            char *key = make_key(tname, base.ref_pos, base.ref_pos, mod.mod_code, strand);
             khash_t(freqm) *freq_map = core->freq_map;
             khiter_t k = kh_get(freqm, freq_map, key);
             if (k == kh_end(freq_map)) { // not found, add to map
                 freq_t * freq = (freq_t *)malloc(sizeof(freq_t));
                 MALLOC_CHK(freq);
-                char* contig = (char *)calloc(strlen(base.chrom)+1, sizeof(char));
+                char* contig = (char *)calloc(strlen(tname)+1, sizeof(char));
                 MALLOC_CHK(contig);
-                strcpy(contig, base.chrom);
+                strcpy(contig, tname);
                 freq->contig = contig;
                 freq->start = base.ref_pos;
                 freq->end = base.ref_pos;
                 freq->mod_code = mod.mod_code;
 
-                // freq->ref_base = base.ref_base;
-                freq->n_called = base.is_called[mod_code_idx_lookup[(int)mod.mod_code]];
-                // freq->n_skipped = base.is_skipped[mod_code_idx_lookup[(int)mod.mod_code]];
+                freq->n_called = 1;
                 freq->n_mod = mod.mod_prob >= mod_thresh(mod.mod_code, core->opt.mod_codes, core->opt.mod_threshes) ? 1 : 0;
                 freq->strand = mod.mod_strand;
-                // freq->depth = base.depth;
                 freq->is_aln = base.is_aln;
                 freq->is_cpg = base.is_cpg;
-                // freq->freq = (double)freq->n_mod/freq->n_called;
                 int ret;
                 k = kh_put(freqm, freq_map, key, &ret);
                 kh_value(freq_map, k) = freq;
             } else { // found, update the values
                 free(key);
                 freq_t * freq = kh_value(freq_map, k);
-                freq->n_called += base.is_called[mod_code_idx_lookup[(int)mod.mod_code]];
-                // freq->n_skipped += base.is_skipped[mod_code_idx_lookup[(int)mod.mod_code]];
+                freq->n_called += 1;
                 freq->n_mod += mod.mod_prob >= mod_thresh(mod.mod_code, core->opt.mod_codes, core->opt.mod_threshes) ? 1 : 0;
-                // freq->depth += base.depth;
-                // freq->freq = (double)freq->n_mod/freq->n_called;
             }
         }
     }
@@ -630,21 +619,9 @@ static base_t * get_bases(mod_tag_t *mod_tags, uint32_t mods_len, uint8_t * ml, 
         MALLOC_CHK(bases[i].mods);
         bases[i].mods_len = 0;
         bases[i].ref_pos = aln_pairs[i];
-        // bases[i].depth = aln_pairs[i] == -1 ? 0 : 1; // count towards depth only if aligned
-        bases[i].chrom = tname;
-        bases[i].qual = bam_get_qual(record)[i];
-        bases[i].strand = strand;
         bases[i].base = seq_nt16_str[bam_seqi(seq, i)];
-        // bases[i].is_skipped = (int *)malloc(sizeof(int)*N_MOD_CODES);
-        // MALLOC_CHK(bases[i].is_skipped);
-        bases[i].is_called = (int *)malloc(sizeof(int)*N_MOD_CODES);
-        MALLOC_CHK(bases[i].is_called);
         bases[i].is_aln = aln_pairs[i] == -1 ? 0 : 1;
         bases[i].is_cpg = 0;
-        for(int j=0;j<N_MOD_CODES;j++){
-            // bases[i].is_skipped[j] = 0;
-            bases[i].is_called[j] = 0;
-        }
         bases[i].base = seq_nt16_str[bam_seqi(seq, i)];
         // check if the base belongs to a cpg site using the ref
         if(bases[i].is_aln){ // if aligned
@@ -664,7 +641,6 @@ static base_t * get_bases(mod_tag_t *mod_tags, uint32_t mods_len, uint8_t * ml, 
                 bases[i].is_cpg = 1;
             }
 
-            // bases[i].ref_base = ref_seq[ref_pos];
         }
     }
 
@@ -703,8 +679,6 @@ static base_t * get_bases(mod_tag_t *mod_tags, uint32_t mods_len, uint8_t * ml, 
     for(int i=0; i<mods_len; i++) {
         mod_tag_t mod = mod_tags[i];
         int base_rank = -1;
-
-        // int prev_read_pos = -1;
 
         int ml_idx = ml_start_idx;
         for(int j=0; j<mod.skip_counts_len; j++) {
@@ -759,20 +733,10 @@ static base_t * get_bases(mod_tag_t *mod_tags, uint32_t mods_len, uint8_t * ml, 
                 base.mods[mod_i].mod_strand = mod.strand;
                 base.mods[mod_i].mod_prob = mod_prob;
                 base.mods[mod_i].mod_base = mod.base;
-                int mod_code_idx = mod_code_idx_lookup[(int)mod.mod_codes[k]];
-                base.is_called[mod_code_idx] = 1;
                 mod_i++;
-
-                // if(mod.status_flag=='.' && prev_read_pos != -1 && prev_read_pos+1 < read_pos){
-                //     for(int l=prev_read_pos+1;l<read_pos;l++){
-                //         bases[l].is_skipped[mod_code_idx] = 1;
-                //     }
-                // }
-
             }
             base.mods_len = mod_i;
             bases[read_pos] = base;
-            // prev_read_pos = read_pos;
 
         }
         ml_start_idx = ml_idx + 1;
@@ -788,10 +752,11 @@ static base_t * get_bases(mod_tag_t *mod_tags, uint32_t mods_len, uint8_t * ml, 
 }
 
 static void update_view_output(base_t *bases, db_t* db, uint32_t seq_len, bam_hdr_t *hdr, bam1_t *record, int32_t i){
-
+    const char *qname = bam_get_qname(record);
     int32_t tid = record->core.tid;
     assert(tid < hdr->n_targets);
-    const char *qname = bam_get_qname(record);
+    const char *tname = tid >= 0 ? hdr->target_name[tid] : "*";
+
 
     // uint16_t flag = record->core.flag;
 
@@ -808,7 +773,7 @@ static void update_view_output(base_t *bases, db_t* db, uint32_t seq_len, bam_hd
 
             db->view_output[i][view_i].is_aln = base.is_aln;
             db->view_output[i][view_i].is_cpg = base.is_cpg;
-            db->view_output[i][view_i].ref_contig = base.chrom;
+            db->view_output[i][view_i].ref_contig = tname;
             db->view_output[i][view_i].ref_pos = base.ref_pos;
             db->view_output[i][view_i].strand = mod.mod_strand;
             char * read_id = (char *)malloc(strlen(qname)+1);
@@ -835,8 +800,6 @@ static void update_view_output(base_t *bases, db_t* db, uint32_t seq_len, bam_hd
 static void free_bases(base_t *bases, uint32_t len){
     for(int i=0;i<len;i++){
         free(bases[i].mods);
-        // free(bases[i].is_skipped);
-        free(bases[i].is_called);
     }
     free(bases);
 }
@@ -853,39 +816,6 @@ void view_single(core_t* core, db_t* db, int32_t i) {
     bam1_t *record = db->bam_recs[i];
 
     uint32_t seq_len = record->core.l_qseq;
-
-    // if(record->core.flag & BAM_FUNMAP){
-    //     db->skipped_reads++;
-    //     db->skipped_reads_bytes += record->l_data;
-    //     WARNING("Skipping unmapped read %s", bam_get_qname(record));
-    //     return;
-    // }
-
-    // if(seq_len==0){
-    //     db->skipped_reads++;
-    //     db->skipped_reads_bytes += record->l_data;
-    //     WARNING("Skipping read %s with 0 length", bam_get_qname(record));
-    //     return;
-    // }
-
-    // const char *mm = get_mm_tag_ptr(record);
-    // uint32_t ml_len;
-    // uint8_t *ml = get_ml_tag(record, &ml_len);
-
-    // if(mm == NULL || ml == NULL){
-    //     db->skipped_reads++;
-    //     db->skipped_reads_bytes += record->l_data;
-    //     free(ml);
-    //     return;
-    // }
-
-    // if(ml_len <= 0){
-    //     db->skipped_reads++;
-    //     db->skipped_reads_bytes += record->l_data;
-    //     free(ml);
-    //     WARNING("Skipping read %s with empty ML tag", bam_get_qname(record));
-    //     return;
-    // }
 
     const char *mm = db->mm[i];
     uint32_t ml_len = db->ml_lens[i];
@@ -911,39 +841,6 @@ void mod_freq_single(core_t* core, db_t* db, int32_t i) {
 
     uint32_t seq_len = record->core.l_qseq;
 
-    // if(record->core.flag & BAM_FUNMAP){
-    //     db->skipped_reads++;
-    //     db->skipped_reads_bytes += record->l_data;
-    //     WARNING("Skipping unmapped read %s", bam_get_qname(record));
-    //     return;
-    // }
-
-    // if(seq_len==0){
-    //     db->skipped_reads++;
-    //     db->skipped_reads_bytes += record->l_data;
-    //     WARNING("Skipping read %s with 0 length", bam_get_qname(record));
-    //     return;
-    // }
-
-    // const char *mm = get_mm_tag_ptr(record);
-    // uint32_t ml_len;
-    // uint8_t *ml = get_ml_tag(record, &ml_len);
-
-    // if(mm == NULL || ml == NULL){
-    //     db->skipped_reads++;
-    //     db->skipped_reads_bytes += record->l_data;
-    //     free(ml);
-    //     return;
-    // }
-
-    // if(ml_len <= 0){
-    //     db->skipped_reads++;
-    //     db->skipped_reads_bytes += record->l_data;
-    //     free(ml);
-    //     WARNING("Skipping read %s with empty ML tag", bam_get_qname(record));
-    //     return;
-    // }
-
     const char *mm = db->mm[i];
     uint32_t ml_len = db->ml_lens[i];
     uint8_t *ml = db->ml[i];
@@ -955,7 +852,7 @@ void mod_freq_single(core_t* core, db_t* db, int32_t i) {
 
     int * aln_pairs = get_aln(hdr, record);
     base_t * bases = get_bases(mod_tags, mods_len, ml, ml_len, aln_pairs, hdr, record);
-    update_freq_map(bases, core, seq_len);
+    update_freq_map(bases, core, record, hdr);
 
     free_bases(bases, seq_len);
     free(aln_pairs);
