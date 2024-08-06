@@ -198,12 +198,7 @@ db_t* init_db(core_t* core) {
     }
 
      if (core->opt.subtool == VIEW) {
-        db->view_output = (view_t**)(calloc(db->cap_bam_recs,sizeof(view_t*)));
-        MALLOC_CHK(db->view_output);
-        db->view_output_lens = (int32_t*)(calloc(db->cap_bam_recs,sizeof(int32_t)));
-        MALLOC_CHK(db->view_output_lens);
-        db->view_output_caps = (int32_t*)(calloc(db->cap_bam_recs,sizeof(int32_t)));
-        MALLOC_CHK(db->view_output_caps);
+        db->view_results = (base_t**)malloc(sizeof(base_t*) * db->cap_bam_recs);
     }
     
     db->means = (double*)calloc(db->cap_bam_recs,sizeof(double));
@@ -360,8 +355,7 @@ void process_db(core_t* core,db_t* db){
 void output_db(core_t* core, db_t* db) {
 
     double output_start = realtime();
-
-    if (core->opt.subtool == VIEW) {
+    if(core->opt.subtool == VIEW){
         print_view_output(core, db);
     }
 
@@ -399,23 +393,19 @@ void output_core(core_t* core) {
 void free_db(core_t* core, db_t* db) {
 
     int32_t i = 0;
+    if (core->opt.subtool == VIEW) {
+        for (i = 0; i < db->n_bam_recs; i++) {
+            for(int j=0;j<db->bam_recs[i]->core.l_qseq;j++){
+                free(db->view_results[i][j].mods);
+            }
+            free(db->view_results[i]);
+        }
+        free(db->view_results);
+    }
 
     // free the rest of the records
     for (i = 0; i < db->cap_bam_recs; i++) {
         bam_destroy1(db->bam_recs[i]);
-    }
-
-    if (core->opt.subtool == VIEW) {
-        for (i = 0; i < db->cap_bam_recs; ++i) {
-            if(db->view_output[i]!=NULL){
-                for(int32_t j=0;j<db->view_output_lens[i];j++)
-                    free((char*) db->view_output[i][j].read_id);
-                free(db->view_output[i]);
-            }
-        }
-        free(db->view_output);
-        free(db->view_output_lens);
-        free(db->view_output_caps);
     }
 
     for (i = 0; i < db->n_bam_recs; i++) {

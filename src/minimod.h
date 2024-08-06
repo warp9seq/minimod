@@ -74,18 +74,6 @@ typedef struct {
 } opt_t;
 
 typedef struct {
-    const char * ref_contig;
-    int ref_pos;
-    char strand;
-    const char * read_id;
-    int read_pos;
-    char mod_code;
-    double mod_prob;
-    int is_aln;
-    int is_cpg;
-} view_t;
-
-typedef struct {
     const char * contig;
     int start;
     int end;
@@ -101,6 +89,24 @@ typedef struct {
     int is_aln;
     int is_cpg;
 } freq_t;
+
+typedef struct {
+    char mod_code;
+    int mod_strand;
+    uint8_t mod_prob;
+    char mod_base;
+} mod_t;
+
+typedef struct {
+    char base;
+    char ref_base;
+    int ref_pos;
+    mod_t * mods;
+    int mods_cap;
+    int mods_len;
+    int is_aln;
+    int is_cpg;
+} base_t;
 
 KHASH_MAP_INIT_STR(freqm, freq_t *);
 enum subtool {VIEW=0, MOD_FREQ=1};
@@ -119,9 +125,7 @@ typedef struct {
 
     double *means;
     // view output
-    view_t ** view_output;
-    int32_t *view_output_lens;
-    int32_t *view_output_caps;
+    base_t ** view_results;
 
     //stats
     int64_t sum_bytes;

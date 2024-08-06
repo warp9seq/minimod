@@ -60,24 +60,6 @@ typedef struct {
     char status_flag;
 } mod_tag_t;
 
-typedef struct {
-    char mod_code;
-    int mod_strand;
-    double mod_prob;
-    char mod_base;
-} mod_t;
-
-typedef struct {
-    char base;
-    char ref_base;
-    int ref_pos;
-    mod_t * mods;
-    int mods_cap;
-    int mods_len;
-    int is_aln;
-    int is_cpg;
-} base_t;
-
 static const int valid_bases[256] = {
     ['A'] = 1, ['C'] = 1, ['G'] = 1, ['T'] = 1, ['U'] = 1, ['N'] = 1,
     ['a'] = 1, ['c'] = 1, ['g'] = 1, ['t'] = 1, ['u'] = 1, ['n'] = 1
@@ -224,26 +206,6 @@ static int is_required_mod_code_and_thresh(char mod_code, char * mod_codes, doub
             i++;
         }
         return 0;
-}
-
-void print_view_output(core_t* core, db_t* db) {
-    fprintf(core->opt.output_fp, "ref_contig\tref_pos\tstrand\tread_id\tread_pos\tmod_code\tmod_prob\n");
-
-    int32_t i = 0;
-    for (i = 0; i < db->n_bam_recs; i++) {
-        for(int32_t j=0;j<db->view_output_lens[i];j++){
-            view_t view = db->view_output[i][j];
-            if(view.is_aln == 0 ||  is_required_mod_code_and_thresh(view.mod_code, core->opt.mod_codes, view.mod_prob, core->opt.mod_threshes) == 0){
-                continue;
-            }
-            fprintf(core->opt.output_fp, "%s\t%d\t%c\t%s\t%d\t%c\t%f\n", view.ref_contig, view.ref_pos, view.strand, view.read_id, view.read_pos, view.mod_code, view.mod_prob);
-        }
-        
-    }
-
-    if(core->opt.output_fp != stdout){
-        fclose(core->opt.output_fp);
-    }
 }
 
 void print_freq_output(core_t* core) {
@@ -492,7 +454,7 @@ static void update_freq_map(base_t *bases, core_t* core, bam1_t *record, bam_hdr
                 freq->mod_code = mod.mod_code;
 
                 freq->n_called = 1;
-                freq->n_mod = mod.mod_prob >= mod_thresh(mod.mod_code, core->opt.mod_codes, core->opt.mod_threshes) ? 1 : 0;
+                freq->n_mod = (mod.mod_prob/255.0) >= mod_thresh(mod.mod_code, core->opt.mod_codes, core->opt.mod_threshes) ? 1 : 0;
                 freq->strand = mod.mod_strand;
                 freq->is_aln = base.is_aln;
                 freq->is_cpg = base.is_cpg;
@@ -503,7 +465,7 @@ static void update_freq_map(base_t *bases, core_t* core, bam1_t *record, bam_hdr
                 free(key);
                 freq_t * freq = kh_value(freq_map, k);
                 freq->n_called += 1;
-                freq->n_mod += mod.mod_prob >= mod_thresh(mod.mod_code, core->opt.mod_codes, core->opt.mod_threshes) ? 1 : 0;
+                freq->n_mod += (mod.mod_prob/255.0) >= mod_thresh(mod.mod_code, core->opt.mod_codes, core->opt.mod_threshes) ? 1 : 0;
             }
         }
     }
@@ -718,9 +680,8 @@ static base_t * get_bases(mod_tag_t *mod_tags, uint32_t mods_len, uint8_t * ml, 
                 // get the mod prob
                 ml_idx = ml_start_idx + j*mod.mod_codes_len + k;
                 ASSERT_MSG(ml_idx<ml_len, "ml_idx:%d ml_len:%d\n", ml_idx, ml_len);
-                uint8_t mod_prob_scaled = ml[ml_idx];
-                ASSERT_MSG(mod_prob_scaled <= 255 && mod_prob_scaled>=0, "mod_prob_scaled:%d\n", mod_prob_scaled);
-                double mod_prob = (mod_prob_scaled)/255.0;
+                uint8_t mod_prob = ml[ml_idx];
+                ASSERT_MSG(mod_prob <= 255 && mod_prob>=0, "mod_prob:%d\n", mod_prob);
 
                 // add to mods
                 if(mod_i >= base.mods_cap){
@@ -751,50 +712,39 @@ static base_t * get_bases(mod_tag_t *mod_tags, uint32_t mods_len, uint8_t * ml, 
 
 }
 
-static void update_view_output(base_t *bases, db_t* db, uint32_t seq_len, bam_hdr_t *hdr, bam1_t *record, int32_t i){
-    const char *qname = bam_get_qname(record);
-    int32_t tid = record->core.tid;
-    assert(tid < hdr->n_targets);
-    const char *tname = tid >= 0 ? hdr->target_name[tid] : "*";
+void print_view_output(core_t* core, db_t* db) {
+    fprintf(core->opt.output_fp, "ref_contig\tref_pos\tstrand\tread_id\tread_pos\tmod_code\tmod_prob\n");
+    for(int i=0;i<db->n_bam_recs;i++){
+        bam1_t *record = db->bam_recs[i];
+        
 
+        bam_hdr_t * hdr = core->bam_hdr;
+        const char *qname = bam_get_qname(record);
+        int32_t tid = record->core.tid;
+        assert(tid < hdr->n_targets);
+        const char *tname = tid >= 0 ? hdr->target_name[tid] : "*";
+        int32_t seq_len = record->core.l_qseq;
 
-    // uint16_t flag = record->core.flag;
+        base_t * bases = db->view_results[i];
 
-    int32_t view_i = 0;
+        for(int seq_i=0;seq_i<seq_len;seq_i++){
+            for(int j=0;j<bases[seq_i].mods_len;j++){
+                mod_t mod = bases[seq_i].mods[j];
+                base_t base = bases[seq_i];
+                double mod_prob = mod.mod_prob/255.0;
 
-    db->view_output_caps[i] = seq_len;
-    db->view_output[i] = (view_t *)malloc(sizeof(view_t)*db->view_output_caps[i]);
-    MALLOC_CHK(db->view_output[i]);
-
-    for(int seq_i=0;seq_i<seq_len;seq_i++){
-        for(int j=0;j<bases[seq_i].mods_len;j++){
-            mod_t mod = bases[seq_i].mods[j];
-            base_t base = bases[seq_i];
-
-            db->view_output[i][view_i].is_aln = base.is_aln;
-            db->view_output[i][view_i].is_cpg = base.is_cpg;
-            db->view_output[i][view_i].ref_contig = tname;
-            db->view_output[i][view_i].ref_pos = base.ref_pos;
-            db->view_output[i][view_i].strand = mod.mod_strand;
-            char * read_id = (char *)malloc(strlen(qname)+1);
-            MALLOC_CHK(read_id);
-            strcpy(read_id, qname);
-            db->view_output[i][view_i].read_id = read_id;
-            db->view_output[i][view_i].read_pos = seq_i;
-            db->view_output[i][view_i].mod_code = mod.mod_code;
-            db->view_output[i][view_i].mod_prob = mod.mod_prob;
-            view_i++;
-
-            if(view_i >= db->view_output_caps[i]){
-                db->view_output_caps[i] *= 2;
-                db->view_output[i] = (view_t *)realloc(db->view_output[i], sizeof(view_t)*db->view_output_caps[i]);
-                MALLOC_CHK(db->view_output[i]);
-            }
+                if(base.is_aln == 0 ||  is_required_mod_code_and_thresh(mod.mod_code, core->opt.mod_codes, mod_prob, core->opt.mod_threshes) == 0){
+                    continue;
+                }
+                fprintf(core->opt.output_fp, "%s\t%d\t%c\t%s\t%d\t%c\t%f\n", tname, base.ref_pos, mod.mod_strand, qname, seq_i, mod.mod_code, mod_prob);
             
+                
+            }
         }
     }
 
-    db->view_output_lens[i] = view_i;
+    
+
 }
 
 static void free_bases(base_t *bases, uint32_t len){
@@ -815,8 +765,6 @@ static void free_mod_tags(mod_tag_t *mod_tags, uint32_t len){
 void view_single(core_t* core, db_t* db, int32_t i) {
     bam1_t *record = db->bam_recs[i];
 
-    uint32_t seq_len = record->core.l_qseq;
-
     const char *mm = db->mm[i];
     uint32_t ml_len = db->ml_lens[i];
     uint8_t *ml = db->ml[i];
@@ -828,9 +776,9 @@ void view_single(core_t* core, db_t* db, int32_t i) {
 
     int * aln_pairs = get_aln(hdr, record);
     base_t * bases = get_bases(mod_tags, mods_len, ml, ml_len, aln_pairs, hdr, record);
-    update_view_output(bases, db, seq_len, hdr, record, i);
+    db->view_results[i] = bases;
 
-    free_bases(bases, seq_len);
+    // free_bases(bases, seq_len);
     free(aln_pairs);
     free_mod_tags(mod_tags, mods_len);
 
