@@ -854,38 +854,42 @@ void view_single(core_t* core, db_t* db, int32_t i) {
 
     uint32_t seq_len = record->core.l_qseq;
 
-    if(record->core.flag & BAM_FUNMAP){
-        db->skipped_reads++;
-        db->skipped_reads_bytes += record->l_data;
-        WARNING("Skipping unmapped read %s", bam_get_qname(record));
-        return;
-    }
+    // if(record->core.flag & BAM_FUNMAP){
+    //     db->skipped_reads++;
+    //     db->skipped_reads_bytes += record->l_data;
+    //     WARNING("Skipping unmapped read %s", bam_get_qname(record));
+    //     return;
+    // }
 
-    if(seq_len==0){
-        db->skipped_reads++;
-        db->skipped_reads_bytes += record->l_data;
-        WARNING("Skipping read %s with 0 length", bam_get_qname(record));
-        return;
-    }
+    // if(seq_len==0){
+    //     db->skipped_reads++;
+    //     db->skipped_reads_bytes += record->l_data;
+    //     WARNING("Skipping read %s with 0 length", bam_get_qname(record));
+    //     return;
+    // }
 
-    const char *mm = get_mm_tag_ptr(record);
-    uint32_t ml_len;
-    uint8_t *ml = get_ml_tag(record, &ml_len);
+    // const char *mm = get_mm_tag_ptr(record);
+    // uint32_t ml_len;
+    // uint8_t *ml = get_ml_tag(record, &ml_len);
 
-    if(mm == NULL || ml == NULL){
-        db->skipped_reads++;
-        db->skipped_reads_bytes += record->l_data;
-        free(ml);
-        return;
-    }
+    // if(mm == NULL || ml == NULL){
+    //     db->skipped_reads++;
+    //     db->skipped_reads_bytes += record->l_data;
+    //     free(ml);
+    //     return;
+    // }
 
-    if(ml_len <= 0){
-        db->skipped_reads++;
-        db->skipped_reads_bytes += record->l_data;
-        free(ml);
-        WARNING("Skipping read %s with empty ML tag", bam_get_qname(record));
-        return;
-    }
+    // if(ml_len <= 0){
+    //     db->skipped_reads++;
+    //     db->skipped_reads_bytes += record->l_data;
+    //     free(ml);
+    //     WARNING("Skipping read %s with empty ML tag", bam_get_qname(record));
+    //     return;
+    // }
+
+    const char *mm = db->mm[i];
+    uint32_t ml_len = db->ml_lens[i];
+    uint8_t *ml = db->ml[i];
 
     uint32_t mods_len = 0;
     mod_tag_t *mod_tags = extract_mods(mm, &mods_len);
@@ -899,7 +903,6 @@ void view_single(core_t* core, db_t* db, int32_t i) {
     free_bases(bases, seq_len);
     free(aln_pairs);
     free_mod_tags(mod_tags, mods_len);
-    free(ml);
 
 }
 
@@ -957,6 +960,5 @@ void mod_freq_single(core_t* core, db_t* db, int32_t i) {
     free_bases(bases, seq_len);
     free(aln_pairs);
     free_mod_tags(mod_tags, mods_len);
-    free(ml);
 
 }

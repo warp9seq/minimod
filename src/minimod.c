@@ -255,6 +255,7 @@ ret_status_t load_db(core_t* core, db_t* db) {
                 db->skipped_reads++;
                 db->skipped_reads_bytes += rec->l_data;
                 free(ml);
+                free((char*)mm);
                 continue;
             }
 
@@ -262,6 +263,7 @@ ret_status_t load_db(core_t* core, db_t* db) {
                 db->skipped_reads++;
                 db->skipped_reads_bytes += rec->l_data;
                 free(ml);
+                free((char*)mm);
                 WARNING("Skipping read %s with empty ML tag", bam_get_qname(rec));
                 continue;
             }
@@ -420,15 +422,13 @@ void free_db(core_t* core, db_t* db) {
         free(db->view_output_caps);
     }
 
-    for (i = 0; i < db->cap_bam_recs; i++) {
-        free((char*) db->mm[i]);
-        free(db->ml[i]);
+    for (i = 0; i < db->n_bam_recs; i++) {
+        free((char*)db->ml[i]);
     }
 
-    free(db->mm);
     free(db->ml_lens);
+    free(db->mm);
     free(db->ml);
-
     free(db->bam_recs);
     free(db->means);
     free(db);
