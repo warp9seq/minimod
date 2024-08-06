@@ -397,7 +397,7 @@ static mod_tag_t *extract_mods(const char *mm_string, uint32_t *len_mods) {
 
             i++;
         }
-        current_mod.mod_codes[j] = '\0';
+        // current_mod.mod_codes[j] = '\0';
         current_mod.mod_codes_len = j;
 
         // get modification status flag
