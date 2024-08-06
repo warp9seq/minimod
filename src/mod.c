@@ -43,9 +43,9 @@ SOFTWARE.
 
 #define INIT_MODS 100
 #define INIT_SKIP_COUNTS 100
-#define INIT_MOD_CODES 2
+#define INIT_MOD_CODES 1
 #define INIT_BASE_POS 100
-#define INIT_MOD_BASES 2
+#define INIT_MOD_BASES 1
 #define N_BASES 6 // A, C, G, T, N, U
 #define N_MOD_CODES 5 // 5mC, 5hmC, 5fC, 5caC, xC
 
@@ -78,7 +78,7 @@ typedef struct {
     int mods_cap;
     int mods_len;
     char strand;
-    int * is_skipped; // for 5 mod codes;
+    // int * is_skipped; // for 5 mod codes;
     // int depth;
     int * is_called; // for 5 mod codes;
     int is_aln;
@@ -635,14 +635,14 @@ static base_t * get_bases(mod_tag_t *mod_tags, uint32_t mods_len, uint8_t * ml, 
         bases[i].qual = bam_get_qual(record)[i];
         bases[i].strand = strand;
         bases[i].base = seq_nt16_str[bam_seqi(seq, i)];
-        bases[i].is_skipped = (int *)malloc(sizeof(int)*N_MOD_CODES);
-        MALLOC_CHK(bases[i].is_skipped);
+        // bases[i].is_skipped = (int *)malloc(sizeof(int)*N_MOD_CODES);
+        // MALLOC_CHK(bases[i].is_skipped);
         bases[i].is_called = (int *)malloc(sizeof(int)*N_MOD_CODES);
         MALLOC_CHK(bases[i].is_called);
         bases[i].is_aln = aln_pairs[i] == -1 ? 0 : 1;
         bases[i].is_cpg = 0;
         for(int j=0;j<N_MOD_CODES;j++){
-            bases[i].is_skipped[j] = 0;
+            // bases[i].is_skipped[j] = 0;
             bases[i].is_called[j] = 0;
         }
         bases[i].base = seq_nt16_str[bam_seqi(seq, i)];
@@ -704,7 +704,7 @@ static base_t * get_bases(mod_tag_t *mod_tags, uint32_t mods_len, uint8_t * ml, 
         mod_tag_t mod = mod_tags[i];
         int base_rank = -1;
 
-        int prev_read_pos = -1;
+        // int prev_read_pos = -1;
 
         int ml_idx = ml_start_idx;
         for(int j=0; j<mod.skip_counts_len; j++) {
@@ -763,16 +763,16 @@ static base_t * get_bases(mod_tag_t *mod_tags, uint32_t mods_len, uint8_t * ml, 
                 base.is_called[mod_code_idx] = 1;
                 mod_i++;
 
-                if(mod.status_flag=='.' && prev_read_pos != -1 && prev_read_pos+1 < read_pos){
-                    for(int l=prev_read_pos+1;l<read_pos;l++){
-                        bases[l].is_skipped[mod_code_idx] = 1;
-                    }
-                }
+                // if(mod.status_flag=='.' && prev_read_pos != -1 && prev_read_pos+1 < read_pos){
+                //     for(int l=prev_read_pos+1;l<read_pos;l++){
+                //         bases[l].is_skipped[mod_code_idx] = 1;
+                //     }
+                // }
 
             }
             base.mods_len = mod_i;
             bases[read_pos] = base;
-            prev_read_pos = read_pos;
+            // prev_read_pos = read_pos;
 
         }
         ml_start_idx = ml_idx + 1;
@@ -835,7 +835,7 @@ static void update_view_output(base_t *bases, db_t* db, uint32_t seq_len, bam_hd
 static void free_bases(base_t *bases, uint32_t len){
     for(int i=0;i<len;i++){
         free(bases[i].mods);
-        free(bases[i].is_skipped);
+        // free(bases[i].is_skipped);
         free(bases[i].is_called);
     }
     free(bases);
