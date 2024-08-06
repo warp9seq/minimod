@@ -420,6 +420,15 @@ void free_db(core_t* core, db_t* db) {
         free(db->view_output_caps);
     }
 
+    for (i = 0; i < db->cap_bam_recs; i++) {
+        free((char*) db->mm[i]);
+        free(db->ml[i]);
+    }
+
+    free(db->mm);
+    free(db->ml_lens);
+    free(db->ml);
+
     free(db->bam_recs);
     free(db->means);
     free(db);
