@@ -254,16 +254,12 @@ ret_status_t load_db(core_t* core, db_t* db) {
             if(mm == NULL || ml == NULL){
                 db->skipped_reads++;
                 db->skipped_reads_bytes += rec->l_data;
-                free(ml);
-                free((char*)mm);
                 continue;
             }
 
             if(ml_len <= 0){
                 db->skipped_reads++;
                 db->skipped_reads_bytes += rec->l_data;
-                free(ml);
-                free((char*)mm);
                 WARNING("Skipping read %s with empty ML tag", bam_get_qname(rec));
                 continue;
             }
