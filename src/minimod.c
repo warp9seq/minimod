@@ -396,7 +396,9 @@ void free_db(core_t* core, db_t* db) {
     if (core->opt.subtool == VIEW) {
         for (i = 0; i < db->n_bam_recs; i++) {
             for(int j=0;j<db->bam_recs[i]->core.l_qseq;j++){
-                free(db->view_results[i][j].mods);
+                if(db->view_results[i][j].mods_len>0){
+                    free(db->view_results[i][j].mods);
+                }
             }
             free(db->view_results[i]);
         }

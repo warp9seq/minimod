@@ -577,8 +577,6 @@ static base_t * get_bases(mod_tag_t *mod_tags, uint32_t mods_len, uint8_t * ml, 
     MALLOC_CHK(bases);
     for(int i=0;i<seq_len;i++){
         bases[i].mods_cap = INIT_MOD_BASES;
-        bases[i].mods = (mod_t *)malloc(sizeof(mod_t)*bases[i].mods_cap);
-        MALLOC_CHK(bases[i].mods);
         bases[i].mods_len = 0;
         bases[i].ref_pos = aln_pairs[i];
         bases[i].base = seq_nt16_str[bam_seqi(seq, i)];
@@ -674,6 +672,12 @@ static base_t * get_bases(mod_tag_t *mod_tags, uint32_t mods_len, uint8_t * ml, 
             ASSERT_MSG(read_pos < seq_len, "Base pos cannot exceed seq len. read_pos: %d seq_len: %d\n", read_pos, seq_len);
 
             base_t base = bases[read_pos];
+
+            if(base.mods_len == 0) {
+                base.mods = (mod_t *)malloc(sizeof(mod_t)*base.mods_cap);
+                MALLOC_CHK(base.mods);
+            }
+            
             int mod_i = base.mods_len;
             // mod prob per each mod code. TO-DO: need to change when code is ChEBI id
             for(int k=0; k<mod.mod_codes_len; k++) {
@@ -749,7 +753,9 @@ void print_view_output(core_t* core, db_t* db) {
 
 static void free_bases(base_t *bases, uint32_t len){
     for(int i=0;i<len;i++){
-        free(bases[i].mods);
+        if(bases[i].mods_len > 0){
+            free(bases[i].mods);
+        }
     }
     free(bases);
 }
