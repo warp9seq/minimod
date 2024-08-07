@@ -123,10 +123,6 @@ core_t* init_core(const char *bamfilename, opt_t opt,double realtime0) {
 
     if (opt.subtool == MOD_FREQ) {
         core->freq_map = kh_init(freqm);
-        if(pthread_mutex_init(&core->freq_map_lock, NULL) != 0){
-            ERROR("%s","Mutex init failed");
-            exit(EXIT_FAILURE);
-        }
     }
 
 
@@ -159,7 +155,6 @@ void free_core(core_t* core,opt_t opt) {
 
     if (opt.subtool == MOD_FREQ) {
         destroy_freq_map(core->freq_map);
-        pthread_mutex_destroy(&core->freq_map_lock);
     }
 
     free(opt.mod_threshes);
@@ -197,9 +192,8 @@ db_t* init_db(core_t* core) {
         NULL_CHK(db->bam_recs[i]);
     }
 
-     if (core->opt.subtool == VIEW) {
-        db->view_results = (base_t**)malloc(sizeof(base_t*) * db->cap_bam_recs);
-    }
+    db->modbases = (modbase_t**)malloc(sizeof(modbase_t*) * db->cap_bam_recs);
+
     
     db->means = (double*)calloc(db->cap_bam_recs,sizeof(double));
     MALLOC_CHK(db->means);
@@ -243,19 +237,20 @@ ret_status_t load_db(core_t* core, db_t* db) {
             }
 
             const char *mm = get_mm_tag_ptr(rec);
-            uint32_t ml_len;
-            uint8_t *ml = get_ml_tag(rec, &ml_len);
 
-            if(mm == NULL || ml == NULL){
+            if(mm == NULL){
                 db->skipped_reads++;
                 db->skipped_reads_bytes += rec->l_data;
+                WARNING("Skipping read %s with empty MM tag", bam_get_qname(rec));
                 continue;
             }
 
-            if(ml_len <= 0){
+            uint32_t ml_len;
+            uint8_t *ml = get_ml_tag(rec, &ml_len);
+
+            if(ml == NULL){
                 db->skipped_reads++;
                 db->skipped_reads_bytes += rec->l_data;
-                WARNING("Skipping read %s with empty ML tag", bam_get_qname(rec));
                 continue;
             }
 
@@ -286,27 +281,11 @@ void parse_single(core_t* core,db_t* db, int32_t i){
 
 #define TO_PICOAMPS(RAW_VAL,DIGITISATION,OFFSET,RANGE) (((RAW_VAL)+(OFFSET))*((RANGE)/(DIGITISATION)))
 
-void mean_single(core_t* core,db_t* db, int32_t i){
-
-    // uint64_t len_raw_signal = rec->len_raw_signal;
-
-    // if(len_raw_signal>0){
-    //     double sum = 0;
-    //     for(uint64_t i=0;i<len_raw_signal;i++){
-    //         sum += pA;
-    //     }
-    //     double mean = sum/len_raw_signal;
-    //     db->means[i]=mean;
-    // }
-
-}
 
 void work_per_single_read(core_t* core,db_t* db, int32_t i){
 
-    if(core->opt.subtool==VIEW){
-        view_single(core,db,i);
-    }else if(core->opt.subtool==MOD_FREQ){
-        mod_freq_single(core,db,i);
+    if(core->opt.subtool==VIEW || core->opt.subtool==MOD_FREQ){
+        modbases_single(core,db,i);
     }else{
         ERROR("Unknown subtool %d", core->opt.subtool);
     }
@@ -323,7 +302,7 @@ void mean_db(core_t* core, db_t* db) {
 
     if (!(core->opt.flag & MINIMOD_ACC)) {
         //fprintf(stderr, "cpu\n");
-        work_db(core,db,mean_single);
+        // work_db(core,db,mean_single);
     }
 }
 
@@ -357,6 +336,8 @@ void output_db(core_t* core, db_t* db) {
     double output_start = realtime();
     if(core->opt.subtool == VIEW){
         print_view_output(core, db);
+    } else if(core->opt.subtool == MOD_FREQ){
+        update_freq_map(core, db);
     }
 
     core->sum_bytes += db->sum_bytes;
@@ -381,37 +362,33 @@ void output_core(core_t* core) {
     core->output_time += (output_end-output_start);
 }
 
-// /* partially free a data batch - only the read dependent allocations are freed */
-// void free_db_tmp(db_t* db) {
-//     int32_t i = 0;
-//     for (i = 0; i < db->n_bam_recs; i++) {
-//         bam_destroy1(db->bam_recs[i]);
-//     }
-// }
+/* partially free a data batch - only the read dependent allocations are freed */
+void free_db_tmp(db_t* db) {
+    int32_t i = 0;
+    for (i = 0; i < db->n_bam_recs; i++) {
+        for(int seq_i=0;seq_i<db->bam_recs[i]->core.l_qseq;seq_i++){
+            if(db->modbases[i][seq_i].mods_len){
+                free(db->modbases[i][seq_i].mods);
+            }
+        }
+        free(db->modbases[i]);
+    }
+
+    for (i = 0; i < db->n_bam_recs; i++) {
+        free(db->ml[i]);
+    }
+}
 
 /* completely free a data batch */
 void free_db(core_t* core, db_t* db) {
 
     int32_t i = 0;
-    if (core->opt.subtool == VIEW) {
-        for (i = 0; i < db->n_bam_recs; i++) {
-            for(int j=0;j<db->bam_recs[i]->core.l_qseq;j++){
-                if(db->view_results[i][j].mods_len>0){
-                    free(db->view_results[i][j].mods);
-                }
-            }
-            free(db->view_results[i]);
-        }
-        free(db->view_results);
-    }
 
+    free(db->modbases);
+    
     // free the rest of the records
     for (i = 0; i < db->cap_bam_recs; i++) {
         bam_destroy1(db->bam_recs[i]);
-    }
-
-    for (i = 0; i < db->n_bam_recs; i++) {
-        free((char*)db->ml[i]);
     }
 
     free(db->ml_lens);

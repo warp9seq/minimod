@@ -224,10 +224,6 @@ int mod_freq_main(int argc, char* argv[]) {
     //initialise the core data structure
     core_t* core = init_core(bam_file, opt, realtime0);
 
-    // mod_freq(core);
-    // print_stats(stdout, bedmethyl_out);
-    // destroy_mod();
-
     int32_t counter=0;
 
     //initialise a databatch
@@ -256,6 +252,8 @@ int mod_freq_main(int argc, char* argv[]) {
 
         //write the output
         output_db(core, db);
+
+        free_db_tmp(db);
 
         //check if 90% of total reads are skipped
         if(core->skipped_reads>0.9*core->total_reads){

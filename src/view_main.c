@@ -247,6 +247,8 @@ int view_main(int argc, char* argv[]) {
         //output print
         output_db(core, db);
 
+        free_db_tmp(db);
+
         //check if 90% of total reads are skipped
         if(core->skipped_reads>0.9*core->total_reads){
             WARNING("%s","90% of the reads are skipped. Check if the BAM file is sorted, contains MM, ML tags.");

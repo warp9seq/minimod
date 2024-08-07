@@ -50,9 +50,9 @@ sort -k1,1 -k2,2n -k4,4 test/expected/test3.tsv > test/tmp/test3.exp.tsv.sorted
 sort -k1,1 -k2,2n -k4,4 test/tmp/test3.tsv > test/tmp/test3.tsv.sorted
 diff -q test/tmp/test3.exp.tsv.sorted test/tmp/test3.tsv.sorted || die "${testname} diff failed"
 
-testname="Test 4: mod-freq hifi bedmethyl output"
+testname="Test 4: mod-freq hifi bedmethyl output batch size 1"
 echo -e "${BLUE}${testname}${NC}"
-ex  ./minimod mod-freq -b -t 8 test/tmp/genome_chr22.fa test/data/example-hifi.bam > test/tmp/test4.bedmethyl  || die "${testname} Running the tool failed"
+ex  ./minimod mod-freq -b -t 8 -K 1 test/tmp/genome_chr22.fa test/data/example-hifi.bam > test/tmp/test4.bedmethyl  || die "${testname} Running the tool failed"
 sort -k1,1 -k2,2n -k6,6 test/expected/test4.bedmethyl > test/tmp/test4.bedmethyl.exp.sorted
 sort -k1,1 -k2,2n -k6,6 test/tmp/test4.bedmethyl > test/tmp/test4.bedmethyl.sorted
 diff -q test/tmp/test4.bedmethyl.exp.sorted test/tmp/test4.bedmethyl.sorted || die "${testname} diff failed"

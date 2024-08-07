@@ -80,14 +80,7 @@ typedef struct {
     char strand;
     int n_called;
     int n_mod;
-    // double freq;
     char mod_code;
-
-    // int depth;
-    // int n_skipped;
-    // char ref_base;
-    int is_aln;
-    int is_cpg;
 } freq_t;
 
 typedef struct {
@@ -106,7 +99,7 @@ typedef struct {
     int mods_len;
     int is_aln;
     int is_cpg;
-} base_t;
+} modbase_t;
 
 KHASH_MAP_INIT_STR(freqm, freq_t *);
 enum subtool {VIEW=0, MOD_FREQ=1};
@@ -125,7 +118,7 @@ typedef struct {
 
     double *means;
     // view output
-    base_t ** view_results;
+    modbase_t ** modbases;
 
     //stats
     int64_t sum_bytes;
@@ -174,7 +167,6 @@ typedef struct {
 
     //output maps
     khash_t(freqm)* freq_map;
-    pthread_mutex_t freq_map_lock;
 
 } core_t;
 
