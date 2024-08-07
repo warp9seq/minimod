@@ -75,8 +75,7 @@ typedef struct {
 
 typedef struct {
     const char * contig;
-    int start;
-    int end;
+    int ref_pos;
     char strand;
     int n_called;
     int n_mod;

@@ -226,14 +226,13 @@ void destroy_freq_map(khash_t(freqm)* freq_map){
     kh_destroy(freqm, freq_map);
 }
 
-char* make_key(const char *chrom, int start, int end, char mod_code, char strand){
-    int start_strlen = snprintf(NULL, 0, "%d", start);
-    int end_strlen = snprintf(NULL, 0, "%d", end);
-    int key_strlen = strlen(chrom) + start_strlen + end_strlen  + 7;
+char* make_key(const char *chrom, int pos, char mod_code, char strand){
+    int start_strlen = snprintf(NULL, 0, "%d", pos);
+    int key_strlen = strlen(chrom) + start_strlen  + 7;
     
     char* key = (char *)malloc(key_strlen * sizeof(char));
     MALLOC_CHK(key);
-    snprintf(key, key_strlen, "%s\t%d\t%d\t%c\t%c", chrom, start, end, mod_code, strand);
+    snprintf(key, key_strlen, "%s\t%d\t%c\t%c", chrom, pos, mod_code, strand);
     return key;
 }
 
@@ -415,7 +414,7 @@ void update_freq_map(core_t * core, db_t * db) {
                     continue;
                 }
 
-                char *key = make_key(tname, base.ref_pos, base.ref_pos, mod.mod_code, strand);
+                char *key = make_key(tname, base.ref_pos, mod.mod_code, strand);
                 khash_t(freqm) *freq_map = core->freq_map;
                 khiter_t k = kh_get(freqm, freq_map, key);
                 if (k == kh_end(freq_map)) { // not found, add to map
@@ -425,8 +424,7 @@ void update_freq_map(core_t * core, db_t * db) {
                     MALLOC_CHK(contig);
                     strcpy(contig, tname);
                     freq->contig = contig;
-                    freq->start = base.ref_pos;
-                    freq->end = base.ref_pos;
+                    freq->ref_pos = base.ref_pos;
                     freq->mod_code = mod.mod_code;
 
                     freq->n_called = 1;
@@ -455,7 +453,8 @@ void print_freq_output(core_t * core) {
             if (kh_exist(freq_map, k)) {
                 freq_t* freq = kh_value(freq_map, k);
                 double freq_value = (double)freq->n_mod/freq->n_called*100;
-                fprintf(core->opt.output_fp, "%s\t%d\t%d\t%c\t%d\t%c\t%d\t%d\t255,0,0\t%d\t%f\n", freq->contig, freq->start, (freq->end+1), freq->mod_code, freq->n_called, freq->strand, freq->start, (freq->end+1), freq->n_called, freq_value);
+                int end = freq->ref_pos+1;
+                fprintf(core->opt.output_fp, "%s\t%d\t%d\t%c\t%d\t%c\t%d\t%d\t255,0,0\t%d\t%f\n", freq->contig, freq->ref_pos, end, freq->mod_code, freq->n_called, freq->strand, freq->ref_pos, end, freq->n_called, freq_value);
             }
         }
         
@@ -467,7 +466,7 @@ void print_freq_output(core_t * core) {
             if (kh_exist(freq_map, k)) {
                 freq_t* freq = kh_value(freq_map, k);
                 double freq_value = (double)freq->n_mod/freq->n_called;
-                fprintf(core->opt.output_fp, "%s\t%d\t%d\t%c\t%d\t%d\t%f\t%c\n", freq->contig, freq->start, freq->end, freq->strand, freq->n_called, freq->n_mod, freq_value, freq->mod_code);
+                fprintf(core->opt.output_fp, "%s\t%d\t%d\t%c\t%d\t%d\t%f\t%c\n", freq->contig, freq->ref_pos, freq->ref_pos, freq->strand, freq->n_called, freq->n_mod, freq_value, freq->mod_code);
             }
         }
     }
