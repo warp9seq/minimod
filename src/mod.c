@@ -41,11 +41,6 @@ SOFTWARE.
 #include <stdbool.h>
 #include <pthread.h>
 
-#define INIT_MODS 100
-#define INIT_SKIP_COUNTS 100
-#define INIT_MOD_CODES 1
-#define INIT_BASE_POS 100
-#define INIT_MOD_BASES 1
 #define N_BASES 6 // A, C, G, T, N, U
 
 static const int valid_bases[256] = {
@@ -240,19 +235,15 @@ static double mod_thresh(char mod_code, char * mod_codes, double * mod_threshes)
 }
 // freq_map is used by multiple threads, so need to lock it
 void update_freq_map(core_t * core, db_t * db) {
+    bam_hdr_t * hdr = core->bam_hdr;
 
     for(int i=0;i<db->n_bam_recs;i++){
         bam1_t *record = db->bam_recs[i];
         int8_t rev = bam_is_rev(record);
-
-        bam_hdr_t * hdr = core->bam_hdr;
-
         int32_t tid = record->core.tid;
         assert(tid < hdr->n_targets);
         const char *tname = tid >= 0 ? hdr->target_name[tid] : "*";
-
         uint32_t seq_len = record->core.l_qseq;
-
         char strand = rev ? '-' : '+';
 
         modbase_t * modbases = db->modbases[i];
@@ -410,15 +401,14 @@ int * get_aln(bam_hdr_t *hdr, bam1_t *record){
     return aligned_pairs;
 }
 
-static void get_bases(const char *mm_string, modbase_t * bases, uint8_t * ml, uint32_t ml_len, int * aln_pairs, bam_hdr_t *hdr, bam1_t *record){
+static void get_bases(db_t * db, int32_t ti, const char *mm_string, uint8_t * ml, uint32_t ml_len, int * aln_pairs, bam_hdr_t *hdr, bam1_t *record){
 
+    modbase_t * bases = db->modbases[ti];
     const char *qname = bam_get_qname(record);
     int8_t rev = bam_is_rev(record);
-
     int32_t tid = record->core.tid;
     assert(tid < hdr->n_targets);
     const char *tname = tid >= 0 ? hdr->target_name[tid] : "*";
-
     uint8_t *seq = bam_get_seq(record);
     uint32_t seq_len = record->core.l_qseq;
 
@@ -427,33 +417,23 @@ static void get_bases(const char *mm_string, modbase_t * bases, uint8_t * ml, ui
     // 5 int arrays to keep base pos of A, C, G, T, N bases.
     // A: 0, C: 1, G: 2, T: 3, U:4, N: 5
     // so that, nth base of A is at base_pos[0][n] and so on.
-    int * bases_pos[N_BASES];
+    int ** bases_pos = db->bases_pos[ti];
     int bases_pos_lens[N_BASES];
-    int bases_pos_caps[N_BASES];
-    int i;
-    for(i=0;i<N_BASES;i++){
-        bases_pos_caps[i] = INIT_BASE_POS;
-        bases_pos[i] = (int *)malloc(sizeof(int)*bases_pos_caps[i]);
-        MALLOC_CHK(bases_pos[i]);
+    for(int i=0;i<N_BASES;i++){
         bases_pos_lens[i] = 0;
     }
+    int i;
 
     // keep record of base pos of A, C, G, T, N bases
     for(i=0; i<seq_len; i++){
         int base_char = seq_nt16_str[bam_seqi(seq, i)];
         int idx = base_idx_lookup[(int)base_char];
-        if(bases_pos_lens[idx] >= bases_pos_caps[idx]){
-            bases_pos_caps[idx] *= 2;
-            bases_pos[idx] = (int *)realloc(bases_pos[idx], sizeof(int)*bases_pos_caps[idx]);
-            MALLOC_CHK(bases_pos[idx]);
-        }
         bases_pos[idx][bases_pos_lens[idx]] = i;
         bases_pos_lens[idx]++;
         
     }
 
     for(i=0;i<seq_len;i++){
-        bases[i].mods_cap = INIT_MOD_BASES;
         bases[i].mods_len = 0;
         bases[i].ref_pos = aln_pairs[i];
         bases[i].base = seq_nt16_str[bam_seqi(seq, i)];
@@ -487,23 +467,12 @@ static void get_bases(const char *mm_string, modbase_t * bases, uint8_t * ml, ui
 
     char modbase;
     char mod_strand;
-    char * mod_codes;
-    int mod_codes_cap;
+    char * mod_codes = db->mod_codes[ti];
     int mod_codes_len;
-    int * skip_counts;
-    int skip_counts_cap;
+    int * skip_counts = db->skip_counts[ti];
     int skip_counts_len;
     // char status_flag;
 
-    // allocate initial memory for skip counts
-    skip_counts_cap = INIT_SKIP_COUNTS;
-    skip_counts = (int *) malloc(skip_counts_cap * sizeof(int));
-    MALLOC_CHK(skip_counts);
-
-    // allocate initial memory for modification codes
-    mod_codes_cap = INIT_MOD_CODES;
-    mod_codes = (char *) malloc(mod_codes_cap * sizeof(char));
-    MALLOC_CHK(mod_codes);
     while (i < mm_str_len) {
         // reset skip counts and mod codes
         skip_counts_len = 0;
@@ -529,12 +498,6 @@ static void get_bases(const char *mm_string, modbase_t * bases, uint8_t * ml, ui
         // get base modification codes. can handle multiple codes giver as chars. TO-DO: handle when given as a ChEBI id
         int j = 0;
         while (i < mm_str_len && mm_string[i] != ',' && mm_string[i] != ';' && mm_string[i] != '?' && mm_string[i] != '.') {
-
-            if (j >= mod_codes_cap) {
-                mod_codes_cap *= 2;
-                mod_codes = (char *) realloc(mod_codes, mod_codes_cap * sizeof(char));
-                MALLOC_CHK(mod_codes);
-            }
 
             ASSERT_MSG(valid_mod_codes[(int)mm_string[i]], "Invalid base modification code:%c\n", mm_string[i]);
             mod_codes[j] = mm_string[i];
@@ -563,13 +526,6 @@ static void get_bases(const char *mm_string, modbase_t * bases, uint8_t * ml, ui
                 continue;
             }
 
-            if (k >= skip_counts_cap) {
-                skip_counts_cap *= 2;
-                skip_counts = (int *) realloc(skip_counts, skip_counts_cap * sizeof(int));
-                MALLOC_CHK(skip_counts);
-            }
-
-
             char skip_count_str[10];
             int l = 0;
             while (i < mm_str_len && mm_string[i] != ',' && mm_string[i] != ';') {
@@ -589,8 +545,6 @@ static void get_bases(const char *mm_string, modbase_t * bases, uint8_t * ml, ui
         i++;
 
         if(skip_counts_len == 0) { // no skip counts, no modification
-            free(skip_counts);
-            free(mod_codes);
             continue;
         }
  
@@ -629,11 +583,6 @@ static void get_bases(const char *mm_string, modbase_t * bases, uint8_t * ml, ui
 
             modbase_t* base = &bases[read_pos];
 
-            if(base->mods_len == 0 && mod_codes_len > 0) {
-                base->mods = (mod_t *)malloc(sizeof(mod_t)*base->mods_cap);
-                MALLOC_CHK(base->mods);
-            }
-            
             int mod_i = base->mods_len;
             // mod prob per each mod code. TO-DO: need to change when code is ChEBI id
             for(int m=0; m<mod_codes_len; m++) {
@@ -642,13 +591,6 @@ static void get_bases(const char *mm_string, modbase_t * bases, uint8_t * ml, ui
                 ASSERT_MSG(ml_idx<ml_len, "ml_idx:%d ml_len:%d\n", ml_idx, ml_len);
                 uint8_t mod_prob = ml[ml_idx];
                 ASSERT_MSG(mod_prob <= 255 && mod_prob>=0, "mod_prob:%d\n", mod_prob);
-
-                // add to mods
-                if(mod_i >= base->mods_cap){
-                    base->mods_cap *= 2;
-                    base->mods = (mod_t *)realloc(base->mods, sizeof(mod_t)*base->mods_cap);
-                    MALLOC_CHK(base->mods);
-                }
 
                 base->mods[mod_i].mod_code = mod_codes[m];
                 base->mods[mod_i].mod_strand = mod_strand;
@@ -662,15 +604,6 @@ static void get_bases(const char *mm_string, modbase_t * bases, uint8_t * ml, ui
         ml_start_idx = ml_idx + 1;
 
     }
-
-    free(skip_counts);
-    free(mod_codes);
-
-    // free base_pos
-    for(int b=0;b<N_BASES;b++){
-        free(bases_pos[b]);
-    }
-
 }
 
 void print_view_output(core_t* core, db_t* db) {
@@ -707,13 +640,6 @@ void print_view_output(core_t* core, db_t* db) {
 
 }
 
-// static void free_mod_tags(mod_tag_t *mod_tags, uint32_t len){
-//     for(int i=0;i<len;i++){
-//         free(mod_tags[i].mod_codes);
-//         free(mod_tags[i].skip_counts);
-//     }
-//     free(mod_tags);
-// }
 
 void modbases_single(core_t* core, db_t* db, int32_t i) {
     bam1_t *record = db->bam_recs[i];
@@ -725,6 +651,6 @@ void modbases_single(core_t* core, db_t* db, int32_t i) {
     bam_hdr_t *hdr = core->bam_hdr;
 
     int * aln_pairs = db->aln[i];
-    get_bases(mm, db->modbases[i], ml, ml_len, aln_pairs, hdr, record);
+    get_bases(db, i, mm, ml, ml_len, aln_pairs, hdr, record);
 
 }

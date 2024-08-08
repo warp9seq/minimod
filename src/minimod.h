@@ -52,6 +52,9 @@ SOFTWARE.
 #define WORK_STEAL 1 //simple work stealing enabled or not (no work stealing mean no load balancing)
 #define STEAL_THRESH 1 //stealing threshold
 
+#define N_BASES 6 // A, C, G, T, N, U
+#define N_MODS 5 // m,h,f,C,c
+
 /* user specified options */
 typedef struct {
 
@@ -117,6 +120,9 @@ typedef struct {
 
     // alignment
     int ** aln;
+    int *** bases_pos;
+    int ** skip_counts;
+    char ** mod_codes;
 
     double *means;
     // view output

@@ -44,7 +44,6 @@ SOFTWARE.
 #include <sys/wait.h>
 #include <unistd.h>
 
-
 /* initialise the core data structure */
 core_t* init_core(const char *bamfilename, opt_t opt,double realtime0) {
 
@@ -187,11 +186,20 @@ db_t* init_db(core_t* core) {
     MALLOC_CHK(db->ml);
     db->aln = (int**)(malloc(sizeof(int*) * db->cap_bam_recs));
     MALLOC_CHK(db->aln);
+    db->bases_pos = (int***)(malloc(sizeof(int**) * db->cap_bam_recs));
+    MALLOC_CHK(db->bases_pos);
+    db->skip_counts = (int**)(malloc(sizeof(int*) * db->cap_bam_recs));
+    MALLOC_CHK(db->skip_counts);
+    db->mod_codes = (char**)(malloc(sizeof(char*) * db->cap_bam_recs));
+    MALLOC_CHK(db->mod_codes);
 
     int32_t i = 0;
     for (i = 0; i < db->cap_bam_recs; ++i) {
         db->bam_recs[i] = bam_init1();
         NULL_CHK(db->bam_recs[i]);
+
+        db->bases_pos[i] = (int**)malloc(sizeof(int*)*N_BASES);
+        MALLOC_CHK(db->bases_pos[i]);
     }
 
     db->modbases = (modbase_t**)malloc(sizeof(modbase_t*) * db->cap_bam_recs);
@@ -257,6 +265,23 @@ ret_status_t load_db(core_t* core, db_t* db) {
             }
 
             db->modbases[db->n_bam_recs] = (modbase_t*)malloc(sizeof(modbase_t)*rec->core.l_qseq);
+            MALLOC_CHK(db->modbases[db->n_bam_recs]);
+
+            for(int seq_i=0;seq_i<rec->core.l_qseq;seq_i++){
+                db->modbases[db->n_bam_recs][seq_i].mods = (mod_t*)malloc(sizeof(mod_t)*5);
+            }
+
+            for(int i=0;i<N_BASES;i++){
+                db->bases_pos[db->n_bam_recs][i] = (int*)calloc(rec->core.l_qseq,sizeof(int));
+                MALLOC_CHK(db->bases_pos[db->n_bam_recs][i]);
+            }
+            
+            db->skip_counts[db->n_bam_recs] = (int*)calloc(rec->core.l_qseq,sizeof(int));
+            MALLOC_CHK(db->skip_counts[db->n_bam_recs]);
+
+            db->mod_codes[db->n_bam_recs] = (char*)malloc(sizeof(char)*N_MODS);
+            MALLOC_CHK(db->mod_codes[db->n_bam_recs]);
+
             db->mm[db->n_bam_recs] = mm;
             db->ml_lens[db->n_bam_recs] = ml_len;
             db->ml[db->n_bam_recs] = ml;
@@ -371,11 +396,16 @@ void free_db_tmp(db_t* db) {
     int32_t i = 0;
     for (i = 0; i < db->n_bam_recs; i++) {
         for(int seq_i=0;seq_i<db->bam_recs[i]->core.l_qseq;seq_i++){
-            if(db->modbases[i][seq_i].mods_len){
-                free(db->modbases[i][seq_i].mods);
-            }
+            free(db->modbases[i][seq_i].mods);
         }
+
+        for(int b=0;b<6;b++){
+            free(db->bases_pos[i][b]);
+        }
+        
         free(db->modbases[i]);
+        free(db->skip_counts[i]);
+        free(db->mod_codes[i]);
         free(db->ml[i]);
         free(db->aln[i]);
     }
@@ -387,12 +417,16 @@ void free_db(core_t* core, db_t* db) {
     int32_t i = 0;
 
     free(db->modbases);
+    free(db->skip_counts);
+    free(db->mod_codes);
     
     // free the rest of the records
     for (i = 0; i < db->cap_bam_recs; i++) {
         bam_destroy1(db->bam_recs[i]);
+        free(db->bases_pos[i]);
     }
 
+    free(db->bases_pos);
     free(db->ml_lens);
     free(db->mm);
     free(db->ml);
