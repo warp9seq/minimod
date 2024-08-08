@@ -236,142 +236,6 @@ char* make_key(const char *chrom, int pos, char mod_code, char strand){
     return key;
 }
 
-/*
-* Extracts the modifications from the MM string
-* @param mm_string MM string
-* @param len_mods pointer to the variable to store the number of modifications
-* @return pointer to the array of mod_tag_t
-*/
-static mod_tag_t *extract_mods(const char *mm_string, uint32_t *len_mods) {
-    if (mm_string == NULL || strlen(mm_string) == 0) {
-        WARNING("%s","Empty MM string. Continuing\n");
-        return NULL;
-    }
-
-    // allocate initial memory for modifications
-    int mods_cap = INIT_MODS;
-    mod_tag_t * mod_tags = (mod_tag_t *) malloc(mods_cap * sizeof(mod_tag_t));
-    MALLOC_CHK(mod_tags);
-    int num_mods = 0;
-
-    int mm_str_len = strlen(mm_string);
-    int i = 0;
-    while (i < mm_str_len) {
-
-        if (num_mods >= INIT_MODS) {
-            mods_cap *= 2;
-            mod_tags = (mod_tag_t *) realloc(mod_tags, mods_cap * sizeof(mod_tag_t));
-            MALLOC_CHK(mod_tags);
-        }
-
-        mod_tag_t current_mod;
-        memset(&current_mod, 0, sizeof(mod_tag_t));
-
-        // allocate initial memory for skip counts
-        current_mod.skip_counts_cap = INIT_SKIP_COUNTS;
-        current_mod.skip_counts = (int *) malloc(current_mod.skip_counts_cap * sizeof(int));
-        MALLOC_CHK(current_mod.skip_counts);
-
-        // allocate initial memory for modification codes
-        current_mod.mod_codes_cap = INIT_MOD_CODES;
-        current_mod.mod_codes = (char *) malloc(current_mod.mod_codes_cap * sizeof(char));
-        MALLOC_CHK(current_mod.mod_codes);
-
-        // set default status flag to '.' (when not present or '.' in the MM string)
-        current_mod.status_flag = '.';
-
-        // get base
-        if(i < mm_str_len) {
-            ASSERT_MSG(valid_bases[(int)mm_string[i]], "Invalid base:%c\n", mm_string[i]);
-            current_mod.base = mm_string[i];
-            i++;
-        }
-
-        // get strand
-        if(i < mm_str_len) {
-            ASSERT_MSG(valid_strands[(int)mm_string[i]], "Invalid strand:%c\n", mm_string[i]);
-            current_mod.strand = mm_string[i];
-            i++;
-        }
-
-        // get base modification codes. can handle multiple codes giver as chars. TO-DO: handle when given as a ChEBI id
-        int j = 0;
-        while (i < mm_str_len && mm_string[i] != ',' && mm_string[i] != ';' && mm_string[i] != '?' && mm_string[i] != '.') {
-
-            if (j >= current_mod.mod_codes_cap) {
-                current_mod.mod_codes_cap *= 2;
-                current_mod.mod_codes = (char *) realloc(current_mod.mod_codes, current_mod.mod_codes_cap * sizeof(char));
-                MALLOC_CHK(current_mod.mod_codes);
-            }
-
-            ASSERT_MSG(valid_mod_codes[(int)mm_string[i]], "Invalid base modification code:%c\n", mm_string[i]);
-            current_mod.mod_codes[j] = mm_string[i];
-            j++;
-
-            i++;
-        }
-        // current_mod.mod_codes[j] = '\0';
-        current_mod.mod_codes_len = j;
-
-        // get modification status flag
-        if(i < mm_str_len && ( mm_string[i] == '?' || mm_string[i] == '.' )) {
-            current_mod.status_flag = mm_string[i];
-            i++;
-        } else { // if not present, set to '.'
-            current_mod.status_flag = '.';
-        }
-
-        // get skip counts
-        int k = 0;
-        while (i < mm_str_len && mm_string[i] != ';') {
-
-            // skip if a comma
-            if(i < mm_str_len && mm_string[i] == ',') {
-                i++;
-                continue;
-            }
-
-            if (k >= current_mod.skip_counts_cap) {
-                current_mod.skip_counts_cap *= 2;
-                current_mod.skip_counts = (int *) realloc(current_mod.skip_counts, current_mod.skip_counts_cap * sizeof(int));
-                MALLOC_CHK(current_mod.skip_counts);
-            }
-
-
-            char skip_count_str[10];
-            int l = 0;
-            while (i < mm_str_len && mm_string[i] != ',' && mm_string[i] != ';') {
-                skip_count_str[l] = mm_string[i];
-                i++;
-                l++;
-                assert(l < 10); // if this fails, use dynamic allocation for skip_count_str
-            }
-            skip_count_str[l] = '\0';
-            ASSERT_MSG(l > 0, "invalid skip count:%d.\n", l);
-            sscanf(skip_count_str, "%d", &current_mod.skip_counts[k]);
-            ASSERT_MSG(current_mod.skip_counts[k] >= 0, "skip count cannot be negative: %d.\n", current_mod.skip_counts[k]);
-            
-            k++;
-        }
-        current_mod.skip_counts_len = k;
-        i++;
-
-        if(current_mod.skip_counts_len == 0) { // no skip counts, no modification
-            free(current_mod.skip_counts);
-            free(current_mod.mod_codes);
-            continue;
-        }
-
-        mod_tags[num_mods] = current_mod;
-        num_mods++;
-    }
-
-    *len_mods = num_mods;
-
-    return mod_tags;
-
-}
-
 static double mod_thresh(char mod_code, char * mod_codes, double * mod_threshes){
     if(mod_codes[0] == '*') {
         return mod_threshes[0];
@@ -476,7 +340,7 @@ void print_freq_output(core_t * core) {
     }
 }
 
-static int * get_aln(bam_hdr_t *hdr, bam1_t *record){
+int * get_aln(bam_hdr_t *hdr, bam1_t *record){
     int32_t tid = record->core.tid;
     assert(tid < hdr->n_targets);
     int32_t pos = record->core.pos;
@@ -558,7 +422,7 @@ static int * get_aln(bam_hdr_t *hdr, bam1_t *record){
     return aligned_pairs;
 }
 
-static modbase_t * get_bases(mod_tag_t *mod_tags, uint32_t mods_len, uint8_t * ml, uint32_t ml_len, int * aln_pairs, bam_hdr_t *hdr, bam1_t *record){
+static void get_bases(const char *mm_string, modbase_t * bases, uint8_t * ml, uint32_t ml_len, int * aln_pairs, bam_hdr_t *hdr, bam1_t *record){
 
     const char *qname = bam_get_qname(record);
     int8_t rev = bam_is_rev(record);
@@ -572,14 +436,35 @@ static modbase_t * get_bases(mod_tag_t *mod_tags, uint32_t mods_len, uint8_t * m
 
     char strand = rev ? '-' : '+';
 
-    if(seq_len == 0){
-        ERROR("Sequence length is 0 for read %s. Found %d mod_tags", qname, mods_len);
-        exit(EXIT_FAILURE);
+    // 5 int arrays to keep base pos of A, C, G, T, N bases.
+    // A: 0, C: 1, G: 2, T: 3, U:4, N: 5
+    // so that, nth base of A is at base_pos[0][n] and so on.
+    int * bases_pos[N_BASES];
+    int bases_pos_lens[N_BASES];
+    int bases_pos_caps[N_BASES];
+    int i;
+    for(i=0;i<N_BASES;i++){
+        bases_pos_caps[i] = INIT_BASE_POS;
+        bases_pos[i] = (int *)malloc(sizeof(int)*bases_pos_caps[i]);
+        MALLOC_CHK(bases_pos[i]);
+        bases_pos_lens[i] = 0;
     }
 
-    modbase_t *bases = (modbase_t *)malloc(sizeof(modbase_t)*seq_len);
-    MALLOC_CHK(bases);
-    for(int i=0;i<seq_len;i++){
+    // keep record of base pos of A, C, G, T, N bases
+    for(i=0; i<seq_len; i++){
+        int base_char = seq_nt16_str[bam_seqi(seq, i)];
+        int idx = base_idx_lookup[(int)base_char];
+        if(bases_pos_lens[idx] >= bases_pos_caps[idx]){
+            bases_pos_caps[idx] *= 2;
+            bases_pos[idx] = (int *)realloc(bases_pos[idx], sizeof(int)*bases_pos_caps[idx]);
+            MALLOC_CHK(bases_pos[idx]);
+        }
+        bases_pos[idx][bases_pos_lens[idx]] = i;
+        bases_pos_lens[idx]++;
+        
+    }
+
+    for(i=0;i<seq_len;i++){
         bases[i].mods_cap = INIT_MOD_BASES;
         bases[i].mods_len = 0;
         bases[i].ref_pos = aln_pairs[i];
@@ -608,43 +493,113 @@ static modbase_t * get_bases(mod_tag_t *mod_tags, uint32_t mods_len, uint8_t * m
         }
     }
 
-    // 5 int arrays to keep base pos of A, C, G, T, N bases.
-    // A: 0, C: 1, G: 2, T: 3, U:4, N: 5
-    // so that, nth base of A is at base_pos[0][n] and so on.
-    int * bases_pos[N_BASES];
-    int bases_pos_lens[N_BASES];
-    int bases_pos_caps[N_BASES];
-    for(int i=0;i<N_BASES;i++){
-        bases_pos_caps[i] = INIT_BASE_POS;
-        bases_pos[i] = (int *)malloc(sizeof(int)*bases_pos_caps[i]);
-        MALLOC_CHK(bases_pos[i]);
-        bases_pos_lens[i] = 0;
-    }
-
-    // keep record of base pos of A, C, G, T, N bases
-    for(int i=0; i<seq_len; i++){
-        int base_char = seq_nt16_str[bam_seqi(seq, i)];
-        int idx = base_idx_lookup[(int)base_char];
-        if(bases_pos_lens[idx] >= bases_pos_caps[idx]){
-            bases_pos_caps[idx] *= 2;
-            bases_pos[idx] = (int *)realloc(bases_pos[idx], sizeof(int)*bases_pos_caps[idx]);
-            MALLOC_CHK(bases_pos[idx]);
-        }
-        bases_pos[idx][bases_pos_lens[idx]] = i;
-        bases_pos_lens[idx]++;
-        
-    }
-
-
+    int mm_str_len = strlen(mm_string);
+    i = 0;
     int ml_start_idx = 0;
-    // go through mod_tags    
-    for(int i=0; i<mods_len; i++) {
-        mod_tag_t mod = mod_tags[i];
+    mod_tag_t current_mod;
+    while (i < mm_str_len) {
+
+        // allocate initial memory for skip counts
+        current_mod.skip_counts_cap = INIT_SKIP_COUNTS;
+        current_mod.skip_counts = (int *) malloc(current_mod.skip_counts_cap * sizeof(int));
+        MALLOC_CHK(current_mod.skip_counts);
+
+        // allocate initial memory for modification codes
+        current_mod.mod_codes_cap = INIT_MOD_CODES;
+        current_mod.mod_codes = (char *) malloc(current_mod.mod_codes_cap * sizeof(char));
+        MALLOC_CHK(current_mod.mod_codes);
+
+        // set default status flag to '.' (when not present or '.' in the MM string)
+        current_mod.status_flag = '.';
+
+        // get base
+        if(i < mm_str_len) {
+            ASSERT_MSG(valid_bases[(int)mm_string[i]], "Invalid base:%c\n", mm_string[i]);
+            current_mod.base = mm_string[i];
+            i++;
+        }
+
+        // get strand
+        if(i < mm_str_len) {
+            ASSERT_MSG(valid_strands[(int)mm_string[i]], "Invalid strand:%c\n", mm_string[i]);
+            current_mod.strand = mm_string[i];
+            i++;
+        }
+
+        // get base modification codes. can handle multiple codes giver as chars. TO-DO: handle when given as a ChEBI id
+        int j = 0;
+        while (i < mm_str_len && mm_string[i] != ',' && mm_string[i] != ';' && mm_string[i] != '?' && mm_string[i] != '.') {
+
+            if (j >= current_mod.mod_codes_cap) {
+                current_mod.mod_codes_cap *= 2;
+                current_mod.mod_codes = (char *) realloc(current_mod.mod_codes, current_mod.mod_codes_cap * sizeof(char));
+                MALLOC_CHK(current_mod.mod_codes);
+            }
+
+            ASSERT_MSG(valid_mod_codes[(int)mm_string[i]], "Invalid base modification code:%c\n", mm_string[i]);
+            current_mod.mod_codes[j] = mm_string[i];
+            j++;
+
+            i++;
+        }
+        // current_mod.mod_codes[j] = '\0';
+        current_mod.mod_codes_len = j;
+
+        // get modification status flag
+        if(i < mm_str_len && ( mm_string[i] == '?' || mm_string[i] == '.' )) {
+            current_mod.status_flag = mm_string[i];
+            i++;
+        } else { // if not present, set to '.'
+            current_mod.status_flag = '.';
+        }
+
+        // get skip counts
+        int k = 0;
+        while (i < mm_str_len && mm_string[i] != ';') {
+
+            // skip if a comma
+            if(i < mm_str_len && mm_string[i] == ',') {
+                i++;
+                continue;
+            }
+
+            if (k >= current_mod.skip_counts_cap) {
+                current_mod.skip_counts_cap *= 2;
+                current_mod.skip_counts = (int *) realloc(current_mod.skip_counts, current_mod.skip_counts_cap * sizeof(int));
+                MALLOC_CHK(current_mod.skip_counts);
+            }
+
+
+            char skip_count_str[10];
+            int l = 0;
+            while (i < mm_str_len && mm_string[i] != ',' && mm_string[i] != ';') {
+                skip_count_str[l] = mm_string[i];
+                i++;
+                l++;
+                assert(l < 10); // if this fails, use dynamic allocation for skip_count_str
+            }
+            skip_count_str[l] = '\0';
+            ASSERT_MSG(l > 0, "invalid skip count:%d.\n", l);
+            sscanf(skip_count_str, "%d", &current_mod.skip_counts[k]);
+            ASSERT_MSG(current_mod.skip_counts[k] >= 0, "skip count cannot be negative: %d.\n", current_mod.skip_counts[k]);
+            
+            k++;
+        }
+        current_mod.skip_counts_len = k;
+        i++;
+
+        if(current_mod.skip_counts_len == 0) { // no skip counts, no modification
+            free(current_mod.skip_counts);
+            free(current_mod.mod_codes);
+            continue;
+        }
+ 
+        mod_tag_t mod = current_mod;
         int base_rank = -1;
 
         int ml_idx = ml_start_idx;
-        for(int j=0; j<mod.skip_counts_len; j++) {
-            base_rank += mod.skip_counts[j] + 1;
+        for(int c=0; c<mod.skip_counts_len; c++) {
+            base_rank += mod.skip_counts[c] + 1;
             char mod_base;
             int idx;
             int read_pos;
@@ -682,9 +637,9 @@ static modbase_t * get_bases(mod_tag_t *mod_tags, uint32_t mods_len, uint8_t * m
             
             int mod_i = base->mods_len;
             // mod prob per each mod code. TO-DO: need to change when code is ChEBI id
-            for(int k=0; k<mod.mod_codes_len; k++) {
+            for(int m=0; m<mod.mod_codes_len; m++) {
                 // get the mod prob
-                ml_idx = ml_start_idx + j*mod.mod_codes_len + k;
+                ml_idx = ml_start_idx + c*mod.mod_codes_len + m;
                 ASSERT_MSG(ml_idx<ml_len, "ml_idx:%d ml_len:%d\n", ml_idx, ml_len);
                 uint8_t mod_prob = ml[ml_idx];
                 ASSERT_MSG(mod_prob <= 255 && mod_prob>=0, "mod_prob:%d\n", mod_prob);
@@ -696,7 +651,7 @@ static modbase_t * get_bases(mod_tag_t *mod_tags, uint32_t mods_len, uint8_t * m
                     MALLOC_CHK(base->mods);
                 }
 
-                base->mods[mod_i].mod_code = mod.mod_codes[k];
+                base->mods[mod_i].mod_code = mod.mod_codes[m];
                 base->mods[mod_i].mod_strand = mod.strand;
                 base->mods[mod_i].mod_prob = mod_prob;
                 base->mods[mod_i].mod_base = mod.base;
@@ -709,11 +664,9 @@ static modbase_t * get_bases(mod_tag_t *mod_tags, uint32_t mods_len, uint8_t * m
     }
 
     // free base_pos
-    for(int i=0;i<N_BASES;i++){
-        free(bases_pos[i]);
+    for(int b=0;b<N_BASES;b++){
+        free(bases_pos[b]);
     }
-
-    return bases;
 
 }
 
@@ -736,6 +689,7 @@ void print_view_output(core_t* core, db_t* db) {
             for(int j=0;j<modbases[seq_i].mods_len;j++){
                 mod_t mod = modbases[seq_i].mods[j];
                 modbase_t base = modbases[seq_i];
+                
                 double mod_prob = mod.mod_prob/255.0;
 
                 if(base.is_aln == 0 ||  is_required_mod_code_and_thresh(mod.mod_code, core->opt.mod_codes, mod_prob, core->opt.mod_threshes) == 0){
@@ -748,17 +702,15 @@ void print_view_output(core_t* core, db_t* db) {
         }
     }
 
-    
-
 }
 
-static void free_mod_tags(mod_tag_t *mod_tags, uint32_t len){
-    for(int i=0;i<len;i++){
-        free(mod_tags[i].mod_codes);
-        free(mod_tags[i].skip_counts);
-    }
-    free(mod_tags);
-}
+// static void free_mod_tags(mod_tag_t *mod_tags, uint32_t len){
+//     for(int i=0;i<len;i++){
+//         free(mod_tags[i].mod_codes);
+//         free(mod_tags[i].skip_counts);
+//     }
+//     free(mod_tags);
+// }
 
 void modbases_single(core_t* core, db_t* db, int32_t i) {
     bam1_t *record = db->bam_recs[i];
@@ -767,16 +719,9 @@ void modbases_single(core_t* core, db_t* db, int32_t i) {
     uint32_t ml_len = db->ml_lens[i];
     uint8_t *ml = db->ml[i];
 
-    uint32_t mods_len = 0;
-    mod_tag_t *mod_tags = extract_mods(mm, &mods_len);
-
     bam_hdr_t *hdr = core->bam_hdr;
 
-    int * aln_pairs = get_aln(hdr, record);
-    modbase_t * modbases = get_bases(mod_tags, mods_len, ml, ml_len, aln_pairs, hdr, record);
-    db->modbases[i] = modbases;
-
-    free(aln_pairs);
-    free_mod_tags(mod_tags, mods_len);
+    int * aln_pairs = db->aln[i];
+    get_bases(mm, db->modbases[i], ml, ml_len, aln_pairs, hdr, record);
 
 }

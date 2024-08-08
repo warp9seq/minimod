@@ -185,6 +185,8 @@ db_t* init_db(core_t* core) {
     MALLOC_CHK(db->ml_lens);
     db->ml = (uint8_t**)(malloc(sizeof(uint8_t*) * db->cap_bam_recs));
     MALLOC_CHK(db->ml);
+    db->aln = (int**)(malloc(sizeof(int*) * db->cap_bam_recs));
+    MALLOC_CHK(db->aln);
 
     int32_t i = 0;
     for (i = 0; i < db->cap_bam_recs; ++i) {
@@ -254,9 +256,11 @@ ret_status_t load_db(core_t* core, db_t* db) {
                 continue;
             }
 
+            db->modbases[db->n_bam_recs] = (modbase_t*)malloc(sizeof(modbase_t)*rec->core.l_qseq);
             db->mm[db->n_bam_recs] = mm;
             db->ml_lens[db->n_bam_recs] = ml_len;
             db->ml[db->n_bam_recs] = ml;
+            db->aln[db->n_bam_recs] = get_aln(core->bam_hdr, rec);
             db->n_bam_recs++;
         }else{
             break;
@@ -372,10 +376,8 @@ void free_db_tmp(db_t* db) {
             }
         }
         free(db->modbases[i]);
-    }
-
-    for (i = 0; i < db->n_bam_recs; i++) {
         free(db->ml[i]);
+        free(db->aln[i]);
     }
 }
 
@@ -394,6 +396,7 @@ void free_db(core_t* core, db_t* db) {
     free(db->ml_lens);
     free(db->mm);
     free(db->ml);
+    free(db->aln);
     free(db->bam_recs);
     free(db->means);
     free(db);

@@ -35,11 +35,13 @@ SOFTWARE.
 uint16_t *get_mod_tag(bam1_t *record, char *tag, uint32_t *len_ptr);
 const char *get_mm_tag_ptr(bam1_t *record);
 uint8_t *get_ml_tag(bam1_t *record, uint32_t *len_ptr);
+int * get_aln(bam_hdr_t *hdr, bam1_t *record);
 void init_mod(core_t* core);
 void modbases_single(core_t* core, db_t* db, int32_t i);
 void update_freq_map(core_t* core, db_t* db);
 void print_freq_output(core_t* core);
 void print_view_output(core_t* core, db_t* db);
 void destroy_freq_map(khash_t(freqm)* freq_map);
+// int32_t est_mods(const char *mm_string);
 
 #endif

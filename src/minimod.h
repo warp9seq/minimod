@@ -115,6 +115,9 @@ typedef struct {
     uint32_t * ml_lens;
     uint8_t ** ml;
 
+    // alignment
+    int ** aln;
+
     double *means;
     // view output
     modbase_t ** modbases;
