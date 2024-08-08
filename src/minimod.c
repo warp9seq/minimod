@@ -188,10 +188,15 @@ db_t* init_db(core_t* core) {
     MALLOC_CHK(db->aln);
     db->bases_pos = (int***)(malloc(sizeof(int**) * db->cap_bam_recs));
     MALLOC_CHK(db->bases_pos);
+    db->bases_pos_len = (int**)(malloc(sizeof(int*) * db->cap_bam_recs));
+    MALLOC_CHK(db->bases_pos_len);
     db->skip_counts = (int**)(malloc(sizeof(int*) * db->cap_bam_recs));
     MALLOC_CHK(db->skip_counts);
+    db->skip_counts_len = (int*)(calloc(db->cap_bam_recs,sizeof(int)));
+    MALLOC_CHK(db->skip_counts_len);
     db->mod_codes = (char**)(malloc(sizeof(char*) * db->cap_bam_recs));
     MALLOC_CHK(db->mod_codes);
+
 
     int32_t i = 0;
     for (i = 0; i < db->cap_bam_recs; ++i) {
@@ -200,10 +205,23 @@ db_t* init_db(core_t* core) {
 
         db->bases_pos[i] = (int**)malloc(sizeof(int*)*N_BASES);
         MALLOC_CHK(db->bases_pos[i]);
+
+        db->bases_pos_len[i] = (int*)malloc(sizeof(int)*N_BASES);
+        MALLOC_CHK(db->bases_pos_len[i]);
+
+        for(int b=0;b<N_BASES;b++){
+            db->bases_pos_len[i][b] = 0;
+        }
+
+        db->mod_codes[i] = (char*)malloc(sizeof(char)*N_MODS);
+        MALLOC_CHK(db->mod_codes[i]);
     }
 
     db->modbases = (modbase_t**)malloc(sizeof(modbase_t*) * db->cap_bam_recs);
+    MALLOC_CHK(db->modbases);
 
+    db->modbases_len = (int32_t*)calloc(db->cap_bam_recs,sizeof(int32_t));
+    MALLOC_CHK(db->modbases_len);
     
     db->means = (double*)calloc(db->cap_bam_recs,sizeof(double));
     MALLOC_CHK(db->means);
@@ -264,23 +282,47 @@ ret_status_t load_db(core_t* core, db_t* db) {
                 continue;
             }
 
-            db->modbases[db->n_bam_recs] = (modbase_t*)malloc(sizeof(modbase_t)*rec->core.l_qseq);
-            MALLOC_CHK(db->modbases[db->n_bam_recs]);
+            if(db->modbases_len[db->n_bam_recs] == 0) {
+                db->modbases[db->n_bam_recs] = (modbase_t*)malloc(sizeof(modbase_t)*rec->core.l_qseq);
+                MALLOC_CHK(db->modbases[db->n_bam_recs]);
+                db->modbases_len[db->n_bam_recs] = rec->core.l_qseq;
 
-            for(int seq_i=0;seq_i<rec->core.l_qseq;seq_i++){
-                db->modbases[db->n_bam_recs][seq_i].mods = (mod_t*)malloc(sizeof(mod_t)*5);
+                for(int seq_i=0;seq_i<rec->core.l_qseq;seq_i++){
+                    db->modbases[db->n_bam_recs][seq_i].mods = (mod_t*)malloc(sizeof(mod_t)*N_MODS);
+                    MALLOC_CHK(db->modbases[db->n_bam_recs][seq_i].mods);
+                }
+            } else if(db->modbases_len[db->n_bam_recs] < rec->core.l_qseq){
+                db->modbases[db->n_bam_recs] = (modbase_t*)realloc(db->modbases[db->n_bam_recs],sizeof(modbase_t)*rec->core.l_qseq);
+                MALLOC_CHK(db->modbases[db->n_bam_recs]);
+
+                for(int seq_i=db->modbases_len[db->n_bam_recs];seq_i<rec->core.l_qseq;seq_i++){
+                    db->modbases[db->n_bam_recs][seq_i].mods = (mod_t*)malloc(sizeof(mod_t)*N_MODS);
+                    MALLOC_CHK(db->modbases[db->n_bam_recs][seq_i].mods);
+                }
+                db->modbases_len[db->n_bam_recs] = rec->core.l_qseq;
             }
 
             for(int i=0;i<N_BASES;i++){
-                db->bases_pos[db->n_bam_recs][i] = (int*)calloc(rec->core.l_qseq,sizeof(int));
-                MALLOC_CHK(db->bases_pos[db->n_bam_recs][i]);
+                if(db->bases_pos_len[db->n_bam_recs][i] == 0){
+                    db->bases_pos[db->n_bam_recs][i] = (int*)malloc(sizeof(int)*rec->core.l_qseq);
+                    MALLOC_CHK(db->bases_pos[db->n_bam_recs][i]);
+                    db->bases_pos_len[db->n_bam_recs][i] = rec->core.l_qseq;
+                }else if(db->bases_pos_len[db->n_bam_recs][i] < rec->core.l_qseq){
+                    db->bases_pos[db->n_bam_recs][i] = (int*)realloc(db->bases_pos[db->n_bam_recs][i],sizeof(int)*rec->core.l_qseq);
+                    MALLOC_CHK(db->bases_pos[db->n_bam_recs][i]);
+                    db->bases_pos_len[db->n_bam_recs][i] = rec->core.l_qseq;
+                }
             }
             
-            db->skip_counts[db->n_bam_recs] = (int*)calloc(rec->core.l_qseq,sizeof(int));
-            MALLOC_CHK(db->skip_counts[db->n_bam_recs]);
-
-            db->mod_codes[db->n_bam_recs] = (char*)malloc(sizeof(char)*N_MODS);
-            MALLOC_CHK(db->mod_codes[db->n_bam_recs]);
+            if(db->skip_counts_len[db->n_bam_recs] == 0){
+                db->skip_counts[db->n_bam_recs] = (int*)malloc(sizeof(int)*rec->core.l_qseq);
+                MALLOC_CHK(db->skip_counts[db->n_bam_recs]);
+                db->skip_counts_len[db->n_bam_recs] = rec->core.l_qseq;
+            }else if(db->skip_counts_len[db->n_bam_recs] < rec->core.l_qseq){
+                db->skip_counts[db->n_bam_recs] = (int*)realloc(db->skip_counts[db->n_bam_recs],sizeof(int)*rec->core.l_qseq);
+                MALLOC_CHK(db->skip_counts[db->n_bam_recs]);
+                db->skip_counts_len[db->n_bam_recs] = rec->core.l_qseq;
+            }
 
             db->mm[db->n_bam_recs] = mm;
             db->ml_lens[db->n_bam_recs] = ml_len;
@@ -394,18 +436,7 @@ void output_core(core_t* core) {
 /* partially free a data batch - only the read dependent allocations are freed */
 void free_db_tmp(db_t* db) {
     int32_t i = 0;
-    for (i = 0; i < db->n_bam_recs; i++) {
-        for(int seq_i=0;seq_i<db->bam_recs[i]->core.l_qseq;seq_i++){
-            free(db->modbases[i][seq_i].mods);
-        }
-
-        for(int b=0;b<6;b++){
-            free(db->bases_pos[i][b]);
-        }
-        
-        free(db->modbases[i]);
-        free(db->skip_counts[i]);
-        free(db->mod_codes[i]);
+    for (i = 0; i < db->n_bam_recs; i++) {        
         free(db->ml[i]);
         free(db->aln[i]);
     }
@@ -415,18 +446,39 @@ void free_db_tmp(db_t* db) {
 void free_db(core_t* core, db_t* db) {
 
     int32_t i = 0;
-
-    free(db->modbases);
-    free(db->skip_counts);
-    free(db->mod_codes);
     
     // free the rest of the records
     for (i = 0; i < db->cap_bam_recs; i++) {
-        bam_destroy1(db->bam_recs[i]);
+        if(db->skip_counts_len[i]>0){
+            free(db->skip_counts[i]);
+        }
+        if(db->modbases_len[i]>0){
+            for(int seq_i=0;seq_i<db->modbases_len[i];seq_i++){
+                free(db->modbases[i][seq_i].mods);
+            }
+            free(db->modbases[i]);
+        }
+        
+        for(int b=0;b<N_BASES;b++){
+            if(db->bases_pos_len[i][b]>0){
+                free(db->bases_pos[i][b]);
+            }
+        }
+
+        free(db->mod_codes[i]);
+
         free(db->bases_pos[i]);
+        free(db->bases_pos_len[i]);
+        bam_destroy1(db->bam_recs[i]);
     }
 
+    free(db->skip_counts);
+    free(db->skip_counts_len);
+    free(db->mod_codes);
+    free(db->modbases);
+    free(db->modbases_len);
     free(db->bases_pos);
+    free(db->bases_pos_len);
     free(db->ml_lens);
     free(db->mm);
     free(db->ml);

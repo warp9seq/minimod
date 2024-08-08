@@ -295,7 +295,7 @@ void print_freq_output(core_t * core) {
         for (k = kh_begin(freq_map); k != kh_end(freq_map); ++k) {
             if (kh_exist(freq_map, k)) {
                 freq_t* freq = kh_value(freq_map, k);
-                double freq_value = (double)freq->n_mod/freq->n_called*100;
+                double freq_value = (double)freq->n_mod*100/freq->n_called;
                 int end = freq->ref_pos+1;
                 fprintf(core->opt.output_fp, "%s\t%d\t%d\t%c\t%d\t%c\t%d\t%d\t255,0,0\t%d\t%f\n", freq->contig, freq->ref_pos, end, freq->mod_code, freq->n_called, freq->strand, freq->ref_pos, end, freq->n_called, freq_value);
             }
