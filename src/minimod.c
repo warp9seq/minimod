@@ -257,14 +257,14 @@ ret_status_t load_db(core_t* core, db_t* db) {
             if(rec->core.flag & BAM_FUNMAP){
                 db->skipped_reads++;
                 db->skipped_reads_bytes += rec->l_data;
-                WARNING("Skipping unmapped read %s",bam_get_qname(rec));
+                LOG_TRACE("Skipping unmapped read %s",bam_get_qname(rec));
                 continue;
             }
 
             if(rec->core.l_qseq == 0){
                 db->skipped_reads++;
                 db->skipped_reads_bytes += rec->l_data;
-                WARNING("Skipping read with 0 length %s",bam_get_qname(rec));
+                LOG_TRACE("Skipping read with 0 length %s",bam_get_qname(rec));
                 continue;
             }
 
@@ -273,7 +273,7 @@ ret_status_t load_db(core_t* core, db_t* db) {
             if(mm == NULL){
                 db->skipped_reads++;
                 db->skipped_reads_bytes += rec->l_data;
-                WARNING("Skipping read %s with empty MM tag", bam_get_qname(rec));
+                LOG_TRACE("Skipping read %s with empty MM tag", bam_get_qname(rec));
                 continue;
             }
 
