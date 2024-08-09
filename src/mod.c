@@ -104,13 +104,13 @@ const char *get_mm_tag_ptr(bam1_t *record){
     // get the mm
     uint8_t *data = bam_aux_get(record, tag);
     if(data == NULL){
-        WARNING("%s tag not found in read %s",tag, bam_get_qname(record));
+        LOG_TRACE("%s tag not found in read %s",tag, bam_get_qname(record));
         return NULL;
     }
 
     const char *mm_str = bam_aux2Z(data);
     if(mm_str == NULL){
-        WARNING("%s tag could not be decoded for %s. Is it type Z?",tag, bam_get_qname(record));
+        LOG_TRACE("%s tag could not be decoded for %s. Is it type Z?",tag, bam_get_qname(record));
         return NULL;
     }
 
@@ -123,28 +123,28 @@ uint8_t *get_ml_tag(bam1_t *record, uint32_t *len_ptr){
     // get the mm
     uint8_t *data = bam_aux_get(record, tag);
     if(data == NULL){
-        WARNING("%s tag not found in read %s",tag, bam_get_qname(record));
+        LOG_TRACE("%s tag not found in read %s",tag, bam_get_qname(record));
         return NULL;
     }
 
     // check if the type of the tag is array of integers
     const char aux_type = data[0];
     if (aux_type != 'B') {
-        ERROR("%s tag is not of type B in read %s",tag, bam_get_qname(record));
+        LOG_TRACE("%s tag is not of type B in read %s",tag, bam_get_qname(record));
         return NULL;
     }
 
     // get the array len
     uint32_t len = bam_auxB_len(data);
     if(len == 0){
-        WARNING("%s tag array length is 0 in read %s",tag, bam_get_qname(record));
+        LOG_TRACE("%s tag array length is 0 in read %s",tag, bam_get_qname(record));
         return NULL;
     }
 
     // check if the array type is uint8_t
     const char aux_array_type = data[1];
     if (aux_array_type != 'C') {
-        ERROR("%s array tag type '%c' is not of type C in read %s",tag, aux_array_type, bam_get_qname(record));
+        LOG_TRACE("%s array tag type '%c' is not of type C in read %s",tag, aux_array_type, bam_get_qname(record));
         return NULL;
     }
 
