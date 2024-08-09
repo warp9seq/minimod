@@ -68,6 +68,10 @@ core_t* init_core(const char *bamfilename, opt_t opt,double realtime0) {
     core->bam_fp = sam_open(bamfilename, "r");
     NULL_CHK(core->bam_fp);
 
+    if(opt.num_thread > 1){
+        hts_set_threads(core->bam_fp, opt.num_thread);
+    }
+
     // load bam index file
     core->bam_idx = sam_index_load(core->bam_fp, bamfilename);
     if(core->bam_idx==NULL){
@@ -131,7 +135,7 @@ core_t* init_core(const char *bamfilename, opt_t opt,double realtime0) {
     }
 #endif
 
-
+    
     return core;
 }
 
