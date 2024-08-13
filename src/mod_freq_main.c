@@ -57,7 +57,7 @@ static struct option long_options[] = {
     {"profile-cpu",required_argument, 0, 0},       //11 perform section by section (used for profiling - for CPU only)
     {"accel",required_argument, 0, 0},             //12 accelerator
     {"expand",no_argument, 0, 0},                  //13 expand view
-    {"output",required_argument, 0, 'o'},            //13 output file
+    {"output",required_argument, 0, 'o'},          //14 output file
     {0, 0, 0, 0}};
 
 
@@ -169,17 +169,17 @@ int mod_freq_main(int argc, char* argv[]) {
             opt.mod_codes = optarg;
         } else if (c=='b'){
             opt.bedmethyl_out = 1;
-        }else if(c == 0 && longindex == 9){ //debug break
+        }else if(c == 0 && longindex == 10){ //debug break
             opt.debug_break = atoi(optarg);
-        } else if(c == 0 && longindex == 10){ //sectional benchmark todo : warning for gpu mode
+        } else if(c == 0 && longindex == 11){ //sectional benchmark todo : warning for gpu mode
             yes_or_no(&opt.flag, MINIMOD_PRF, long_options[longindex].name, optarg, 1);
-        } else if(c == 0 && longindex == 11){ //accel
+        } else if(c == 0 && longindex == 12){ //accel
         #ifdef HAVE_ACC
             yes_or_no(&opt.flag, minimod_ACC, long_options[longindex].name, optarg, 1);
         #else
             WARNING("%s", "--accel has no effect when compiled for the CPU");
         #endif
-        } else if(c == 0 && longindex == 12){ //expand output
+        } else if(c == 0 && longindex == 13){ //expand output
             yes_or_no(&opt.flag, MINIMOD_EXP, long_options[longindex].name, "yes", 1);
         }
     }
@@ -218,8 +218,8 @@ int mod_freq_main(int argc, char* argv[]) {
     opt.mod_threshes = parse_mod_threshes(opt.mod_codes,mod_threshes_str);
 
     //load the reference genome
-    fprintf(stderr, "[%s] Loading reference genome %s\n", __func__, ref_file);
     load_ref(ref_file);
+    fprintf(stderr, "[%s] Reference genome loaded in %.3f sec\n", __func__, realtime()-realtime0);
 
     //initialise the core data structure
     core_t* core = init_core(bam_file, opt, realtime0);

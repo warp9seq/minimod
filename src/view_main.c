@@ -214,8 +214,8 @@ int view_main(int argc, char* argv[]) {
     opt.mod_threshes = parse_mod_threshes(opt.mod_codes,mod_threshes_str);
 
     //load the reference genome
-    fprintf(stderr, "[%s] Loading reference genome %s\n", __func__, ref_file);
     load_ref(ref_file);
+    fprintf(stderr, "[%s] Reference genome loaded in %.3f sec\n", __func__, realtime()-realtime0);
 
     //initialise the core data structure
     core_t* core = init_core(bam_file, opt, realtime0);
