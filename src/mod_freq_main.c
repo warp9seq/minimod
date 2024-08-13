@@ -117,7 +117,7 @@ int mod_freq_main(int argc, char* argv[]) {
     char *ref_file = NULL;
     char *bam_file = NULL;
     char *mod_threshes_str = NULL;
-    int progress_interval = 10; //seconds
+    int progress_interval = 0; //seconds
 
     FILE *fp_help = stderr;
 
@@ -246,7 +246,7 @@ int mod_freq_main(int argc, char* argv[]) {
         free_db_tmp(db);
 
         //print progress
-        if(realtime()-realtime_prog > progress_interval){
+        if(progress_interval<=0 || realtime()-realtime_prog > progress_interval){
             fprintf(stderr, "[%s::%.3f*%.2f] %ld Entries (%.1fM bytes) loaded\t %ld Entries (%.1fM bytes) skipped\t %ld Entries (%.1fM bytes) processed\n", __func__,
                     realtime() - realtime0, cputime() / (realtime() - realtime0),
                     core->total_reads,core->sum_bytes/(1000.0*1000.0),
