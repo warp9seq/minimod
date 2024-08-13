@@ -77,28 +77,16 @@ typedef struct {
 } opt_t;
 
 typedef struct {
-    const char * contig;
-    int ref_pos;
-    char strand;
     int n_called;
     int n_mod;
     char mod_code;
 } freq_t;
 
 typedef struct {
-    char mod_code;
-    int mod_strand;
-    uint8_t mod_prob;
-    char mod_base;
-} mod_t;
-
-typedef struct {
     int ref_pos;
-    mod_t * mods;
-    int mods_cap;
-    int mods_len;
-    int is_aln;
-    int is_cpg;
+    uint8_t * mods_probs;
+    uint8_t is_aln;
+    uint8_t is_cpg;
 } modbase_t;
 
 static const int valid_mod_codes[256] = {

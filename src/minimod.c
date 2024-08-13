@@ -289,16 +289,16 @@ ret_status_t load_db(core_t* core, db_t* db) {
                 db->modbases_len[db->n_bam_recs] = rec->core.l_qseq;
 
                 for(int seq_i=0;seq_i<rec->core.l_qseq;seq_i++){
-                    db->modbases[db->n_bam_recs][seq_i].mods = (mod_t*)malloc(sizeof(mod_t)*N_MODS);
-                    MALLOC_CHK(db->modbases[db->n_bam_recs][seq_i].mods);
+                    db->modbases[db->n_bam_recs][seq_i].mods_probs = (uint8_t*)malloc(sizeof(uint8_t)*N_MODS);
+                    MALLOC_CHK(db->modbases[db->n_bam_recs][seq_i].mods_probs);
                 }
             } else if(db->modbases_len[db->n_bam_recs] < rec->core.l_qseq){
                 db->modbases[db->n_bam_recs] = (modbase_t*)realloc(db->modbases[db->n_bam_recs],sizeof(modbase_t)*rec->core.l_qseq);
                 MALLOC_CHK(db->modbases[db->n_bam_recs]);
 
                 for(int seq_i=db->modbases_len[db->n_bam_recs];seq_i<rec->core.l_qseq;seq_i++){
-                    db->modbases[db->n_bam_recs][seq_i].mods = (mod_t*)malloc(sizeof(mod_t)*N_MODS);
-                    MALLOC_CHK(db->modbases[db->n_bam_recs][seq_i].mods);
+                    db->modbases[db->n_bam_recs][seq_i].mods_probs = (uint8_t*)malloc(sizeof(uint8_t)*N_MODS);
+                    MALLOC_CHK(db->modbases[db->n_bam_recs][seq_i].mods_probs);
                 }
                 db->modbases_len[db->n_bam_recs] = rec->core.l_qseq;
             }
@@ -455,7 +455,7 @@ void free_db(core_t* core, db_t* db) {
         }
         if(db->modbases_len[i]>0){
             for(int seq_i=0;seq_i<db->modbases_len[i];seq_i++){
-                free(db->modbases[i][seq_i].mods);
+                free(db->modbases[i][seq_i].mods_probs);
             }
             free(db->modbases[i]);
         }

@@ -93,6 +93,15 @@ static const int mod_code_to_idx[256] = {
     ['n'] = 14, ['N'] = 15
 };
 
+static const char idx_to_mod_code[16] = {
+    [0] = 'm', [1] = 'h', [2] = 'f', [3] = 'c', [4] = 'C',
+    [5] = 'g', [6] = 'e', [7] = 'b', [8] = 'T',
+    [9] = 'U',
+    [10] = 'a', [11] = 'A',
+    [12] = 'o', [13] = 'G',
+    [14] = 'n', [15] = 'N'
+};
+
 static inline int die(const char *format, ...) {
     va_list args;
     va_start(args, format);
@@ -205,7 +214,6 @@ void destroy_freq_map(khash_t(freqm)* freq_map){
         if (kh_exist(freq_map, k)) {
             char *key = (char *) kh_key(freq_map, k);
             freq_t* freq = kh_value(freq_map, k);
-            free((char*)freq->contig);
             free(freq);
             free(key);
         }
@@ -221,6 +229,16 @@ char* make_key(const char *chrom, int pos, char mod_code, char strand){
     MALLOC_CHK(key);
     snprintf(key, key_strlen, "%s\t%d\t%c\t%c", chrom, pos, mod_code, strand);
     return key;
+}
+
+void decode_key(char *key, char **chrom, int *pos, char *mod_code, char *strand){
+    char* token = strtok(key, "\t");
+    *chrom = calloc(strlen(token)+1, sizeof(char));
+    MALLOC_CHK(*chrom);
+    strcpy(*chrom, token);
+    *pos = atoi(strtok(NULL, "\t"));
+    *mod_code = strtok(NULL, "\t")[0];
+    *strand = strtok(NULL, "\t")[0];
 }
 
 static double mod_thresh(char mod_code, char * mod_codes, double * mod_threshes){
@@ -256,7 +274,10 @@ void update_freq_map(core_t * core, db_t * db) {
             modbase_t * base = &bases[seq_i];
             for(int j=0;j<N_MODS;j++){
 
-                mod_t * mod = &base->mods[j];
+                uint8_t mod_prob = base->mods_probs[j];
+                if(mod_prob == 0){ // no modification
+                    continue;
+                }
 
                 if(base->is_aln == 0){
                     continue;
@@ -266,30 +287,20 @@ void update_freq_map(core_t * core, db_t * db) {
                     continue;
                 }
 
-                if(mod->mod_code == '\0'){
+                char mod_code = idx_to_mod_code[j];
+                if(is_required_mod_code(mod_code, core->opt.mod_codes) == 0){
                     continue;
                 }
 
-                if(is_required_mod_code(mod->mod_code, core->opt.mod_codes) == 0){
-                    continue;
-                }
-
-                char *key = make_key(tname, base->ref_pos, mod->mod_code, strand);
+                char *key = make_key(tname, base->ref_pos, mod_code, strand);
                 khash_t(freqm) *freq_map = core->freq_map;
                 khiter_t k = kh_get(freqm, freq_map, key);
                 if (k == kh_end(freq_map)) { // not found, add to map
                     freq_t * freq = (freq_t *)malloc(sizeof(freq_t));
                     MALLOC_CHK(freq);
-                    char* contig = (char *)calloc(strlen(tname)+1, sizeof(char));
-                    MALLOC_CHK(contig);
-                    strcpy(contig, tname);
-                    freq->contig = contig;
-                    freq->ref_pos = base->ref_pos;
-                    freq->mod_code = mod->mod_code;
-
+                    freq->mod_code = mod_code;
                     freq->n_called = 1;
-                    freq->n_mod = (mod->mod_prob/255.0) >= mod_thresh(mod->mod_code, core->opt.mod_codes, core->opt.mod_threshes) ? 1 : 0;
-                    freq->strand = mod->mod_strand;
+                    freq->n_mod = (mod_prob/255.0) >= mod_thresh(mod_code, core->opt.mod_codes, core->opt.mod_threshes) ? 1 : 0;
                     int ret;
                     k = kh_put(freqm, freq_map, key, &ret);
                     kh_value(freq_map, k) = freq;
@@ -297,7 +308,7 @@ void update_freq_map(core_t * core, db_t * db) {
                     free(key);
                     freq_t * freq = kh_value(freq_map, k);
                     freq->n_called += 1;
-                    freq->n_mod += (mod->mod_prob/255.0) >= mod_thresh(mod->mod_code, core->opt.mod_codes, core->opt.mod_threshes) ? 1 : 0;
+                    freq->n_mod += (mod_prob/255.0) >= mod_thresh(mod_code, core->opt.mod_codes, core->opt.mod_threshes) ? 1 : 0;
                 }
             }
         }
@@ -313,8 +324,15 @@ void print_freq_output(core_t * core) {
             if (kh_exist(freq_map, k)) {
                 freq_t* freq = kh_value(freq_map, k);
                 double freq_value = (double)freq->n_mod*100/freq->n_called;
-                int end = freq->ref_pos+1;
-                fprintf(core->opt.output_fp, "%s\t%d\t%d\t%c\t%d\t%c\t%d\t%d\t255,0,0\t%d\t%f\n", freq->contig, freq->ref_pos, end, freq->mod_code, freq->n_called, freq->strand, freq->ref_pos, end, freq->n_called, freq_value);
+                char *contig = NULL;
+                int ref_pos;
+                char mod_code;
+                char strand;
+                char * key = (char *) kh_key(freq_map, k);
+                decode_key(key, &contig, &ref_pos, &mod_code, &strand);
+                int end = ref_pos+1;
+                fprintf(core->opt.output_fp, "%s\t%d\t%d\t%c\t%d\t%c\t%d\t%d\t255,0,0\t%d\t%f\n", contig, ref_pos, end, mod_code, freq->n_called, strand, ref_pos, end, freq->n_called, freq_value);
+                free(contig);
             }
         }
         
@@ -326,7 +344,14 @@ void print_freq_output(core_t * core) {
             if (kh_exist(freq_map, k)) {
                 freq_t* freq = kh_value(freq_map, k);
                 double freq_value = (double)freq->n_mod/freq->n_called;
-                fprintf(core->opt.output_fp, "%s\t%d\t%d\t%c\t%d\t%d\t%f\t%c\n", freq->contig, freq->ref_pos, freq->ref_pos, freq->strand, freq->n_called, freq->n_mod, freq_value, freq->mod_code);
+                char * contig = NULL;
+                int ref_pos;
+                char mod_code;
+                char strand;
+                char * key = (char *) kh_key(freq_map, k);
+                decode_key(key, &contig, &ref_pos, &mod_code, &strand);
+                fprintf(core->opt.output_fp, "%s\t%d\t%d\t%c\t%d\t%d\t%f\t%c\n", contig, ref_pos, ref_pos, strand, freq->n_called, freq->n_mod, freq_value, freq->mod_code);
+                free(contig);
             }
         }
     }
@@ -475,7 +500,7 @@ static void get_bases(db_t * db, int32_t bam_i, const char *mm_string, uint8_t *
         }
         
         for(int j=0;j<N_MODS;j++){
-            bases[i].mods[j].mod_code = '\0';
+            bases[i].mods_probs[j] = 0; // no modification
         }
 
     }
@@ -578,7 +603,7 @@ static void get_bases(db_t * db, int32_t bam_i, const char *mm_string, uint8_t *
             int idx;
             int read_pos;
 
-            if(rev){
+            if(rev) {
                 mb = base_complement_lookup[(int)modbase];
             } else {
                 mb = modbase;
@@ -602,7 +627,7 @@ static void get_bases(db_t * db, int32_t bam_i, const char *mm_string, uint8_t *
 
             ASSERT_MSG(read_pos>=0 && read_pos < seq_len, "Base pos cannot exceed seq len. read_pos: %d seq_len: %d\n", read_pos, seq_len);
 
-            mod_t * mods = db->modbases[bam_i][read_pos].mods;
+            uint8_t * mods_probs = db->modbases[bam_i][read_pos].mods_probs;
             // mod prob per each mod code. TO-DO: need to change when code is ChEBI id
             for(int m=0; m<mod_codes_len; m++) {
                 // get the mod prob
@@ -611,11 +636,8 @@ static void get_bases(db_t * db, int32_t bam_i, const char *mm_string, uint8_t *
                 uint8_t mod_prob = ml[ml_idx];
                 ASSERT_MSG(mod_prob <= 255 && mod_prob>=0, "mod_prob:%d\n", mod_prob);
 
-                mod_t * mod = &mods[mod_code_to_idx[(int)mod_codes[m]]];
-                mod->mod_code = mod_codes[m];
-                mod->mod_strand = mod_strand;
-                mod->mod_prob = mod_prob;
-                mod->mod_base = modbase;
+                mods_probs[mod_code_to_idx[(int)mod_codes[m]]] = mod_prob;
+
             }
 
         }
@@ -637,22 +659,25 @@ void print_view_output(core_t* core, db_t* db) {
         const char *tname = tid >= 0 ? hdr->target_name[tid] : "*";
         int32_t seq_len = record->core.l_qseq;
 
+        int8_t rev = bam_is_rev(record);
+        char strand = rev ? '-' : '+';
+
         modbase_t * bases = db->modbases[i];
 
         for(int seq_i=0;seq_i<seq_len;seq_i++){
             modbase_t base = bases[seq_i];
             for(int j=0;j<N_BASES;j++){
-                mod_t mod = base.mods[j];
-                if(mod.mod_code == 0){
+                uint8_t mod_prob = base.mods_probs[j];
+                if(mod_prob == 0){ // no modification
                     continue;
                 }
-                
-                double mod_prob = mod.mod_prob/255.0;
+                char mod_code = idx_to_mod_code[j];
+                double prob = mod_prob/255.0;
 
-                if(base.is_aln == 0 ||  is_required_mod_code_and_thresh(mod.mod_code, core->opt.mod_codes, mod_prob, core->opt.mod_threshes) == 0){
+                if(base.is_aln == 0 ||  is_required_mod_code_and_thresh(mod_code, core->opt.mod_codes, prob, core->opt.mod_threshes) == 0){
                     continue;
                 }
-                fprintf(core->opt.output_fp, "%s\t%d\t%c\t%s\t%d\t%c\t%f\n", tname, base.ref_pos, mod.mod_strand, qname, seq_i, mod.mod_code, mod_prob);
+                fprintf(core->opt.output_fp, "%s\t%d\t%c\t%s\t%d\t%c\t%f\n", tname, base.ref_pos, strand, qname, seq_i, mod_code, prob);
             
                 
             }
