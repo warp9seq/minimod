@@ -36,12 +36,16 @@ fi
 testname="Test 1: view hifi"
 echo -e "${BLUE}${testname}${NC}"
 ex  ./minimod view -m 0.0 -t 8 test/tmp/genome_chr22.fa test/data/example-hifi.bam > test/tmp/test1.tsv  || die "${testname} Running the tool failed"
-diff -q test/expected/test1.tsv test/tmp/test1.tsv || die "${testname} diff failed"
+sort -k1,1 -k2,2n -k3,3 -k6,6 test/expected/test1.tsv > test/tmp/test1.exp.tsv.sorted
+sort -k1,1 -k2,2n -k3,3 -k6,6 test/tmp/test1.tsv > test/tmp/test1.tsv.sorted
+diff -q test/tmp/test1.exp.tsv.sorted test/tmp/test1.tsv.sorted || die "${testname} diff failed"
 
 testname="Test 2: view ont"
 echo -e "${BLUE}${testname}${NC}"
 ex  ./minimod view -m 0.0 -t 8 test/tmp/genome_chr22.fa test/data/example-ont.bam > test/tmp/test2.tsv || die "${testname} Running the tool failed"
-diff -q test/expected/test2.tsv test/tmp/test2.tsv || die "${testname} diff failed"
+sort -k1,1 -k2,2n -k3,3 -k6,6 test/expected/test2.tsv > test/tmp/test2.exp.tsv.sorted
+sort -k1,1 -k2,2n -k3,3 -k6,6 test/tmp/test2.tsv > test/tmp/test2.tsv.sorted
+diff -q test/tmp/test2.exp.tsv.sorted test/tmp/test2.tsv.sorted || die "${testname} diff failed"
 
 testname="Test 3: mod-freq hifi"
 echo -e "${BLUE}${testname}${NC}"
@@ -95,12 +99,16 @@ diff -q test/tmp/test9.exp.tsv.sorted test/tmp/test9.tsv.sorted || die "${testna
 testname="Test 10: view ont with mod threshold"
 echo -e "${BLUE}${testname}${NC}"
 ex  ./minimod view -m 0.2 -t 8 test/tmp/genome_chr22.fa test/data/example-ont.bam > test/tmp/test10.tsv || die "${testname} Running the tool failed"
-diff -q test/expected/test10.tsv test/tmp/test10.tsv || die "${testname} diff failed"
+sort -k1,1 -k2,2n -k3,3 -k6,6 test/expected/test10.tsv > test/tmp/test10.exp.tsv.sorted
+sort -k1,1 -k2,2n -k3,3 -k6,6 test/tmp/test10.tsv > test/tmp/test10.tsv.sorted
+diff -q test/tmp/test10.exp.tsv.sorted test/tmp/test10.tsv.sorted || die "${testname} diff failed"
 
 testname="Test 11: view ont with mod codes m and h with different thresholds"
 echo -e "${BLUE}${testname}${NC}"
 ex  ./minimod view -c "mh" -m "0.2,0.5"  -t 8 test/tmp/genome_chr22.fa test/data/example-ont.bam > test/tmp/test11.tsv || die "${testname} Running the tool failed"
-diff -q test/expected/test11.tsv test/tmp/test11.tsv || die "${testname} diff failed"
+sort -k1,1 -k2,2n -k3,3 -k6,6 test/expected/test11.tsv > test/tmp/test11.exp.tsv.sorted
+sort -k1,1 -k2,2n -k3,3 -k6,6 test/tmp/test11.tsv > test/tmp/test11.tsv.sorted
+diff -q test/tmp/test11.exp.tsv.sorted test/tmp/test11.tsv.sorted || die "${testname} diff failed"
 
 testname="Test 12: mod-freq ont with mod codes m and h with different thresholds"
 echo -e "${BLUE}${testname}${NC}"
@@ -112,7 +120,9 @@ diff -q test/tmp/test12.exp.tsv.sorted test/tmp/test12.tsv.sorted || die "${test
 testname="Test 13: view ont with -o flag"
 echo -e "${BLUE}${testname}${NC}"
 ex  ./minimod view -m 0.0 -t 8 test/tmp/genome_chr22.fa test/data/example-ont.bam -o test/tmp/test13.tsv || die "${testname} Running the tool failed"
-diff -q test/expected/test2.tsv test/tmp/test13.tsv || die "${testname} diff failed"
+sort -k1,1 -k2,2n -k3,3 -k6,6 test/expected/test2.tsv > test/tmp/test13.exp.tsv.sorted
+sort -k1,1 -k2,2n -k3,3 -k6,6 test/tmp/test13.tsv > test/tmp/test13.tsv.sorted
+diff -q test/tmp/test13.exp.tsv.sorted test/tmp/test13.tsv.sorted || die "${testname} diff failed"
 
 testname="Test 14: mod-freq ont with -o flag"
 echo -e "${BLUE}${testname}${NC}"

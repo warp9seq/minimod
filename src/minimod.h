@@ -94,7 +94,6 @@ typedef struct {
 
 typedef struct {
     char base;
-    char ref_base;
     int ref_pos;
     mod_t * mods;
     int mods_cap;

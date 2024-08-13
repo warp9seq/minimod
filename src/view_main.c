@@ -227,16 +227,6 @@ int view_main(int argc, char* argv[]) {
 
     ret_status_t status = {core->opt.batch_size,core->opt.batch_size_bytes};
     while (status.num_reads >= core->opt.batch_size || status.num_bytes>=core->opt.batch_size_bytes) {
-        
-        //print progress
-        if(realtime()-realtime_prog > progress_interval){
-            fprintf(stderr, "[%s::%.3f*%.2f] %ld Entries (%.1fM bytes) loaded\t %ld Entries (%.1fM bytes) skipped\t %ld Entries (%.1fM bytes) processed\n", __func__,
-                    realtime() - realtime0, cputime() / (realtime() - realtime0),
-                    core->total_reads,core->sum_bytes/(1000.0*1000.0),
-                    core->skipped_reads,core->skipped_reads_bytes/(1000.0*1000.0),
-                    (core->total_reads-core->skipped_reads),(core->sum_bytes-core->skipped_reads_bytes)/(1000.0*1000.0));
-            realtime_prog = realtime();
-        }
 
         //load a databatch
         status = load_db(core, db);
@@ -249,6 +239,16 @@ int view_main(int argc, char* argv[]) {
 
         free_db_tmp(db);
 
+        //print progress
+        if(realtime()-realtime_prog > progress_interval){
+            fprintf(stderr, "[%s::%.3f*%.2f] %ld Entries (%.1fM bytes) loaded\t %ld Entries (%.1fM bytes) skipped\t %ld Entries (%.1fM bytes) processed\n", __func__,
+                    realtime() - realtime0, cputime() / (realtime() - realtime0),
+                    core->total_reads,core->sum_bytes/(1000.0*1000.0),
+                    core->skipped_reads,core->skipped_reads_bytes/(1000.0*1000.0),
+                    (core->total_reads-core->skipped_reads),(core->sum_bytes-core->skipped_reads_bytes)/(1000.0*1000.0));
+            realtime_prog = realtime();
+        }
+
         //check if 90% of total reads are skipped
         if(core->skipped_reads>0.9*core->total_reads){
             WARNING("%s","90% of the reads are skipped. Check if the BAM file is sorted, contains MM, ML tags.");
@@ -259,6 +259,8 @@ int view_main(int argc, char* argv[]) {
         }
         counter++;
     }
+
+    destroy_ref();
 
     // free the databatch
     free_db(core, db);

@@ -201,6 +201,11 @@ db_t* init_db(core_t* core) {
     db->mod_codes = (char**)(malloc(sizeof(char*) * db->cap_bam_recs));
     MALLOC_CHK(db->mod_codes);
 
+    db->modbases = (modbase_t**)malloc(sizeof(modbase_t*) * db->cap_bam_recs);
+    MALLOC_CHK(db->modbases);
+
+    db->modbases_len = (int32_t*)calloc(db->cap_bam_recs,sizeof(int32_t));
+    MALLOC_CHK(db->modbases_len);
 
     int32_t i = 0;
     for (i = 0; i < db->cap_bam_recs; ++i) {
@@ -210,23 +215,15 @@ db_t* init_db(core_t* core) {
         db->bases_pos[i] = (int**)malloc(sizeof(int*)*N_BASES);
         MALLOC_CHK(db->bases_pos[i]);
 
-        db->bases_pos_len[i] = (int*)malloc(sizeof(int)*N_BASES);
+        db->bases_pos_len[i] = (int*)calloc(N_BASES,sizeof(int));
         MALLOC_CHK(db->bases_pos_len[i]);
-
-        for(int b=0;b<N_BASES;b++){
-            db->bases_pos_len[i][b] = 0;
-        }
 
         db->mod_codes[i] = (char*)malloc(sizeof(char)*N_MODS);
         MALLOC_CHK(db->mod_codes[i]);
+
+
     }
 
-    db->modbases = (modbase_t**)malloc(sizeof(modbase_t*) * db->cap_bam_recs);
-    MALLOC_CHK(db->modbases);
-
-    db->modbases_len = (int32_t*)calloc(db->cap_bam_recs,sizeof(int32_t));
-    MALLOC_CHK(db->modbases_len);
-    
     db->means = (double*)calloc(db->cap_bam_recs,sizeof(double));
     MALLOC_CHK(db->means);
 
