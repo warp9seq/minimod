@@ -87,6 +87,12 @@ static inline void print_help_msg(FILE *fp_help, opt_t opt){
 
 static double * parse_mod_threshes(const char* mod_codes, char* mod_thresh_str){
     int32_t n_mods = strlen(mod_codes);
+    for(int32_t i=0;i<n_mods;i++){
+        if(valid_mod_codes[(int)mod_codes[i]]==0){
+            ERROR("Invalid modification code %c",mod_codes[i]);
+            exit(EXIT_FAILURE);
+        }
+    }
     double* mod_threshes = (double*)malloc(n_mods*sizeof(double));
     if(mod_thresh_str==NULL){
         for(int32_t i=0;i<n_mods;i++){
@@ -97,6 +103,10 @@ static double * parse_mod_threshes(const char* mod_codes, char* mod_thresh_str){
         int32_t i=0;
         while(token!=NULL){
             mod_threshes[i] = atof(token);
+            if(mod_threshes[i]<0 || mod_threshes[i]>1){
+                ERROR("Modification threshold should be in the range 0.0 to 1.0. You entered %f",mod_threshes[i]);
+                exit(EXIT_FAILURE);
+            }
             token = strtok(NULL, ",");
             i++;
         }
@@ -150,6 +160,10 @@ int mod_freq_main(int argc, char* argv[]) {
             int v = atoi(optarg);
             set_log_level((enum log_level_opt)v);
         } else if (c=='p'){
+            if (atoi(optarg) < 0) {
+                ERROR("Progress interval should be 0 or positive. You entered %d", atoi(optarg));
+                exit(EXIT_FAILURE);
+            }
             progress_interval = atoi(optarg);
         } else if (c=='o'){
             FILE *fp = fopen(optarg, "w");
@@ -260,7 +274,7 @@ int mod_freq_main(int argc, char* argv[]) {
             WARNING("%s","90% of the reads are skipped. Possible causes: unmapped bam, zero sequence lengths, or missing MM, ML tags (not performed base modification aware basecalling). Refer https://github.com/warp9seq/minimod for more information.");
         }
 
-        if(opt.debug_break>0 && counter>=opt.debug_break){
+        if(opt.debug_break==counter){
             break;
         }
         counter++;
