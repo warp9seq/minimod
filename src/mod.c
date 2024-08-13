@@ -458,7 +458,6 @@ static void get_bases(db_t * db, int32_t bam_i, const char *mm_string, uint8_t *
         bases_pos_lens[idx]++;
 
         bases[i].ref_pos = aln_pairs[i];
-        bases[i].base = seq_nt16_str[bam_seqi(seq, i)];
         bases[i].is_aln = aln_pairs[i] == -1 ? 0 : 1;
         bases[i].is_cpg = 0;
         // check if the base belongs to a cpg site using the ref
