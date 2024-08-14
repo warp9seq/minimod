@@ -41,8 +41,6 @@ SOFTWARE.
 #include <stdbool.h>
 #include <pthread.h>
 
-#define N_BASES 6 // A, C, G, T, N, U
-
 static const int valid_bases[256] = {
     ['A'] = 1, ['C'] = 1, ['G'] = 1, ['T'] = 1, ['U'] = 1, ['N'] = 1,
     ['a'] = 1, ['c'] = 1, ['g'] = 1, ['t'] = 1, ['u'] = 1, ['n'] = 1
@@ -258,6 +256,7 @@ static double mod_thresh(char mod_code, char * mod_codes, double * mod_threshes)
 // freq_map is used by multiple threads, so need to lock it
 void update_freq_map(core_t * core, db_t * db) {
     bam_hdr_t * hdr = core->bam_hdr;
+    khash_t(freqm) *freq_map = core->freq_map;
 
     for(int i=0;i<db->n_bam_recs;i++){
         bam1_t *record = db->bam_recs[i];
@@ -279,11 +278,7 @@ void update_freq_map(core_t * core, db_t * db) {
                     continue;
                 }
 
-                if(base->is_aln == 0){
-                    continue;
-                }
-
-                if(base->is_cpg == 0){
+                if(base->is_aln_cpg != 2){ // not aln_cpg
                     continue;
                 }
 
@@ -292,8 +287,7 @@ void update_freq_map(core_t * core, db_t * db) {
                     continue;
                 }
 
-                char *key = make_key(tname, base->ref_pos, mod_code, strand);
-                khash_t(freqm) *freq_map = core->freq_map;
+                char *key = make_key(tname, base->ref_pos, mod_code, strand);            
                 khiter_t k = kh_get(freqm, freq_map, key);
                 if (k == kh_end(freq_map)) { // not found, add to map
                     freq_t * freq = (freq_t *)malloc(sizeof(freq_t));
@@ -477,10 +471,9 @@ static void get_bases(db_t * db, int32_t bam_i, const char *mm_string, uint8_t *
         bases_pos_lens[idx]++;
 
         bases[i].ref_pos = aln_pairs[i];
-        bases[i].is_aln = aln_pairs[i] == -1 ? 0 : 1;
-        bases[i].is_cpg = 0;
+        bases[i].is_aln_cpg = aln_pairs[i] == -1 ? 0 : 1;
         // check if the base belongs to a cpg site using the ref
-        if(bases[i].is_aln){ // if aligned
+        if(bases[i].is_aln_cpg){ // if aligned
             int ref_pos = bases[i].ref_pos;
 
             ref_t *ref = get_ref(tname);
@@ -492,9 +485,9 @@ static void get_bases(db_t * db, int32_t bam_i, const char *mm_string, uint8_t *
             // check if the base is a CpG site
             char * ref_seq = ref->forward;
             if(ref_pos+1 < ref->ref_seq_length && strand=='+' && ref_seq[ref_pos] == 'C' && ref_seq[ref_pos+1] == 'G'){
-                bases[i].is_cpg = 1;
+                bases[i].is_aln_cpg = 2;
             } else if(ref_pos > 0 && strand=='-' && ref_seq[ref_pos] == 'G' && ref_seq[ref_pos-1] == 'C'){
-                bases[i].is_cpg = 1;
+                bases[i].is_aln_cpg = 2;
             }
 
         }
@@ -510,7 +503,7 @@ static void get_bases(db_t * db, int32_t bam_i, const char *mm_string, uint8_t *
     int ml_start_idx = 0;
 
     char modbase;
-    char mod_strand;
+    // char mod_strand;  // commented for now. might need to revisit
     char * mod_codes = db->mod_codes[bam_i];
     int mod_codes_len;
     int * skip_counts = db->skip_counts[bam_i];
@@ -535,7 +528,7 @@ static void get_bases(db_t * db, int32_t bam_i, const char *mm_string, uint8_t *
         // get strand
         if(i < mm_str_len) {
             ASSERT_MSG(valid_strands[(int)mm_string[i]], "Invalid strand:%c\n", mm_string[i]);
-            mod_strand = mm_string[i];
+            // mod_strand = mm_string[i];
             i++;
         }
 
@@ -666,7 +659,7 @@ void print_view_output(core_t* core, db_t* db) {
 
         for(int seq_i=0;seq_i<seq_len;seq_i++){
             modbase_t base = bases[seq_i];
-            for(int j=0;j<N_BASES;j++){
+            for(int j=0;j<N_MODS;j++){
                 uint8_t mod_prob = base.mods_probs[j];
                 if(mod_prob == 0){ // no modification
                     continue;
@@ -674,7 +667,7 @@ void print_view_output(core_t* core, db_t* db) {
                 char mod_code = idx_to_mod_code[j];
                 double prob = mod_prob/255.0;
 
-                if(base.is_aln == 0 ||  is_required_mod_code_and_thresh(mod_code, core->opt.mod_codes, prob, core->opt.mod_threshes) == 0){
+                if(base.is_aln_cpg != 2 ||  is_required_mod_code_and_thresh(mod_code, core->opt.mod_codes, prob, core->opt.mod_threshes) == 0){
                     continue;
                 }
                 fprintf(core->opt.output_fp, "%s\t%d\t%c\t%s\t%d\t%c\t%f\n", tname, base.ref_pos, strand, qname, seq_i, mod_code, prob);

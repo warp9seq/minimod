@@ -71,7 +71,7 @@ chr22	19979948	+	m84088_230609_030819_s1/55512555/ccs	98	m	0.623529
 |----------|-------------|-------------|
 | 1. ref_contig | str | chromosome |
 | 2. ref_pos   | int | position (0-based) of the base in reference |
-| 3. strand | char | strand (+/-) where the base modification was observed (reported by sequencer) |
+| 3. strand | char | strand (+/-) of the read |
 | 4. read_id | str | name of the read |
 | 5. read_pos | int | position (0-based) of the base in read |
 | 6. mod_code | char | base modification code as in [SAMtags: 1.7 Base modifications](https://github.com/samtools/hts-specs/blob/master/SAMtags.pdf)  |
@@ -111,7 +111,7 @@ chr22	19971259	19971259	+	1	1	1.000000	m
 | 1. contig | str | choromosome |
 | 2. start | int | position (0-based) of the base |
 | 3. end   | int | position (0-based) of the base |
-| 4. strand | char | strand (+/-) where the base modification was observed (reported by sequencer) |
+| 4. strand | char | strand (+/-) of the read |
 | 5. n_called | int | number of reads called for base modification |
 | 6. n_mod | int | number of reads with probability (>0.2) for base modification |
 | 7. freq | float | n_mod/n_called ratio |
@@ -137,7 +137,7 @@ chr22	19973437	19973438	m	1	+	19973437	19973437	255,0,0	1	1.000000
 | 3. end   | int | position (0-based) of the base |
 | 4. mod_code | char | base modification code as in [SAMtags: 1.7 Base modifications](https://github.com/samtools/hts-specs/blob/master/SAMtags.pdf) |
 | 5. n_mod | int | number of reads with probability (>0.2) for base modification |
-| 6. strand | char | strand (+/-) where the base modification was observed (reported by sequencer) |
+| 6. strand | char | strand (+/-) of the read |
 | 7. start | int | = field 2 |
 | 8. end   | int | = field 3 |
 | 9. n_mod | int | = field 5 |
