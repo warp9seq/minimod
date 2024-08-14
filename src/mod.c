@@ -437,65 +437,51 @@ int * get_aln(bam_hdr_t *hdr, bam1_t *record){
     return aligned_pairs;
 }
 
-static void get_bases(db_t * db, int32_t bam_i, const char *mm_string, uint8_t * ml, uint32_t ml_len, int * aln_pairs, bam_hdr_t *hdr, bam1_t *record){
-
+static void get_bases(db_t *db, int32_t bam_i, const char *mm_string, uint8_t *ml, uint32_t ml_len, int *aln_pairs, bam_hdr_t *hdr, bam1_t *record) {
     const char *qname = bam_get_qname(record);
     int8_t rev = bam_is_rev(record);
     int32_t tid = record->core.tid;
     assert(tid < hdr->n_targets);
-    const char *tname = tid >= 0 ? hdr->target_name[tid] : "*";
+    const char *tname = (tid >= 0) ? hdr->target_name[tid] : "*";
     uint8_t *seq = bam_get_seq(record);
     uint32_t seq_len = record->core.l_qseq;
-
     char strand = rev ? '-' : '+';
 
     // 5 int arrays to keep base pos of A, C, G, T, N bases.
     // A: 0, C: 1, G: 2, T: 3, U:4, N: 5
     // so that, nth base of A is at base_pos[0][n] and so on.
-    int ** bases_pos = db->bases_pos[bam_i];
-    int bases_pos_lens[N_BASES];
-    for(int i=0;i<N_BASES;i++){
-        bases_pos_lens[i] = 0;
-    }
+    int **bases_pos = db->bases_pos[bam_i];
+    int bases_pos_lens[N_BASES] = {0};
+    memset(db->mod_codes[bam_i], 0, N_MODS);
+
     int i;
-
-    for(i=0;i<N_MODS;i++){
-        db->mod_codes[bam_i][i] = '\0';
-    }
-
     modbase_t * bases = db->modbases[bam_i];
+
     for(i=0;i<seq_len;i++){
         int base_char = seq_nt16_str[bam_seqi(seq, i)];
         int idx = base_idx_lookup[(int)base_char];
-        bases_pos[idx][bases_pos_lens[idx]] = i;
-        bases_pos_lens[idx]++;
+        bases_pos[idx][bases_pos_lens[idx]++] = i;
 
         bases[i].ref_pos = aln_pairs[i];
         bases[i].is_aln_cpg = aln_pairs[i] == -1 ? 0 : 1;
         // check if the base belongs to a cpg site using the ref
         if(bases[i].is_aln_cpg){ // if aligned
             int ref_pos = bases[i].ref_pos;
-
             ref_t *ref = get_ref(tname);
 
             ASSERT_MSG(ref != NULL, "Contig %s not found in ref_map\n", tname);
             ASSERT_MSG(ref_pos >= 0 && ref_pos < ref->ref_seq_length, "ref_pos:%d ref_len:%d\n", ref_pos, ref->ref_seq_length);
             ASSERT_MSG(ref->ref_seq_length == hdr->target_len[tid], "ref_len:%d target_len:%d\n", ref->ref_seq_length, hdr->target_len[tid]);
-                        
+
             // check if the base is a CpG site
             char * ref_seq = ref->forward;
-            if(ref_pos+1 < ref->ref_seq_length && strand=='+' && ref_seq[ref_pos] == 'C' && ref_seq[ref_pos+1] == 'G'){
-                bases[i].is_aln_cpg = 2;
-            } else if(ref_pos > 0 && strand=='-' && ref_seq[ref_pos] == 'G' && ref_seq[ref_pos-1] == 'C'){
+            if ((ref_pos + 1 < ref->ref_seq_length && strand == '+' && ref_seq[ref_pos] == 'C' && ref_seq[ref_pos + 1] == 'G') ||
+                (ref_pos > 0 && strand == '-' && ref_seq[ref_pos] == 'G' && ref_seq[ref_pos - 1] == 'C')) {
                 bases[i].is_aln_cpg = 2;
             }
-
-        }
-        
-        for(int j=0;j<N_MODS;j++){
-            bases[i].mods_probs[j] = 0; // no modification
         }
 
+        memset(bases[i].mods_probs, 0, N_MODS);
     }
 
     int mm_str_len = strlen(mm_string);
@@ -586,7 +572,7 @@ static void get_bases(db_t * db, int32_t bam_i, const char *mm_string, uint8_t *
         if(skip_counts_len == 0) { // no skip counts, no modification
             continue;
         }
- 
+
         int base_rank = -1;
 
         int ml_idx = ml_start_idx;
@@ -603,7 +589,7 @@ static void get_bases(db_t * db, int32_t bam_i, const char *mm_string, uint8_t *
             }
 
             idx = base_idx_lookup[(int)mb];
-            
+
             // print_array(bases_pos_lens, 5, 'i');
             if(base_rank >= bases_pos_lens[idx]) {
                 WARNING("%d th base of %c not found in SEQ. %c base count is %d read_id:%s seq_len:%d mod.base:%c mod_codes:%s\n", base_rank, mb, mb, bases_pos_lens[idx], qname, seq_len, modbase, mod_codes);

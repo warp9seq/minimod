@@ -244,12 +244,21 @@ ret_status_t load_db(core_t* core, db_t* db) {
     db->skipped_reads = 0;
     db->skipped_reads_bytes = 0;
 
-    ret_status_t status={0,0};
-    while (db->n_bam_recs < db->cap_bam_recs && db->sum_bytes<core->opt.batch_size_bytes) {
-        if(sam_itr_next(core->bam_fp, core->itr, db->bam_recs[db->n_bam_recs])>=0){
-            bam1_t* rec = db->bam_recs[db->n_bam_recs];
+    ret_status_t status = {0, 0};
+    uint32_t l_qseq;
+    int32_t i;
+    bam1_t* rec;
 
-            if(rec->core.flag & BAM_FUNMAP){
+    while (db->n_bam_recs < db->cap_bam_recs && db->sum_bytes < core->opt.batch_size_bytes) {
+        if (sam_itr_next(core->bam_fp, core->itr, db->bam_recs[db->n_bam_recs]) < 0) {
+            break;
+        }
+        
+        i = db->n_bam_recs;
+        rec = db->bam_recs[i];
+        l_qseq = rec->core.l_qseq;
+        
+        if(rec->core.flag & BAM_FUNMAP){
                 db->skipped_reads++;
                 db->skipped_reads_bytes += rec->l_data;
                 LOG_TRACE("Skipping unmapped read %s",bam_get_qname(rec));
@@ -263,82 +272,77 @@ ret_status_t load_db(core_t* core, db_t* db) {
                 continue;
             }
 
-            const char *mm = get_mm_tag_ptr(rec);
-
-            if(mm == NULL){
-                db->skipped_reads++;
-                db->skipped_reads_bytes += rec->l_data;
-                LOG_TRACE("Skipping read %s with empty MM tag", bam_get_qname(rec));
-                continue;
-            }
-
-            uint32_t ml_len;
-            uint8_t *ml = get_ml_tag(rec, &ml_len);
-
-            if(ml == NULL){
-                db->skipped_reads++;
-                db->skipped_reads_bytes += rec->l_data;
-                continue;
-            }
-
-            if(db->modbases_len[db->n_bam_recs] == 0) {
-                db->modbases[db->n_bam_recs] = (modbase_t*)malloc(sizeof(modbase_t)*rec->core.l_qseq);
-                MALLOC_CHK(db->modbases[db->n_bam_recs]);
-                db->modbases_len[db->n_bam_recs] = rec->core.l_qseq;
-
-                for(int seq_i=0;seq_i<rec->core.l_qseq;seq_i++){
-                    db->modbases[db->n_bam_recs][seq_i].mods_probs = (uint8_t*)malloc(sizeof(uint8_t)*N_MODS);
-                    MALLOC_CHK(db->modbases[db->n_bam_recs][seq_i].mods_probs);
-                }
-            } else if(db->modbases_len[db->n_bam_recs] < rec->core.l_qseq){
-                db->modbases[db->n_bam_recs] = (modbase_t*)realloc(db->modbases[db->n_bam_recs],sizeof(modbase_t)*rec->core.l_qseq);
-                MALLOC_CHK(db->modbases[db->n_bam_recs]);
-
-                for(int seq_i=db->modbases_len[db->n_bam_recs];seq_i<rec->core.l_qseq;seq_i++){
-                    db->modbases[db->n_bam_recs][seq_i].mods_probs = (uint8_t*)malloc(sizeof(uint8_t)*N_MODS);
-                    MALLOC_CHK(db->modbases[db->n_bam_recs][seq_i].mods_probs);
-                }
-                db->modbases_len[db->n_bam_recs] = rec->core.l_qseq;
-            }
-
-            for(int i=0;i<N_BASES;i++){
-                if(db->bases_pos_len[db->n_bam_recs][i] == 0){
-                    db->bases_pos[db->n_bam_recs][i] = (int*)malloc(sizeof(int)*rec->core.l_qseq);
-                    MALLOC_CHK(db->bases_pos[db->n_bam_recs][i]);
-                    db->bases_pos_len[db->n_bam_recs][i] = rec->core.l_qseq;
-                }else if(db->bases_pos_len[db->n_bam_recs][i] < rec->core.l_qseq){
-                    db->bases_pos[db->n_bam_recs][i] = (int*)realloc(db->bases_pos[db->n_bam_recs][i],sizeof(int)*rec->core.l_qseq);
-                    MALLOC_CHK(db->bases_pos[db->n_bam_recs][i]);
-                    db->bases_pos_len[db->n_bam_recs][i] = rec->core.l_qseq;
-                }
-            }
-            
-            if(db->skip_counts_len[db->n_bam_recs] == 0){
-                db->skip_counts[db->n_bam_recs] = (int*)malloc(sizeof(int)*rec->core.l_qseq);
-                MALLOC_CHK(db->skip_counts[db->n_bam_recs]);
-                db->skip_counts_len[db->n_bam_recs] = rec->core.l_qseq;
-            }else if(db->skip_counts_len[db->n_bam_recs] < rec->core.l_qseq){
-                db->skip_counts[db->n_bam_recs] = (int*)realloc(db->skip_counts[db->n_bam_recs],sizeof(int)*rec->core.l_qseq);
-                MALLOC_CHK(db->skip_counts[db->n_bam_recs]);
-                db->skip_counts_len[db->n_bam_recs] = rec->core.l_qseq;
-            }
-
-            db->mm[db->n_bam_recs] = mm;
-            db->ml_lens[db->n_bam_recs] = ml_len;
-            db->ml[db->n_bam_recs] = ml;
-            db->aln[db->n_bam_recs] = get_aln(core->bam_hdr, rec);
-            db->n_bam_recs++;
-            db->sum_bytes += rec->l_data;
-        }else{
-            break;
+        const char *mm = get_mm_tag_ptr(rec);
+        if (!mm) {
+            db->skipped_reads++;
+            db->skipped_reads_bytes += rec->l_data;
+            LOG_TRACE("Skipping read %s with empty MM tag", bam_get_qname(rec));
+            continue;
         }
+
+        uint32_t ml_len;
+        uint8_t *ml = get_ml_tag(rec, &ml_len);
+        if (!ml) {
+            db->skipped_reads++;
+            db->skipped_reads_bytes += rec->l_data;
+            continue;
+        }
+
+        if(db->modbases_len[i] == 0) {
+            db->modbases[i] = (modbase_t*)malloc(sizeof(modbase_t)*l_qseq);
+            MALLOC_CHK(db->modbases[i]);
+            db->modbases_len[i] = l_qseq;
+
+            for(int seq_i=0;seq_i<l_qseq;seq_i++){
+                db->modbases[i][seq_i].mods_probs = (uint8_t*)malloc(sizeof(uint8_t)*N_MODS);
+                MALLOC_CHK(db->modbases[i][seq_i].mods_probs);
+            }
+        } else if(db->modbases_len[i] < l_qseq){
+            db->modbases[i] = (modbase_t*)realloc(db->modbases[i],sizeof(modbase_t)*l_qseq);
+            MALLOC_CHK(db->modbases[i]);
+
+            for(int seq_i=db->modbases_len[i];seq_i<l_qseq;seq_i++){
+                db->modbases[i][seq_i].mods_probs = (uint8_t*)malloc(sizeof(uint8_t)*N_MODS);
+                MALLOC_CHK(db->modbases[i][seq_i].mods_probs);
+            }
+            db->modbases_len[i] = l_qseq;
+        }
+
+        for(int j=0;j<N_BASES;j++){
+            if(db->bases_pos_len[i][j] == 0){
+                db->bases_pos[i][j] = (int*)malloc(sizeof(int)*l_qseq);
+                MALLOC_CHK(db->bases_pos[i][j]);
+                db->bases_pos_len[i][j] = l_qseq;
+            }else if(db->bases_pos_len[i][j] < l_qseq){
+                db->bases_pos[i][j] = (int*)realloc(db->bases_pos[i][j],sizeof(int)*l_qseq);
+                MALLOC_CHK(db->bases_pos[i][j]);
+                db->bases_pos_len[i][j] = l_qseq;
+            }
+        }
+
+        if(db->skip_counts_len[i] == 0){
+            db->skip_counts[i] = (int*)malloc(sizeof(int)*rec->core.l_qseq);
+            MALLOC_CHK(db->skip_counts[i]);
+            db->skip_counts_len[i] = rec->core.l_qseq;
+        }else if(db->skip_counts_len[i] < rec->core.l_qseq){
+            db->skip_counts[i] = (int*)realloc(db->skip_counts[i],sizeof(int)*rec->core.l_qseq);
+            MALLOC_CHK(db->skip_counts[i]);
+            db->skip_counts_len[i] = rec->core.l_qseq;
+        }
+
+        db->mm[i] = mm;
+        db->ml_lens[i] = ml_len;
+        db->ml[i] = ml;
+        db->aln[i] = get_aln(core->bam_hdr, rec);
+
+        db->n_bam_recs++;
+        db->sum_bytes += rec->l_data;
     }
 
-    status.num_reads=db->n_bam_recs;
-    status.num_bytes=db->sum_bytes;
+    status.num_reads = db->n_bam_recs;
+    status.num_bytes = db->sum_bytes;
 
-    double load_end = realtime();
-    core->load_db_time += (load_end-load_start);
+    core->load_db_time += realtime() - load_start;
 
     return status;
 }
