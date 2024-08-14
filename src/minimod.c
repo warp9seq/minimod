@@ -249,8 +249,6 @@ ret_status_t load_db(core_t* core, db_t* db) {
         if(sam_itr_next(core->bam_fp, core->itr, db->bam_recs[db->n_bam_recs])>=0){
             bam1_t* rec = db->bam_recs[db->n_bam_recs];
 
-            db->sum_bytes += rec->l_data;
-            
             if(rec->core.flag & BAM_FUNMAP){
                 db->skipped_reads++;
                 db->skipped_reads_bytes += rec->l_data;
@@ -330,6 +328,7 @@ ret_status_t load_db(core_t* core, db_t* db) {
             db->ml[db->n_bam_recs] = ml;
             db->aln[db->n_bam_recs] = get_aln(core->bam_hdr, rec);
             db->n_bam_recs++;
+            db->sum_bytes += rec->l_data;
         }else{
             break;
         }
@@ -413,7 +412,7 @@ void output_db(core_t* core, db_t* db) {
     }
 
     core->sum_bytes += db->sum_bytes;
-    core->total_reads += db->n_bam_recs;
+    core->total_reads += db->n_bam_recs + db->skipped_reads;
     core->skipped_reads += db->skipped_reads;
     core->skipped_reads_bytes += db->skipped_reads_bytes;
 

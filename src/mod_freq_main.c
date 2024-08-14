@@ -263,7 +263,7 @@ int mod_freq_main(int argc, char* argv[]) {
         if(progress_interval<=0 || realtime()-realtime_prog > progress_interval){
             fprintf(stderr, "[%s::%.3f*%.2f] %d Entries (%.1fM bytes) processed\t%d Entries (%.1fM bytes) skipped\n", __func__,
                     realtime() - realtime0, cputime() / (realtime() - realtime0),
-                    (db->n_bam_recs-db->skipped_reads), (db->sum_bytes-db->skipped_reads_bytes)/(1000.0*1000.0),
+                    (db->n_bam_recs), (db->sum_bytes)/(1000.0*1000.0),
                     db->skipped_reads,db->skipped_reads_bytes/(1000.0*1000.0));
             realtime_prog = realtime();
         }
