@@ -29,6 +29,7 @@ SOFTWARE.
 ******************************************************************************/
 
 #include "minimod.h"
+#include "mod.h"
 #include "error.h"
 #include "misc.h"
 #include "ref.h"
@@ -80,37 +81,6 @@ static inline void print_help_msg(FILE *fp_help, opt_t opt){
 #endif
 
 }
-
-
-static double * parse_mod_threshes(const char* mod_codes, char* mod_thresh_str){
-    int32_t n_mods = strlen(mod_codes);
-    for(int32_t i=0;i<n_mods;i++){
-        if(valid_mod_codes[(int)mod_codes[i]]==0){
-            ERROR("Invalid modification code %c",mod_codes[i]);
-            exit(EXIT_FAILURE);
-        }
-    }
-    double* mod_threshes = (double*)malloc(n_mods*sizeof(double));
-    if(mod_thresh_str==NULL){
-        for(int32_t i=0;i<n_mods;i++){
-            mod_threshes[i] = 0.2;
-        }
-    } else {
-        char* token = strtok(mod_thresh_str, ",");
-        int32_t i=0;
-        while(token!=NULL){
-            mod_threshes[i] = atof(token);
-            if(mod_threshes[i]<0 || mod_threshes[i]>1){
-                ERROR("Modification threshold should be in the range 0.0 to 1.0. You entered %f",mod_threshes[i]);
-                exit(EXIT_FAILURE);
-            }
-            token = strtok(NULL, ",");
-            i++;
-        }
-    }
-    return mod_threshes;
-}
-
 
 int view_main(int argc, char* argv[]) {
 
@@ -225,7 +195,7 @@ int view_main(int argc, char* argv[]) {
         exit(EXIT_FAILURE);
     }
 
-    opt.mod_threshes = parse_mod_threshes(opt.mod_codes,mod_threshes_str);
+    parse_mod_threshes(&(opt.mod_threshes), opt.mod_codes, mod_threshes_str);
 
     //load the reference genome
     load_ref(ref_file);

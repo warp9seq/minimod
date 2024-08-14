@@ -53,7 +53,7 @@ SOFTWARE.
 #define STEAL_THRESH 1 //stealing threshold
 
 #define N_BASES 6 // A, C, G, T, N, U
-#define N_MODS 16 // C:mhfcC, T:gebT, U:U, A:aA, G:oG, N:nN
+#define N_MODS 2 // C:mhfcC, T:gebT, U:U, A:aA, G:oG, N:nN
 
 /* user specified options */
 typedef struct {

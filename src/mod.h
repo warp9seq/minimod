@@ -42,6 +42,6 @@ void update_freq_map(core_t* core, db_t* db);
 void print_freq_output(core_t* core);
 void print_view_output(core_t* core, db_t* db);
 void destroy_freq_map(khash_t(freqm)* freq_map);
-// int32_t est_mods(const char *mm_string);
+void parse_mod_threshes(double ** mod_threshes, const char* mod_codes, char* mod_thresh_str);
 
 #endif

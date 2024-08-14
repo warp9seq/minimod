@@ -175,11 +175,6 @@ uint8_t *get_ml_tag(bam1_t *record, uint32_t *len_ptr){
 }
 
 static int is_required_mod_code(char mod_code, char * mod_codes){
-
-    if(mod_codes[0] == '*') {
-        return 1;
-    }
-
     int i=0;
     while(mod_codes[i] != '\0'){
         if(mod_codes[i] == mod_code){
@@ -192,7 +187,7 @@ static int is_required_mod_code(char mod_code, char * mod_codes){
 
 static int is_required_mod_code_and_thresh(char mod_code, char * mod_codes, double mod_prob, double * mod_threshes){
     
-        if(mod_codes[0] == '*' && mod_prob >= mod_threshes[0]) {
+        if(mod_prob >= mod_threshes[0]) {
             return 1;
         }
     
@@ -204,6 +199,43 @@ static int is_required_mod_code_and_thresh(char mod_code, char * mod_codes, doub
             i++;
         }
         return 0;
+}
+
+void parse_mod_threshes(double ** mod_threshes, const char* mod_codes, char* mod_thresh_str){
+    int32_t n_codes = strlen(mod_codes);
+
+    for(int32_t i=0;i<n_codes;i++){
+        if(valid_mod_codes[(int)mod_codes[i]]==0){
+            ERROR("Invalid modification code %c",mod_codes[i]);
+            exit(EXIT_FAILURE);
+        }
+        if(mod_code_to_idx[(int)mod_codes[i]] >= N_MODS){
+            ERROR("Unsupported modification code %c, please rebuild with N_MODS set to %d",mod_codes[i], mod_code_to_idx[(int)mod_codes[i]]+1);
+            exit(EXIT_FAILURE);
+        }
+    }
+    *mod_threshes = (double*)malloc((n_codes)*sizeof(double));
+    if(mod_thresh_str==NULL || strlen(mod_thresh_str)==0){
+        for(int32_t i=0;i<n_codes;i++){
+            (*mod_threshes)[i] = 0.2;
+        }
+    } else {
+        char* token = strtok(mod_thresh_str, ",");
+        int32_t i=0;
+        while(token!=NULL){
+            (*mod_threshes)[i] = atof(token);
+            if((*mod_threshes)[i]<0 || (*mod_threshes)[i]>1){
+                ERROR("Modification threshold should be in the range 0.0 to 1.0. You entered %f", (*mod_threshes)[i]);
+                exit(EXIT_FAILURE);
+            }
+            token = strtok(NULL, ",");
+            i++;
+        }
+        if(i!=n_codes){
+            ERROR("Number of modification codes and thresholds do not match. Codes:%d, Thresholds:%d",n_codes,i);
+            exit(EXIT_FAILURE);
+        }
+    }
 }
 
 void destroy_freq_map(khash_t(freqm)* freq_map){
@@ -240,18 +272,12 @@ void decode_key(char *key, char **chrom, int *pos, char *mod_code, char *strand)
 }
 
 static double mod_thresh(char mod_code, char * mod_codes, double * mod_threshes){
-    if(mod_codes[0] == '*') {
-        return mod_threshes[0];
-    }
-
-    int i=0;
-    while(mod_codes[i] != '\0'){
+    for(int i=0;i<strlen(mod_codes);i++){
         if(mod_codes[i] == mod_code){
             return mod_threshes[i];
         }
-        i++;
     }
-    return -1;
+    return 1;
 }
 // freq_map is used by multiple threads, so need to lock it
 void update_freq_map(core_t * core, db_t * db) {
@@ -438,7 +464,7 @@ int * get_aln(bam_hdr_t *hdr, bam1_t *record){
     return aligned_pairs;
 }
 
-static void get_bases(db_t *db, int32_t bam_i, const char *mm_string, uint8_t *ml, uint32_t ml_len, int *aln_pairs, bam_hdr_t *hdr, bam1_t *record) {
+static void get_bases(opt_t* opt, db_t *db, int32_t bam_i, const char *mm_string, uint8_t *ml, uint32_t ml_len, int *aln_pairs, bam_hdr_t *hdr, bam1_t *record) {
     const char *qname = bam_get_qname(record);
     int8_t rev = bam_is_rev(record);
     int32_t tid = record->core.tid;
@@ -616,6 +642,12 @@ static void get_bases(db_t *db, int32_t bam_i, const char *mm_string, uint8_t *m
                 // get the mod prob
                 ml_idx = ml_start_idx + c*mod_codes_len + m;
                 ASSERT_MSG(ml_idx<ml_len, "ml_idx:%d ml_len:%d\n", ml_idx, ml_len);
+
+                char mod_code = mod_codes[m];
+                if(!is_required_mod_code(mod_code, opt->mod_codes)){
+                    continue;
+                }
+
                 uint8_t mod_prob = ml[ml_idx];
                 ASSERT_MSG(mod_prob <= 255 && mod_prob>=0, "mod_prob:%d\n", mod_prob);
 
@@ -679,6 +711,6 @@ void modbases_single(core_t* core, db_t* db, int32_t i) {
     bam_hdr_t *hdr = core->bam_hdr;
 
     int * aln_pairs = db->aln[i];
-    get_bases(db, i, mm, ml, ml_len, aln_pairs, hdr, record);
+    get_bases(&core->opt, db, i, mm, ml, ml_len, aln_pairs, hdr, record);
 
 }
