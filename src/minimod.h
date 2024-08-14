@@ -84,7 +84,7 @@ typedef struct {
 
 typedef struct {
     int ref_pos;
-    uint8_t * mods_probs;
+    uint8_t mods_prob;
     uint8_t is_aln_cpg; // 0: not_aln 1: aln 2: aln_cpg
 } modbase_t;
 
@@ -119,8 +119,8 @@ typedef struct {
 
     double *means;
     // view output
-    modbase_t ** modbases;
-    int32_t * modbases_len;
+    modbase_t *** modbases;
+    int32_t ** modbases_len;
 
     //stats
     int64_t sum_bytes;

@@ -267,13 +267,13 @@ void update_freq_map(core_t * core, db_t * db) {
         uint32_t seq_len = record->core.l_qseq;
         char strand = rev ? '-' : '+';
 
-        modbase_t * bases = db->modbases[i];
+        modbase_t ** bases = db->modbases[i];
 
-        for(int seq_i=0;seq_i<seq_len;seq_i++){
-            modbase_t * base = &bases[seq_i];
-            for(int j=0;j<N_MODS;j++){
+        for(int j=0;j<N_MODS;j++){
+            for(int seq_i=0;seq_i<seq_len;seq_i++){
+                modbase_t * base = &bases[j][seq_i];
 
-                uint8_t mod_prob = base->mods_probs[j];
+                uint8_t mod_prob = base->mods_prob;
                 if(mod_prob == 0){ // no modification
                     continue;
                 }
@@ -304,6 +304,7 @@ void update_freq_map(core_t * core, db_t * db) {
                     freq->n_called += 1;
                     freq->n_mod += (mod_prob/255.0) >= mod_thresh(mod_code, core->opt.mod_codes, core->opt.mod_threshes) ? 1 : 0;
                 }
+                
             }
         }
     }
@@ -455,18 +456,17 @@ static void get_bases(db_t *db, int32_t bam_i, const char *mm_string, uint8_t *m
     memset(db->mod_codes[bam_i], 0, N_MODS);
 
     int i;
-    modbase_t * bases = db->modbases[bam_i];
-
     for(i=0;i<seq_len;i++){
+        modbase_t base;;
         int base_char = seq_nt16_str[bam_seqi(seq, i)];
         int idx = base_idx_lookup[(int)base_char];
         bases_pos[idx][bases_pos_lens[idx]++] = i;
 
-        bases[i].ref_pos = aln_pairs[i];
-        bases[i].is_aln_cpg = aln_pairs[i] == -1 ? 0 : 1;
+        base.ref_pos = aln_pairs[i];
+        base.is_aln_cpg = aln_pairs[i] == -1 ? 0 : 1;
         // check if the base belongs to a cpg site using the ref
-        if(bases[i].is_aln_cpg){ // if aligned
-            int ref_pos = bases[i].ref_pos;
+        if(base.is_aln_cpg){ // if aligned
+            int ref_pos = base.ref_pos;
             ref_t *ref = get_ref(tname);
 
             ASSERT_MSG(ref != NULL, "Contig %s not found in ref_map\n", tname);
@@ -477,12 +477,17 @@ static void get_bases(db_t *db, int32_t bam_i, const char *mm_string, uint8_t *m
             char * ref_seq = ref->forward;
             if ((ref_pos + 1 < ref->ref_seq_length && strand == '+' && ref_seq[ref_pos] == 'C' && ref_seq[ref_pos + 1] == 'G') ||
                 (ref_pos > 0 && strand == '-' && ref_seq[ref_pos] == 'G' && ref_seq[ref_pos - 1] == 'C')) {
-                bases[i].is_aln_cpg = 2;
+                base.is_aln_cpg = 2;
             }
         }
 
-        memset(bases[i].mods_probs, 0, N_MODS);
+        base.mods_prob = 0;
+        for(int j=0;j<N_MODS;j++){
+            db->modbases[bam_i][j][i] = base;
+        }
     }
+    
+    
 
     int mm_str_len = strlen(mm_string);
     i = 0;
@@ -606,7 +611,6 @@ static void get_bases(db_t *db, int32_t bam_i, const char *mm_string, uint8_t *m
 
             ASSERT_MSG(read_pos>=0 && read_pos < seq_len, "Base pos cannot exceed seq len. read_pos: %d seq_len: %d\n", read_pos, seq_len);
 
-            uint8_t * mods_probs = db->modbases[bam_i][read_pos].mods_probs;
             // mod prob per each mod code. TO-DO: need to change when code is ChEBI id
             for(int m=0; m<mod_codes_len; m++) {
                 // get the mod prob
@@ -615,7 +619,7 @@ static void get_bases(db_t *db, int32_t bam_i, const char *mm_string, uint8_t *m
                 uint8_t mod_prob = ml[ml_idx];
                 ASSERT_MSG(mod_prob <= 255 && mod_prob>=0, "mod_prob:%d\n", mod_prob);
 
-                mods_probs[mod_code_to_idx[(int)mod_codes[m]]] = mod_prob;
+                db->modbases[bam_i][mod_code_to_idx[(int)mod_codes[m]]][read_pos].mods_prob = mod_prob;
 
             }
 
@@ -641,12 +645,12 @@ void print_view_output(core_t* core, db_t* db) {
         int8_t rev = bam_is_rev(record);
         char strand = rev ? '-' : '+';
 
-        modbase_t * bases = db->modbases[i];
-
-        for(int seq_i=0;seq_i<seq_len;seq_i++){
-            modbase_t base = bases[seq_i];
-            for(int j=0;j<N_MODS;j++){
-                uint8_t mod_prob = base.mods_probs[j];
+        modbase_t ** bases = db->modbases[i];
+        for(int j=0;j<N_MODS;j++){
+            for(int seq_i=0;seq_i<seq_len;seq_i++){
+                modbase_t base = bases[j][seq_i];
+            
+                uint8_t mod_prob = base.mods_prob;
                 if(mod_prob == 0){ // no modification
                     continue;
                 }
@@ -658,7 +662,6 @@ void print_view_output(core_t* core, db_t* db) {
                 }
                 fprintf(core->opt.output_fp, "%s\t%d\t%c\t%s\t%d\t%c\t%f\n", tname, base.ref_pos, strand, qname, seq_i, mod_code, prob);
             
-                
             }
         }
     }
