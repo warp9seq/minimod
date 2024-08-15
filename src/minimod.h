@@ -54,6 +54,7 @@ SOFTWARE.
 
 #define N_BASES 6 // A, C, G, T, N, U
 #define N_MODS 2 // C:mhfcC, T:gebT, U:U, A:aA, G:oG, N:nN
+#define FREE_TRESH 0 //free big allocs if previous seq len is above this threshold
 
 /* user specified options */
 typedef struct {
@@ -79,7 +80,6 @@ typedef struct {
 typedef struct {
     int n_called;
     int n_mod;
-    char mod_code;
 } freq_t;
 
 typedef struct {

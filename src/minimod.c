@@ -293,6 +293,8 @@ ret_status_t load_db(core_t* core, db_t* db) {
             continue;
         }
 
+        db->aln[i] = (int*)malloc(sizeof(int)*rec->core.l_qseq);
+
         for(int j=0;j<N_MODS;j++){
             if(db->modbases_len[i][j] == 0){
                 db->modbases[i][j] = (modbase_t*)malloc(sizeof(modbase_t)*l_qseq);
@@ -330,7 +332,6 @@ ret_status_t load_db(core_t* core, db_t* db) {
         db->mm[i] = mm;
         db->ml_lens[i] = ml_len;
         db->ml[i] = ml;
-        db->aln[i] = get_aln(core->bam_hdr, rec);
 
         db->n_bam_recs++;
         db->sum_bytes += rec->l_data;
@@ -441,11 +442,24 @@ void free_db_tmp(db_t* db) {
         free(db->ml[i]);
         free(db->aln[i]);
         for(int j=0;j<N_MODS;j++){
-            if(db->modbases_len[i][j]>20000){
+            if(db->modbases_len[i][j]>FREE_TRESH){
                 free(db->modbases[i][j]);
                 db->modbases_len[i][j]=0;
             }
         }
+
+        for(int b=0;b<N_BASES;b++){
+            if(db->bases_pos_len[i][b]>FREE_TRESH){
+                free(db->bases_pos[i][b]);
+                db->bases_pos_len[i][b]=0;
+            }
+        }
+
+        if(db->skip_counts_len[i]>FREE_TRESH){
+            free(db->skip_counts[i]);
+            db->skip_counts_len[i]=0;
+        }
+
     }
 }
 

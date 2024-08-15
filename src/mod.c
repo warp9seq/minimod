@@ -91,14 +91,7 @@ static const int mod_code_to_idx[256] = {
     ['n'] = 14, ['N'] = 15
 };
 
-static const char idx_to_mod_code[16] = {
-    [0] = 'm', [1] = 'h', [2] = 'f', [3] = 'c', [4] = 'C',
-    [5] = 'g', [6] = 'e', [7] = 'b', [8] = 'T',
-    [9] = 'U',
-    [10] = 'a', [11] = 'A',
-    [12] = 'o', [13] = 'G',
-    [14] = 'n', [15] = 'N'
-};
+static const char idx_to_mod_code[16] = "mhfcCgebTUaAoGnN";
 
 static inline int die(const char *format, ...) {
     va_list args;
@@ -253,7 +246,7 @@ void destroy_freq_map(khash_t(freqm)* freq_map){
 
 char* make_key(const char *chrom, int pos, char mod_code, char strand){
     int start_strlen = snprintf(NULL, 0, "%d", pos);
-    int key_strlen = strlen(chrom) + start_strlen  + 7;
+    int key_strlen = strlen(chrom) + start_strlen  + 6;
     
     char* key = (char *)malloc(key_strlen * sizeof(char));
     MALLOC_CHK(key);
@@ -318,7 +311,6 @@ void update_freq_map(core_t * core, db_t * db) {
                 if (k == kh_end(freq_map)) { // not found, add to map
                     freq_t * freq = (freq_t *)malloc(sizeof(freq_t));
                     MALLOC_CHK(freq);
-                    freq->mod_code = mod_code;
                     freq->n_called = 1;
                     freq->n_mod = (mod_prob/255.0) >= mod_thresh(mod_code, core->opt.mod_codes, core->opt.mod_threshes) ? 1 : 0;
                     int ret;
@@ -371,7 +363,7 @@ void print_freq_output(core_t * core) {
                 char strand;
                 char * key = (char *) kh_key(freq_map, k);
                 decode_key(key, &contig, &ref_pos, &mod_code, &strand);
-                fprintf(core->opt.output_fp, "%s\t%d\t%d\t%c\t%d\t%d\t%f\t%c\n", contig, ref_pos, ref_pos, strand, freq->n_called, freq->n_mod, freq_value, freq->mod_code);
+                fprintf(core->opt.output_fp, "%s\t%d\t%d\t%c\t%d\t%d\t%f\t%c\n", contig, ref_pos, ref_pos, strand, freq->n_called, freq->n_mod, freq_value, mod_code);
                 free(contig);
             }
         }
@@ -382,7 +374,7 @@ void print_freq_output(core_t * core) {
     }
 }
 
-int * get_aln(bam_hdr_t *hdr, bam1_t *record){
+static void get_aln(int ** aln, bam_hdr_t *hdr, bam1_t *record){
     int32_t tid = record->core.tid;
     assert(tid < hdr->n_targets);
     int32_t pos = record->core.pos;
@@ -398,9 +390,7 @@ int * get_aln(bam_hdr_t *hdr, bam1_t *record){
     int read_pos = 0;
     int ref_pos = pos;
 
-    int * aligned_pairs = (int *)malloc(sizeof(int)*seq_len);
-    MALLOC_CHK(aligned_pairs);
-
+    int * aligned_pairs = *aln;
     //fill the aligned_pairs array with -1
     for(int i=0;i<seq_len;i++){
         aligned_pairs[i] = -1;
@@ -460,8 +450,6 @@ int * get_aln(bam_hdr_t *hdr, bam1_t *record){
             ref_pos += ref_inc;
         }
     }
-
-    return aligned_pairs;
 }
 
 static void get_bases(opt_t* opt, db_t *db, int32_t bam_i, const char *mm_string, uint8_t *ml, uint32_t ml_len, int *aln_pairs, bam_hdr_t *hdr, bam1_t *record) {
@@ -710,7 +698,7 @@ void modbases_single(core_t* core, db_t* db, int32_t i) {
 
     bam_hdr_t *hdr = core->bam_hdr;
 
-    int * aln_pairs = db->aln[i];
-    get_bases(&core->opt, db, i, mm, ml, ml_len, aln_pairs, hdr, record);
+    get_aln(&(db->aln[i]), hdr, record);
+    get_bases(&core->opt, db, i, mm, ml, ml_len, db->aln[i], hdr, record);
 
 }
