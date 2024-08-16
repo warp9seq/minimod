@@ -33,6 +33,10 @@ if [ ! -f test/tmp/genome_chr22.fa ]; then
     gzip -d test/tmp/genome_chr22.fa.gz || die "Unzipping the genome chr22 failed"
 fi
 
+if [ ! -f test/tmp/truth.tsv ]; then
+    wget  -N -O test/tmp/truth.tsv "https://raw.githubusercontent.com/imsuneth/shared-files/main/truth.tsv" || die "Downloading the truthset failed"
+fi
+
 testname="Test 1: view hifi"
 echo -e "${BLUE}${testname}${NC}"
 ex  ./minimod view -m 0.0 -t 8 test/tmp/genome_chr22.fa test/data/example-hifi.bam > test/tmp/test1.tsv  || die "${testname} Running the tool failed"
@@ -129,6 +133,19 @@ echo -e "${BLUE}${testname}${NC}"
 ex  ./minimod mod-freq -t 8 test/tmp/genome_chr22.fa test/data/example-ont.bam -o test/tmp/test14.tsv || die "${testname} Running the tool failed"
 sort -k1,1 -k2,2n -k4,4 test/tmp/test14.tsv > test/tmp/test14.tsv.sorted
 diff -q test/tmp/test5.exp.tsv.sorted test/tmp/test14.tsv.sorted || die "${testname} diff failed"
+
+exp_corr=0.871055227502 # update this if the expected correlation changes
+testname="Accuracy Test: mod-freq results correlation with truthset"
+echo -e "${BLUE}${testname}${NC}"
+corr=`./test/compare.py test/tmp/truth.tsv test/tmp/test6.bedmethyl`
+if (( $(echo "$exp_corr == $corr" | bc -l) )); then
+    echo -e "${GREEN}Corr: $corr\tExpected: $exp_corr\tPassed${NC}"
+elif (( $(echo "$exp_corr > $corr" | bc -l) )); then
+    echo -e "${RED}Corr: $corr\tExpected: $exp_corr\tDecreased${NC}"
+    die "${testname} Correlation decreased"
+else
+    echo -e "${GREEN}Corr: $corr\tExpected: $exp_corr\tIncreased!!!${NC}"
+fi
 
 # ======= Extensive tests (prerequisits: buttery-eel, minimap2) - tested on gtgpu =======
 # blow5=/home/hasindu/scratch/hg2_prom_lsk114_5khz/chr22/PGXXXX230339_reads_chr22.blow5
