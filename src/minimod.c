@@ -160,8 +160,6 @@ void free_core(core_t* core,opt_t opt) {
         destroy_freq_map(core->freq_map);
     }
 
-    free(opt.mod_threshes);
-
 #ifdef HAVE_ACC
     if (core->opt.flag & MINIMOD_ACC) {
         VERBOSE("%s","Freeing accelator");
@@ -521,7 +519,6 @@ void init_opt(opt_t* opt) {
 
     opt->debug_break=-1;
 
-    opt->mod_codes = "m";
     opt->output_fp = stdout;
 
 #ifdef HAVE_ACC

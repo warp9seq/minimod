@@ -69,9 +69,10 @@ typedef struct {
     char *region_str; //the region string in format chr:start-end
 
     int8_t bedmethyl_out; //output in bedMethyl format, only for mod-freq
-    uint8_t* mod_threshes;
-    char* mod_codes;
+    char * mod_threshes_str;
+    char* mod_codes_str;
     FILE* output_fp;
+    uint8_t n_mods;
 
     int8_t subtool; //0:view, 1:mod-freq
 
@@ -86,12 +87,6 @@ typedef struct {
     int ref_pos;
     uint8_t mod_prob;
 } modbase_t;
-
-static const int valid_mod_codes[256] = {
-    // ['0'] = 1, ['1'] = 1, ['2'] = 1, ['3'] = 1, ['4'] = 1, ['5'] = 1, ['6'] = 1, ['7'] = 1, ['8'] = 1, ['9'] = 1, // for ChEBI ids
-    ['a'] = 1, ['b'] = 1, ['c'] = 1, ['e'] = 1, ['f'] = 1, ['g'] = 1, ['h'] = 1, ['m'] = 1, ['n'] = 1, ['o'] = 1, 
-    ['A'] = 1, ['C'] = 1, ['G'] = 1, ['T'] = 1, ['U'] = 1, ['N'] = 1
-};
 
 KHASH_MAP_INIT_STR(freqm, freq_t *);
 enum subtool {VIEW=0, MOD_FREQ=1};

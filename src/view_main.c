@@ -94,7 +94,6 @@ int view_main(int argc, char* argv[]) {
 
     char *ref_file = NULL;
     char *bam_file = NULL;
-    char *mod_threshes_str = NULL;
     int progress_interval = 0; //seconds
 
     FILE *fp_help = stderr;
@@ -146,9 +145,9 @@ int view_main(int argc, char* argv[]) {
         } else if (c=='h'){
             fp_help = stdout;
         } else if (c=='c') {
-            opt.mod_codes = optarg;
+            opt.mod_codes_str = optarg;
         } else if (c=='m'){
-            mod_threshes_str = optarg;
+            opt.mod_threshes_str = optarg;
         } else if(c == 0 && longindex == 9){ //debug break
             opt.debug_break = atoi(optarg);
         } else if(c == 0 && longindex == 10){ //sectional benchmark todo : warning for gpu mode
@@ -195,7 +194,7 @@ int view_main(int argc, char* argv[]) {
         exit(EXIT_FAILURE);
     }
 
-    opt.mod_threshes = parse_mod_threshes(opt.mod_codes, mod_threshes_str);
+    opt.n_mods = parse_mod_threshes(opt.mod_codes_str, opt.mod_threshes_str);
 
     //load the reference genome
     load_ref(ref_file);
