@@ -53,7 +53,6 @@ SOFTWARE.
 #define STEAL_THRESH 1 //stealing threshold
 
 #define N_BASES 6 // A, C, G, T, N, U
-#define N_MODS 2 // C:mhfcC, T:gebT, U:U, A:aA, G:oG, N:nN
 #define FREE_TRESH 0 //free big allocs if previous seq len is above this threshold
 
 /* user specified options */
@@ -72,9 +71,10 @@ typedef struct {
     char * mod_threshes_str;
     char* mod_codes_str;
     FILE* output_fp;
-    uint8_t n_mods;
 
     int8_t subtool; //0:view, 1:mod-freq
+
+    uint8_t n_mods;
 
 } opt_t;
 
@@ -223,7 +223,7 @@ void output_db(core_t* core, db_t* db);
 void output_core(core_t* core);
 
 /* partially free a data batch - only the read dependent allocations are freed */
-void free_db_tmp(db_t* db);
+void free_db_tmp(core_t* core, db_t* db);
 
 /* completely free a data batch */
 void free_db(core_t* core, db_t* db);

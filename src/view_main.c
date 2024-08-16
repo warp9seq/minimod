@@ -194,6 +194,10 @@ int view_main(int argc, char* argv[]) {
         exit(EXIT_FAILURE);
     }
 
+    if(opt.mod_codes_str==NULL || strlen(opt.mod_codes_str)==0){
+        INFO("%s", "Modification codes not provided. Using default modification code m");
+        opt.mod_codes_str = "m";
+    }
     opt.n_mods = parse_mod_threshes(opt.mod_codes_str, opt.mod_threshes_str);
 
     //load the reference genome
@@ -220,7 +224,7 @@ int view_main(int argc, char* argv[]) {
         //output print
         output_db(core, db);
 
-        free_db_tmp(db);
+        free_db_tmp(core, db);
 
         //print progress
         if(progress_interval<=0 || realtime()-realtime_prog > progress_interval){
