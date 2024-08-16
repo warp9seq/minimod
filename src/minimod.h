@@ -53,7 +53,6 @@ SOFTWARE.
 #define STEAL_THRESH 1 //stealing threshold
 
 #define N_BASES 6 // A, C, G, T, N, U
-#define N_MODS 2 // C:mhfcC, T:gebT, U:U, A:aA, G:oG, N:nN
 #define FREE_TRESH 0 //free big allocs if previous seq len is above this threshold
 
 /* user specified options */
@@ -69,11 +68,13 @@ typedef struct {
     char *region_str; //the region string in format chr:start-end
 
     int8_t bedmethyl_out; //output in bedMethyl format, only for mod-freq
-    uint8_t* mod_threshes;
-    char* mod_codes;
+    char * mod_threshes_str;
+    char* mod_codes_str;
     FILE* output_fp;
 
     int8_t subtool; //0:view, 1:mod-freq
+
+    uint8_t n_mods;
 
 } opt_t;
 
@@ -86,12 +87,6 @@ typedef struct {
     int ref_pos;
     uint8_t mod_prob;
 } modbase_t;
-
-static const int valid_mod_codes[256] = {
-    // ['0'] = 1, ['1'] = 1, ['2'] = 1, ['3'] = 1, ['4'] = 1, ['5'] = 1, ['6'] = 1, ['7'] = 1, ['8'] = 1, ['9'] = 1, // for ChEBI ids
-    ['a'] = 1, ['b'] = 1, ['c'] = 1, ['e'] = 1, ['f'] = 1, ['g'] = 1, ['h'] = 1, ['m'] = 1, ['n'] = 1, ['o'] = 1, 
-    ['A'] = 1, ['C'] = 1, ['G'] = 1, ['T'] = 1, ['U'] = 1, ['N'] = 1
-};
 
 KHASH_MAP_INIT_STR(freqm, freq_t *);
 enum subtool {VIEW=0, MOD_FREQ=1};
@@ -228,7 +223,7 @@ void output_db(core_t* core, db_t* db);
 void output_core(core_t* core);
 
 /* partially free a data batch - only the read dependent allocations are freed */
-void free_db_tmp(db_t* db);
+void free_db_tmp(core_t* core, db_t* db);
 
 /* completely free a data batch */
 void free_db(core_t* core, db_t* db);

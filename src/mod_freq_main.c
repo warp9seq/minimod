@@ -66,8 +66,8 @@ static inline void print_help_msg(FILE *fp_help, opt_t opt){
     fprintf(fp_help,"Usage: minimod mod-freq ref.fa reads.bam\n");
     fprintf(fp_help,"\nbasic options:\n");
     fprintf(fp_help,"   -b                         output in bedMethyl format\n");
-    fprintf(fp_help,"   -c STR                     modification codes (ex. m , h or mh) [m]\n");
-    fprintf(fp_help,"   -m FLOAT                   min modification threshold (inclusive, range 0.0 to 1.0) [0.2]\n");
+    fprintf(fp_help,"   -c STR                     modification codes (ex. m , h or mh) [%s]\n", opt.mod_codes_str);
+    fprintf(fp_help,"   -m FLOAT                   min modification threshold (inclusive, range 0.0 to 1.0) [%s]\n", opt.mod_threshes_str);
     fprintf(fp_help,"   -t INT                     number of processing threads [%d]\n",opt.num_thread);
     fprintf(fp_help,"   -K INT                     batch size (max number of reads loaded at once) [%d]\n",opt.batch_size);
     fprintf(fp_help,"   -B FLOAT[K/M/G]            max number of bytes loaded at once [%.1fM]\n",opt.batch_size_bytes/(float)(1000*1000));
@@ -98,7 +98,6 @@ int mod_freq_main(int argc, char* argv[]) {
 
     char *ref_file = NULL;
     char *bam_file = NULL;
-    char *mod_threshes_str = NULL;
     int progress_interval = 0; //seconds
 
     FILE *fp_help = stderr;
@@ -150,9 +149,9 @@ int mod_freq_main(int argc, char* argv[]) {
         } else if (c=='h'){
             fp_help = stdout;
         } else if (c=='m'){
-            mod_threshes_str = optarg;
+            opt.mod_threshes_str = optarg;
         } else if (c=='c') {
-            opt.mod_codes = optarg;
+            opt.mod_codes_str = optarg;
         } else if (c=='b'){
             opt.bedmethyl_out = 1;
         }else if(c == 0 && longindex == 10){ //debug break
@@ -201,7 +200,11 @@ int mod_freq_main(int argc, char* argv[]) {
         exit(EXIT_FAILURE);
     }
 
-    opt.mod_threshes = parse_mod_threshes(opt.mod_codes, mod_threshes_str);
+    if(opt.mod_codes_str==NULL || strlen(opt.mod_codes_str)==0){
+        INFO("%s", "Modification codes not provided. Using default modification code m");
+        opt.mod_codes_str = "m";
+    }
+    opt.n_mods = parse_mod_threshes(opt.mod_codes_str, opt.mod_threshes_str);
 
     //load the reference genome
     load_ref(ref_file);
@@ -229,7 +232,7 @@ int mod_freq_main(int argc, char* argv[]) {
         //write the output
         output_db(core, db);
 
-        free_db_tmp(db);
+        free_db_tmp(core, db);
 
         //print progress
         if(progress_interval<=0 || realtime()-realtime_prog > progress_interval){

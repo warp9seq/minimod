@@ -160,8 +160,6 @@ void free_core(core_t* core,opt_t opt) {
         destroy_freq_map(core->freq_map);
     }
 
-    free(opt.mod_threshes);
-
 #ifdef HAVE_ACC
     if (core->opt.flag & MINIMOD_ACC) {
         VERBOSE("%s","Freeing accelator");
@@ -218,13 +216,13 @@ db_t* init_db(core_t* core) {
         db->bases_pos_len[i] = (int*)calloc(N_BASES,sizeof(int));
         MALLOC_CHK(db->bases_pos_len[i]);
 
-        db->mod_codes[i] = (char*)malloc(sizeof(char)*N_MODS);
+        db->mod_codes[i] = (char*)malloc(sizeof(char)*core->opt.n_mods);
         MALLOC_CHK(db->mod_codes[i]);
 
-        db->modbases[i] = (modbase_t**)malloc(sizeof(modbase_t*)*N_MODS);
+        db->modbases[i] = (modbase_t**)malloc(sizeof(modbase_t*)*core->opt.n_mods);
         MALLOC_CHK(db->modbases[i]);
 
-        db->modbases_len[i] = (int32_t*)calloc(N_MODS,sizeof(int32_t));
+        db->modbases_len[i] = (int32_t*)calloc(core->opt.n_mods,sizeof(int32_t));
         MALLOC_CHK(db->modbases_len[i]);
 
     }
@@ -295,7 +293,7 @@ ret_status_t load_db(core_t* core, db_t* db) {
 
         db->aln[i] = (int*)malloc(sizeof(int)*rec->core.l_qseq);
 
-        for(int j=0;j<N_MODS;j++){
+        for(int j=0;j<core->opt.n_mods;j++){
             if(db->modbases_len[i][j] == 0){
                 db->modbases[i][j] = (modbase_t*)malloc(sizeof(modbase_t)*l_qseq);
                 MALLOC_CHK(db->modbases[i][j]);
@@ -436,12 +434,12 @@ void output_core(core_t* core) {
 }
 
 /* partially free a data batch - only the read dependent allocations are freed */
-void free_db_tmp(db_t* db) {
+void free_db_tmp(core_t* core, db_t* db) {
     int32_t i = 0;
     for (i = 0; i < db->n_bam_recs; i++) {        
         free(db->ml[i]);
         free(db->aln[i]);
-        for(int j=0;j<N_MODS;j++){
+        for(int j=0;j<core->opt.n_mods;j++){
             if(db->modbases_len[i][j]>FREE_TRESH){
                 free(db->modbases[i][j]);
                 db->modbases_len[i][j]=0;
@@ -474,7 +472,7 @@ void free_db(core_t* core, db_t* db) {
             free(db->skip_counts[i]);
         }
         
-        for(int j=0;j<N_MODS;j++){
+        for(int j=0;j<core->opt.n_mods;j++){
             if(db->modbases_len[i][j]>0){
                 free(db->modbases[i][j]);
             }
@@ -521,7 +519,6 @@ void init_opt(opt_t* opt) {
 
     opt->debug_break=-1;
 
-    opt->mod_codes = "m";
     opt->output_fp = stdout;
 
 #ifdef HAVE_ACC
