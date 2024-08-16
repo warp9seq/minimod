@@ -201,7 +201,7 @@ int mod_freq_main(int argc, char* argv[]) {
         exit(EXIT_FAILURE);
     }
 
-    parse_mod_threshes(&(opt.mod_threshes), opt.mod_codes,mod_threshes_str);
+    opt.mod_threshes = parse_mod_threshes(opt.mod_codes, mod_threshes_str);
 
     //load the reference genome
     load_ref(ref_file);

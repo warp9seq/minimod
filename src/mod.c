@@ -167,37 +167,26 @@ uint8_t *get_ml_tag(bam1_t *record, uint32_t *len_ptr){
 
 }
 
-static int is_required_mod_code(char mod_code, char * mod_codes){
+static int get_thresh(char mod_code, char * mod_codes, uint8_t * mod_threshes){
     int i=0;
     while(mod_codes[i] != '\0'){
         if(mod_codes[i] == mod_code){
-            return 1;
+            return mod_threshes[i];
         }
         i++;
     }
-    return 0;
+    return -1;
 }
 
-static int is_required_mod_code_and_thresh(char mod_code, char * mod_codes, double mod_prob, double * mod_threshes){
-    
-        if(mod_prob >= mod_threshes[0]) {
-            return 1;
-        }
-    
-        int i=0;
-        while(mod_codes[i] != '\0'){
-            if(mod_codes[i] == mod_code && mod_prob >= mod_threshes[i]){
-                return 1;
-            }
-            i++;
-        }
-        return 0;
-}
+uint8_t * parse_mod_threshes(const char* mod_codes, char* mod_thresh_str){
+    uint8_t n_codes = strlen(mod_codes);
 
-void parse_mod_threshes(double ** mod_threshes, const char* mod_codes, char* mod_thresh_str){
-    int32_t n_codes = strlen(mod_codes);
+    if(n_codes > N_MODS){
+        ERROR("%s","Number of modification codes exceeds the maximum number of modification codes supported.");
+        exit(EXIT_FAILURE);
+    }
 
-    for(int32_t i=0;i<n_codes;i++){
+    for(uint8_t i=0;i<n_codes;i++){
         if(valid_mod_codes[(int)mod_codes[i]]==0){
             ERROR("Invalid modification code %c",mod_codes[i]);
             exit(EXIT_FAILURE);
@@ -207,20 +196,22 @@ void parse_mod_threshes(double ** mod_threshes, const char* mod_codes, char* mod
             exit(EXIT_FAILURE);
         }
     }
-    *mod_threshes = (double*)malloc((n_codes)*sizeof(double));
+
+    uint8_t * mod_threshes = (uint8_t *)malloc(n_codes*sizeof(uint8_t));
     if(mod_thresh_str==NULL || strlen(mod_thresh_str)==0){
-        for(int32_t i=0;i<n_codes;i++){
-            (*mod_threshes)[i] = 0.2;
+        for(uint8_t i=0;i<n_codes;i++){
+            mod_threshes[i] = 0.2*255;
         }
     } else {
         char* token = strtok(mod_thresh_str, ",");
-        int32_t i=0;
+        uint8_t i=0;
         while(token!=NULL){
-            (*mod_threshes)[i] = atof(token);
-            if((*mod_threshes)[i]<0 || (*mod_threshes)[i]>1){
-                ERROR("Modification threshold should be in the range 0.0 to 1.0. You entered %f", (*mod_threshes)[i]);
+            double t = atof(token);
+            if(t<0 || t>1){
+                ERROR("Modification threshold should be in the range 0.0 to 1.0. You entered %f",t);
                 exit(EXIT_FAILURE);
             }
+            mod_threshes[i] = t*255;
             token = strtok(NULL, ",");
             i++;
         }
@@ -229,6 +220,7 @@ void parse_mod_threshes(double ** mod_threshes, const char* mod_codes, char* mod
             exit(EXIT_FAILURE);
         }
     }
+    return mod_threshes;
 }
 
 void destroy_freq_map(khash_t(freqm)* freq_map){
@@ -264,14 +256,6 @@ void decode_key(char *key, char **chrom, int *pos, char *mod_code, char *strand)
     *strand = strtok(NULL, "\t")[0];
 }
 
-static double mod_thresh(char mod_code, char * mod_codes, double * mod_threshes){
-    for(int i=0;i<strlen(mod_codes);i++){
-        if(mod_codes[i] == mod_code){
-            return mod_threshes[i];
-        }
-    }
-    return 1;
-}
 // freq_map is used by multiple threads, so need to lock it
 void update_freq_map(core_t * core, db_t * db) {
     bam_hdr_t * hdr = core->bam_hdr;
@@ -289,16 +273,15 @@ void update_freq_map(core_t * core, db_t * db) {
         modbase_t ** bases = db->modbases[i];
 
         for(int j=0;j<N_MODS;j++){
+            char mod_code = idx_to_mod_code[j];
+            int thresh = get_thresh(mod_code, core->opt.mod_codes, core->opt.mod_threshes);
+            if(thresh == -1){ // mod code not requested
+                continue;
+            }
             for(int seq_i=0;seq_i<seq_len;seq_i++){
                 modbase_t * base = &bases[j][seq_i];
 
-                uint8_t mod_prob = base->mods_prob;
-                if(mod_prob == 0){ // no modification
-                    continue;
-                }
-
-                char mod_code = idx_to_mod_code[j];
-                if(is_required_mod_code(mod_code, core->opt.mod_codes) == 0){
+                if(base->ref_pos == -1){ // no modification
                     continue;
                 }
 
@@ -308,7 +291,7 @@ void update_freq_map(core_t * core, db_t * db) {
                     freq_t * freq = (freq_t *)malloc(sizeof(freq_t));
                     MALLOC_CHK(freq);
                     freq->n_called = 1;
-                    freq->n_mod = (mod_prob/255.0) >= mod_thresh(mod_code, core->opt.mod_codes, core->opt.mod_threshes) ? 1 : 0;
+                    freq->n_mod = base->mod_prob >= thresh ? 1 : 0;
                     int ret;
                     k = kh_put(freqm, freq_map, key, &ret);
                     kh_value(freq_map, k) = freq;
@@ -316,7 +299,7 @@ void update_freq_map(core_t * core, db_t * db) {
                     free(key);
                     freq_t * freq = kh_value(freq_map, k);
                     freq->n_called += 1;
-                    freq->n_mod += (mod_prob/255.0) >= mod_thresh(mod_code, core->opt.mod_codes, core->opt.mod_threshes) ? 1 : 0;
+                    freq->n_mod += base->mod_prob >= thresh ? 1 : 0;
                 }
                 
             }
@@ -472,7 +455,7 @@ static void get_bases(opt_t* opt, db_t *db, int32_t bam_i, const char *mm_string
 
         modbase_t base;
         base.ref_pos = -1;
-        base.mods_prob = 0;
+        base.mod_prob = 0;
         for(int j=0;j<N_MODS;j++){
             db->modbases[bam_i][j][i] = base;
         }
@@ -631,7 +614,7 @@ static void get_bases(opt_t* opt, db_t *db, int32_t bam_i, const char *mm_string
                 
                 ml_idx = ml_start_idx + c*mod_codes_len + m;
 
-                if(is_required_mod_code(mod_code, opt->mod_codes) == 0){
+                if(get_thresh(mod_code, opt->mod_codes, opt->mod_threshes) == -1){ // mod code not required
                     continue;
                 }
 
@@ -639,7 +622,7 @@ static void get_bases(opt_t* opt, db_t *db, int32_t bam_i, const char *mm_string
                 uint8_t mod_prob = ml[ml_idx];
                 ASSERT_MSG(mod_prob <= 255 && mod_prob>=0, "mod_prob:%d\n", mod_prob);
 
-                db->modbases[bam_i][mod_code_to_idx[(int)mod_codes[m]]][read_pos].mods_prob = mod_prob;
+                db->modbases[bam_i][mod_code_to_idx[(int)mod_codes[m]]][read_pos].mod_prob = mod_prob;
                 db->modbases[bam_i][mod_code_to_idx[(int)mod_codes[m]]][read_pos].ref_pos = ref_pos;
 
             }
@@ -654,8 +637,6 @@ void print_view_output(core_t* core, db_t* db) {
     fprintf(core->opt.output_fp, "ref_contig\tref_pos\tstrand\tread_id\tread_pos\tmod_code\tmod_prob\n");
     for(int i=0;i<db->n_bam_recs;i++){
         bam1_t *record = db->bam_recs[i];
-        
-
         bam_hdr_t * hdr = core->bam_hdr;
         const char *qname = bam_get_qname(record);
         int32_t tid = record->core.tid;
@@ -669,21 +650,18 @@ void print_view_output(core_t* core, db_t* db) {
         modbase_t ** bases = db->modbases[i];
         for(int j=0;j<N_MODS;j++){
             char mod_code = idx_to_mod_code[j];
-            if(is_required_mod_code(mod_code, core->opt.mod_codes) == 0){
+            int thresh = get_thresh(mod_code, core->opt.mod_codes, core->opt.mod_threshes);
+            if(thresh == -1){ // mod code not required
                 continue;
             }
             for(int seq_i=0;seq_i<seq_len;seq_i++){
                 modbase_t base = bases[j][seq_i];
             
-                if(base.mods_prob == 0){ // no modification
+                if(base.ref_pos == -1 || base.mod_prob < thresh){ // no modification, or below threshold
                     continue;
                 }
-                
-                double prob = base.mods_prob/255.0;
-                if(is_required_mod_code_and_thresh(mod_code, core->opt.mod_codes, prob, core->opt.mod_threshes) == 0){
-                    continue;
-                }
-                fprintf(core->opt.output_fp, "%s\t%d\t%c\t%s\t%d\t%c\t%f\n", tname, base.ref_pos, strand, qname, seq_i, mod_code, prob);
+
+                fprintf(core->opt.output_fp, "%s\t%d\t%c\t%s\t%d\t%c\t%f\n", tname, base.ref_pos, strand, qname, seq_i, mod_code, base.mod_prob/255.0);
             
             }
         }

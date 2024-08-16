@@ -69,7 +69,7 @@ typedef struct {
     char *region_str; //the region string in format chr:start-end
 
     int8_t bedmethyl_out; //output in bedMethyl format, only for mod-freq
-    double* mod_threshes;
+    uint8_t* mod_threshes;
     char* mod_codes;
     FILE* output_fp;
 
@@ -84,7 +84,7 @@ typedef struct {
 
 typedef struct {
     int ref_pos;
-    uint8_t mods_prob;
+    uint8_t mod_prob;
 } modbase_t;
 
 static const int valid_mod_codes[256] = {
