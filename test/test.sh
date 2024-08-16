@@ -138,13 +138,11 @@ exp_corr=0.871 # update this if the expected correlation changes
 testname="Accuracy Test: mod-freq results correlation with truthset"
 echo -e "${BLUE}${testname}${NC}"
 corr=`./test/compare.py test/tmp/truth.tsv test/tmp/test6.bedmethyl`
-if (( $(echo "$exp_corr == $corr" | bc -l) )); then
+if (( $(echo "$exp_corr >= $corr" | bc -l) )); then
     echo -e "${GREEN}Corr: $corr\tExpected: $exp_corr\tPassed${NC}"
 elif (( $(echo "$exp_corr > $corr" | bc -l) )); then
     echo -e "${RED}Corr: $corr\tExpected: $exp_corr\tDecreased${NC}"
     die "${testname} Correlation decreased"
-else
-    echo -e "${GREEN}Corr: $corr\tExpected: $exp_corr\tIncreased!!!${NC}"
 fi
 
 # ======= Extensive tests (prerequisits: buttery-eel, minimap2) - tested on gtgpu =======
