@@ -297,10 +297,6 @@ void update_freq_map(core_t * core, db_t * db) {
                     continue;
                 }
 
-                if(base->is_aln_cpg != 2){ // not aln_cpg
-                    continue;
-                }
-
                 char mod_code = idx_to_mod_code[j];
                 if(is_required_mod_code(mod_code, core->opt.mod_codes) == 0){
                     continue;
@@ -386,7 +382,7 @@ static void get_aln(int ** aln, bam_hdr_t *hdr, bam1_t *record){
     uint32_t n_cigar = record->core.n_cigar;
 
     int seq_len = record->core.l_qseq;
-    
+  
     int read_pos = 0;
     int ref_pos = pos;
 
@@ -460,7 +456,6 @@ static void get_bases(opt_t* opt, db_t *db, int32_t bam_i, const char *mm_string
     const char *tname = (tid >= 0) ? hdr->target_name[tid] : "*";
     uint8_t *seq = bam_get_seq(record);
     uint32_t seq_len = record->core.l_qseq;
-    char strand = rev ? '-' : '+';
 
     // 5 int arrays to keep base pos of A, C, G, T, N bases.
     // A: 0, C: 1, G: 2, T: 3, U:4, N: 5
@@ -471,37 +466,17 @@ static void get_bases(opt_t* opt, db_t *db, int32_t bam_i, const char *mm_string
 
     int i;
     for(i=0;i<seq_len;i++){
-        modbase_t base;;
         int base_char = seq_nt16_str[bam_seqi(seq, i)];
         int idx = base_idx_lookup[(int)base_char];
         bases_pos[idx][bases_pos_lens[idx]++] = i;
 
-        base.ref_pos = aln_pairs[i];
-        base.is_aln_cpg = aln_pairs[i] == -1 ? 0 : 1;
-        // check if the base belongs to a cpg site using the ref
-        if(base.is_aln_cpg){ // if aligned
-            int ref_pos = base.ref_pos;
-            ref_t *ref = get_ref(tname);
-
-            ASSERT_MSG(ref != NULL, "Contig %s not found in ref_map\n", tname);
-            ASSERT_MSG(ref_pos >= 0 && ref_pos < ref->ref_seq_length, "ref_pos:%d ref_len:%d\n", ref_pos, ref->ref_seq_length);
-            ASSERT_MSG(ref->ref_seq_length == hdr->target_len[tid], "ref_len:%d target_len:%d\n", ref->ref_seq_length, hdr->target_len[tid]);
-
-            // check if the base is a CpG site
-            char * ref_seq = ref->forward;
-            if ((ref_pos + 1 < ref->ref_seq_length && strand == '+' && ref_seq[ref_pos] == 'C' && ref_seq[ref_pos + 1] == 'G') ||
-                (ref_pos > 0 && strand == '-' && ref_seq[ref_pos] == 'G' && ref_seq[ref_pos - 1] == 'C')) {
-                base.is_aln_cpg = 2;
-            }
-        }
-
+        modbase_t base;
+        base.ref_pos = -1;
         base.mods_prob = 0;
         for(int j=0;j<N_MODS;j++){
             db->modbases[bam_i][j][i] = base;
         }
     }
-    
-    
 
     int mm_str_len = strlen(mm_string);
     i = 0;
@@ -625,21 +600,47 @@ static void get_bases(opt_t* opt, db_t *db, int32_t bam_i, const char *mm_string
 
             ASSERT_MSG(read_pos>=0 && read_pos < seq_len, "Base pos cannot exceed seq len. read_pos: %d seq_len: %d\n", read_pos, seq_len);
 
+            int ref_pos = aln_pairs[read_pos];
+            if(ref_pos == -1) {
+                if(mod_codes_len > 0) {
+                    ml_idx = ml_start_idx + c*mod_codes_len + mod_codes_len - 1;
+                }
+                continue;
+            }
+
+            int8_t is_cpg = 0;
+            ref_t *ref = get_ref(tname);
+            ASSERT_MSG(ref != NULL, "Contig %s not found in ref_map\n", tname);
+            ASSERT_MSG(ref_pos >= 0 && ref_pos < ref->ref_seq_length, "ref_pos:%d ref_len:%d\n", ref_pos, ref->ref_seq_length);
+            ASSERT_MSG(ref->ref_seq_length == hdr->target_len[tid], "ref_len:%d target_len:%d\n", ref->ref_seq_length, hdr->target_len[tid]);
+            char * ref_seq = ref->forward;
+            if ((!rev && ref_pos + 1 < ref->ref_seq_length && ref_seq[ref_pos] == 'C' && ref_seq[ref_pos + 1] == 'G') ||
+                (rev && ref_pos > 0 && ref_seq[ref_pos] == 'G' && ref_seq[ref_pos - 1] == 'C')) {
+                is_cpg = 1;
+            }
+            if(is_cpg == 0) {
+                if(mod_codes_len > 0) {
+                    ml_idx = ml_start_idx + c*mod_codes_len + mod_codes_len - 1;
+                }
+                continue;
+            }
+            
             // mod prob per each mod code. TO-DO: need to change when code is ChEBI id
             for(int m=0; m<mod_codes_len; m++) {
-                // get the mod prob
-                ml_idx = ml_start_idx + c*mod_codes_len + m;
-                ASSERT_MSG(ml_idx<ml_len, "ml_idx:%d ml_len:%d\n", ml_idx, ml_len);
-
                 char mod_code = mod_codes[m];
-                if(!is_required_mod_code(mod_code, opt->mod_codes)){
+                
+                ml_idx = ml_start_idx + c*mod_codes_len + m;
+
+                if(is_required_mod_code(mod_code, opt->mod_codes) == 0){
                     continue;
                 }
 
+                ASSERT_MSG(ml_idx<ml_len, "ml_idx:%d ml_len:%d\n", ml_idx, ml_len);
                 uint8_t mod_prob = ml[ml_idx];
                 ASSERT_MSG(mod_prob <= 255 && mod_prob>=0, "mod_prob:%d\n", mod_prob);
 
                 db->modbases[bam_i][mod_code_to_idx[(int)mod_codes[m]]][read_pos].mods_prob = mod_prob;
+                db->modbases[bam_i][mod_code_to_idx[(int)mod_codes[m]]][read_pos].ref_pos = ref_pos;
 
             }
 
@@ -667,17 +668,19 @@ void print_view_output(core_t* core, db_t* db) {
 
         modbase_t ** bases = db->modbases[i];
         for(int j=0;j<N_MODS;j++){
+            char mod_code = idx_to_mod_code[j];
+            if(is_required_mod_code(mod_code, core->opt.mod_codes) == 0){
+                continue;
+            }
             for(int seq_i=0;seq_i<seq_len;seq_i++){
                 modbase_t base = bases[j][seq_i];
             
-                uint8_t mod_prob = base.mods_prob;
-                if(mod_prob == 0){ // no modification
+                if(base.mods_prob == 0){ // no modification
                     continue;
                 }
-                char mod_code = idx_to_mod_code[j];
-                double prob = mod_prob/255.0;
-
-                if(base.is_aln_cpg != 2 ||  is_required_mod_code_and_thresh(mod_code, core->opt.mod_codes, prob, core->opt.mod_threshes) == 0){
+                
+                double prob = base.mods_prob/255.0;
+                if(is_required_mod_code_and_thresh(mod_code, core->opt.mod_codes, prob, core->opt.mod_threshes) == 0){
                     continue;
                 }
                 fprintf(core->opt.output_fp, "%s\t%d\t%c\t%s\t%d\t%c\t%f\n", tname, base.ref_pos, strand, qname, seq_i, mod_code, prob);

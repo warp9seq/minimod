@@ -85,7 +85,6 @@ typedef struct {
 typedef struct {
     int ref_pos;
     uint8_t mods_prob;
-    uint8_t is_aln_cpg; // 0: not_aln 1: aln 2: aln_cpg
 } modbase_t;
 
 static const int valid_mod_codes[256] = {
