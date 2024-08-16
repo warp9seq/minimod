@@ -78,8 +78,8 @@ typedef struct {
 } opt_t;
 
 typedef struct {
-    int n_called;
-    int n_mod;
+    uint16_t n_called;
+    uint16_t n_mod;
 } freq_t;
 
 typedef struct {
