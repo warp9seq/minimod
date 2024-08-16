@@ -134,7 +134,7 @@ ex  ./minimod mod-freq -t 8 test/tmp/genome_chr22.fa test/data/example-ont.bam -
 sort -k1,1 -k2,2n -k4,4 test/tmp/test14.tsv > test/tmp/test14.tsv.sorted
 diff -q test/tmp/test5.exp.tsv.sorted test/tmp/test14.tsv.sorted || die "${testname} diff failed"
 
-exp_corr=0.871055227502 # update this if the expected correlation changes
+exp_corr=0.871 # update this if the expected correlation changes
 testname="Accuracy Test: mod-freq results correlation with truthset"
 echo -e "${BLUE}${testname}${NC}"
 corr=`./test/compare.py test/tmp/truth.tsv test/tmp/test6.bedmethyl`
