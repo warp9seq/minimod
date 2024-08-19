@@ -46,6 +46,7 @@ if (( $(echo "$corr >= $exp_corr" | bc -l) )); then
     echo -e "${GREEN}Corr: $corr\tExpected: $exp_corr\tPassed${NC}\n"
 elif (( $(echo "$exp_corr > $corr" | bc -l) )); then
     echo -e "${RED}Corr: $corr\tExpected: $exp_corr\tDecreased${NC}\n"
+    die "${testname} Correlation decreased"
 fi
 
 testname="Test 1: view hifi"
