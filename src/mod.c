@@ -225,7 +225,7 @@ uint8_t parse_mod_threshes(const char* mod_codes_str, char* mod_thresh_str){
     }
 
     for(i=0; i<n_codes; i++){
-        INFO("modification code: %c, modification threshold: %f\n", mod_codes_str[i], req_threshes[(int)mod_codes_str[i]]/255.0);
+        INFO("modification code: %c, modification threshold: %f", mod_codes_str[i], req_threshes[(int)mod_codes_str[i]]/255.0);
     }
 
     return n_codes;
@@ -663,7 +663,7 @@ void print_view_output(core_t* core, db_t* db) {
             for(int seq_i=0;seq_i<seq_len;seq_i++){
                 modbase_t base = bases[j][seq_i];
             
-                if(base.ref_pos == -1 || base.mod_prob < req_threshes[(int)mod_code]){ // no modification
+                if(base.ref_pos == -1 || base.mod_prob < req_threshes[(int)mod_code]){
                     continue;
                 }
 

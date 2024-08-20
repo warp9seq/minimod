@@ -62,14 +62,14 @@ static struct option long_options[] = {
 static inline void print_help_msg(FILE *fp_help, opt_t opt){
     fprintf(fp_help,"Usage: minimod view ref.fa reads.bam\n");
     fprintf(fp_help,"\nbasic options:\n");
-    fprintf(fp_help,"   -c STR                     modification codes (ex. m , h or mh) [m]\n");
-    fprintf(fp_help,"   -m FLOAT                   min modification thresholds (inclusive, range 0.0 to 1.0) (ex. 0.2 or 0.2,0.3 for multiple mod coded in same order as in -c) [0.0]\n");
+    fprintf(fp_help,"   -c STR                     modification code(s) (ex. m , h or mh) [%s]\n", opt.mod_codes_str);
+    fprintf(fp_help,"   -m FLOAT                   min modification threshold(s). Comma separated values for each modification code given in -c [%s]\n", opt.mod_threshes_str);
     fprintf(fp_help,"   -t INT                     number of processing threads [%d]\n",opt.num_thread);
     fprintf(fp_help,"   -K INT                     batch size (max number of reads loaded at once) [%d]\n",opt.batch_size);
     fprintf(fp_help,"   -B FLOAT[K/M/G]            max number of bytes loaded at once [%.1fM]\n",opt.batch_size_bytes/(float)(1000*1000));
     fprintf(fp_help,"   -h                         help\n");
-    fprintf(fp_help,"   -p INT                     print progress no more than every INT seconds [0]\n");
-    fprintf(fp_help,"   -o FILE                    output file\n");
+    fprintf(fp_help,"   -p INT                     print progress every INT seconds (0: per batch) [%d]\n", opt.progress_interval);
+    fprintf(fp_help,"   -o FILE                    output file [%s]\n", opt.output_file==NULL?"stdout":opt.output_file);
     fprintf(fp_help,"   --verbose INT              verbosity level [%d]\n",(int)get_log_level());
     fprintf(fp_help,"   --version                  print version\n");
 
@@ -94,7 +94,6 @@ int view_main(int argc, char* argv[]) {
 
     char *ref_file = NULL;
     char *bam_file = NULL;
-    int progress_interval = 0; //seconds
 
     FILE *fp_help = stderr;
 
@@ -131,13 +130,14 @@ int view_main(int argc, char* argv[]) {
                 ERROR("Progress interval should be 0 or positive. You entered %d", atoi(optarg));
                 exit(EXIT_FAILURE);
             }
-            progress_interval = atoi(optarg);
+            opt.progress_interval = atoi(optarg);
         } else if (c=='o'){
             FILE *fp = fopen(optarg, "w");
             if (fp == NULL) {
                 ERROR("Cannot open file %s for writing", optarg);
                 exit(EXIT_FAILURE);
             }
+            opt.output_file = optarg;
             opt.output_fp = fp;
         } else if (c=='V'){
             fprintf(stdout,"minimod %s\n",MINIMOD_VERSION);
@@ -194,13 +194,10 @@ int view_main(int argc, char* argv[]) {
         exit(EXIT_FAILURE);
     }
 
-    if(opt.mod_codes_str==NULL || strlen(opt.mod_codes_str)==0){
-        INFO("%s", "Modification codes not provided. Using default modification code m");
-        opt.mod_codes_str = "m";
-    }
     opt.n_mods = parse_mod_threshes(opt.mod_codes_str, opt.mod_threshes_str);
 
     //load the reference genome
+    fprintf(stderr, "[%s] Loading reference genome %s\n", __func__, ref_file);
     load_ref(ref_file);
     fprintf(stderr, "[%s] Reference genome loaded in %.3f sec\n", __func__, realtime()-realtime0);
 
@@ -227,7 +224,7 @@ int view_main(int argc, char* argv[]) {
         free_db_tmp(core, db);
 
         //print progress
-        if(progress_interval<=0 || realtime()-realtime_prog > progress_interval){
+        if(opt.progress_interval<=0 || realtime()-realtime_prog > opt.progress_interval){
             fprintf(stderr, "[%s::%.3f*%.2f] %d Entries (%.1fM bytes) processed\t%d Entries (%.1fM bytes) skipped\n", __func__,
                     realtime() - realtime0, cputime() / (realtime() - realtime0),
                     (db->n_bam_recs), (db->sum_bytes)/(1000.0*1000.0),

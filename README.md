@@ -37,19 +37,26 @@ minimod mod-freq -b ref.fa reads.bam > modfreqs.bedmethyl
 # output base modification of types m (5-methylcytosine) and h (5-hydroxymethylcytosine) in tsv format
 minimod view -c "mh" ref.fa reads.bam > mods.tsv
 ```
+Note: Default value for modification probability threshold is 0.2 which means base modifications with  probabilty equal or higher than 0.2 are considered as modified.
 
 # minimod view
 ```bash
 minimod view ref.fa reads.bam > mods.tsv
 ```
-Print base modification details to the standard output in tsv format. Following command writes the output to a file.
-```bash
+This writes all base modifications (default modification code "m" and modification threshold 0.2) to a file (mods.tsv) in tsv format. Sample output is given below.
+```
+Usage: minimod view ref.fa reads.bam
+
 basic options:
-   -m FLOAT                   min modification threshold (inclusive, range 0.0 to 1.0) [0.2]
-   -c STR                     modification codes (ex. m , h or mh) [m]
+   -c STR                     modification code(s) (ex. m , h or mh) [m]
+   -m FLOAT                   min modification threshold(s). Comma separated values for each modification code given in -c [0.2]
+   -t INT                     number of processing threads [8]
+   -K INT                     batch size (max number of reads loaded at once) [512]
+   -B FLOAT[K/M/G]            max number of bytes loaded at once [20.0M]
    -h                         help
-   -p INT                     print progress no more than every INT seconds [10]
-   -o FILE                    output file
+   -p INT                     print progress every INT seconds (0: per batch) [0]
+   -o FILE                    output file [stdout]
+   --verbose INT              verbosity level [4]
    --version                  print version
 ```
 
@@ -81,15 +88,21 @@ chr22	19979948	+	m84088_230609_030819_s1/55512555/ccs	98	m	0.623529
 ```bash
 minimod mod-freq ref.fa reads.bam > modfreqs.tsv
 ```
-Print base modification frequencies to the standard output in tsv format. Following command writes the output to a file.
-```bash
+This writes base modification frequencies (default modification code "m" and modification threshold 0.2) to a file (modfreqs.tsv) file in tsv format. Sample output is given below.
+```
+Usage: minimod mod-freq ref.fa reads.bam
+
 basic options:
-   -b                         output in bedmethyl format
-   -m FLOAT                   min modification threshold (inclusive, range 0.0 to 1.0) [0.2]
+   -b                         output in bedMethyl format [not set]
    -c STR                     modification codes (ex. m , h or mh) [m]
+   -m FLOAT                   min modification threshold(s). Comma separated values for each modification code given in -c [0.2]
+   -t INT                     number of processing threads [8]
+   -K INT                     batch size (max number of reads loaded at once) [512]
+   -B FLOAT[K/M/G]            max number of bytes loaded at once [20.0M]
    -h                         help
-   -p INT                     print progress no more than every INT seconds [10]
-   -o FILE                    output file
+   -p INT                     print progress every INT seconds (0: per batch) [0]
+   -o FILE                    output file [stdout]
+   --verbose INT              verbosity level [4]
    --version                  print version
 ```
 
@@ -142,6 +155,39 @@ chr22	19973437	19973438	m	1	+	19973437	19973437	255,0,0	1	1.000000
 | 8. end   | int | = field 3 |
 | 9. n_mod | int | = field 5 |
 | 10. freq | float | n_mod/n_called ratio |
+
+# Modification codes and threshold
+
+Base modification codes and thresholds can be set for both view and mod-freq tools using -c and -m flags respectively.
+
+01. View 5mC base modifications with probability >= 0.2
+> ```
+>   minimod view ref.fa reads.bam -c m -m 0.2
+> ```
+
+02. Print 5mC base modification frequencies with probability >= 0.2
+> ```
+>   minimod mod-freq ref.fa reads.bam -c m -m 0.2
+> ```
+> ```
+> for each 5mC:
+>     If p(5mC)  >=  0.2,  increase n_called by 1, increase n_mod by 1
+>     If p(5mC) <=>  0.2,  increase n_called by 1  
+> ```
+
+03. Print 5mC base modification frequencies with probability >= 0.2 and 5hmC base modification frequencies with probability >= 0.5
+> ```
+>   minimod mod-freq ref.fa reads.bam -c mh -m 0.2,0.5
+> ```
+> ```
+> for each 5mC:
+>     If p(5mC)  >=  0.2,  increase n_called_5mC by 1, increase n_mod_5mC by 1
+>     If p(5mC) <=>  0.2,  increase n_called_5mC by 1 
+>
+> for each 5hmC:
+>     If p(5hmC)  >=  0.2,  increase n_called_5hmC by 1, increase n_mod_5hmC by 1
+>     If p(5hmC) <=>  0.2,  increase n_called_5hmC by 1 
+> ```
 
 # Important !
 Make sure that following requirements are met for each step in base modification calling pipeline.
