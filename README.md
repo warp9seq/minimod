@@ -25,17 +25,17 @@ command:
 
 # Examples
 ```bash
-# output base modification of type m (5-methylcytosine) in tsv format
+# output base modification of type m (5-methylcytosine) >= 0.2 probability in tsv format
 minimod view ref.fa reads.bam > mods.tsv
 
-# output base modification frequencies of type m (5-methylcytosine) in tsv format
+# output base modification frequencies of type m (5-methylcytosine) >= 0.2 probability in tsv format
 minimod mod-freq ref.fa reads.bam > modfreqs.tsv
 
-# output base modification of type m (5-methylcytosine) in bed format
+# output base modification of type m (5-methylcytosine) in bedmethyl format
 minimod mod-freq -b ref.fa reads.bam > modfreqs.bedmethyl
 
-# output base modification of types m (5-methylcytosine) and h (5-hydroxymethylcytosine) in tsv format
-minimod view -c "mh" ref.fa reads.bam > mods.tsv
+# output base modification of types m (5-methylcytosine) >= 0.2 probability and h (5-hydroxymethylcytosine) >= 0.5 probability in tsv format
+minimod view -c "mh" -m 0.2,0.5 ref.fa reads.bam > mods.tsv
 ```
 Note: Default value for modification probability threshold is 0.2 which means base modifications with  probabilty equal or higher than 0.2 are considered as modified.
 
