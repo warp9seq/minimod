@@ -21,7 +21,7 @@ jobs:
       - name: install htslib
         run: ./scripts/install-hts.sh
       - name: test
-        run: make test
+        run: make memtest
   ubuntu_16:
     name: Ubuntu 16
     runs-on: ubuntu-22.04
@@ -33,7 +33,7 @@ jobs:
       - name: install htslib
         run: ./scripts/install-hts.sh
       - name: test
-        run: make test
+        run: make memtest
   ubuntu_18:
     name: Ubuntu 18
     runs-on: ubuntu-22.04
