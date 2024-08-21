@@ -29,8 +29,7 @@ ex() {
 mkdir -p test/tmp || die "Creating the tmp directory failed"
 
 if [ ! -f test/tmp/genome_chr22.fa ]; then
-    wget  -N -O test/tmp/genome_chr22.fa.gz "https://hgdownload.soe.ucsc.edu/goldenPath/hg38/chromosomes/chr22.fa.gz" || die "Downloading the genome chr22 failed"
-    gzip -d test/tmp/genome_chr22.fa.gz || die "Unzipping the genome chr22 failed"
+    wget  -N -O test/tmp/genome_chr22.fa.gz "https://raw.githubusercontent.com/imsuneth/shared-files/main/genome_chr22.fa" || die "Downloading the genome chr22 failed"
 fi
 
 if [ ! -f test/tmp/truth.tsv ]; then
