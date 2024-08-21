@@ -100,7 +100,7 @@ int view_main(int argc, char* argv[]) {
     opt_t opt;
     init_opt(&opt); //initialise options to defaults
     opt.subtool = VIEW;
-
+    opt.mod_threshes_str = "0.0";
     //parse the user args
     while ((c = getopt_long(argc, argv, optstring, long_options, &longindex)) >= 0) {
 
