@@ -20,7 +20,9 @@ jobs:
         run: sudo apt-get update && sudo apt-get install -y zlib1g-dev gcc g++ autoconf automake make wget curl
       - name: install htslib
         run: ./scripts/install-hts.sh
-      - name: test
+      - name: install valgrind
+        run: sudo apt-get install -y valgrind
+      - name: memtest
         run: make memtest
   ubuntu_16:
     name: Ubuntu 16
@@ -32,7 +34,9 @@ jobs:
         run: apt-get update && apt-get install -y zlib1g-dev gcc g++ autoconf automake make wget curl bzip2
       - name: install htslib
         run: ./scripts/install-hts.sh
-      - name: test
+      - name: install valgrind
+        run: sudo apt-get install -y valgrind
+      - name: memtest
         run: make memtest
   ubuntu_18:
     name: Ubuntu 18
