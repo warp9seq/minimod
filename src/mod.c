@@ -196,7 +196,10 @@ uint8_t parse_mod_threshes(const char* mod_codes_str, char* mod_thresh_str){
             req_threshes[(int)mod_codes_str[i]] = 51; // 0.2 * 255
         }
     } else {
-        char* token = strtok(mod_thresh_str, ",");
+        char *mod_thresh_str_copy = (char *)malloc(strlen(mod_thresh_str)+1);
+        MALLOC_CHK(mod_thresh_str_copy);
+        strcpy(mod_thresh_str_copy, mod_thresh_str);
+        char* token = strtok(mod_thresh_str_copy, ",");
         i=0;
         while(token!=NULL){
 
@@ -222,6 +225,7 @@ uint8_t parse_mod_threshes(const char* mod_codes_str, char* mod_thresh_str){
             ERROR("Number of modification codes and thresholds do not match. Codes:%d, Thresholds:%d",n_codes,i);
             exit(EXIT_FAILURE);
         }
+        free(mod_thresh_str_copy);
     }
 
     for(i=0; i<n_codes; i++){
