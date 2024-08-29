@@ -108,15 +108,12 @@ typedef struct {
     // alignment
     int ** aln;
     int *** bases_pos;
-    int ** bases_pos_len;
     int ** skip_counts;
-    int * skip_counts_len;
     char ** mod_codes;
 
     double *means;
     // view output
     modbase_t *** modbases;
-    int32_t ** modbases_len;
 
     //stats
     int64_t sum_bytes;
