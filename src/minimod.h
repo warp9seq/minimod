@@ -110,6 +110,7 @@ typedef struct {
     int *** bases_pos;
     int ** skip_counts;
     char ** mod_codes;
+    uint8_t * mod_codes_cap;
 
     double *means;
     // view output

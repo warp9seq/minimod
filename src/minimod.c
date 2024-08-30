@@ -194,6 +194,8 @@ db_t* init_db(core_t* core) {
     MALLOC_CHK(db->skip_counts);
     db->mod_codes = (char**)(malloc(sizeof(char*) * db->cap_bam_recs));
     MALLOC_CHK(db->mod_codes);
+    db->mod_codes_cap = (uint8_t*)(malloc(sizeof(uint8_t) * db->cap_bam_recs));
+    MALLOC_CHK(db->mod_codes_cap);
     db->modbases = (modbase_t***)malloc(sizeof(modbase_t**) * db->cap_bam_recs);
     MALLOC_CHK(db->modbases);
 
@@ -207,6 +209,8 @@ db_t* init_db(core_t* core) {
 
         db->mod_codes[i] = (char*)malloc(sizeof(char)*core->opt.n_mods);
         MALLOC_CHK(db->mod_codes[i]);
+
+        db->mod_codes_cap[i] = core->opt.n_mods;
 
         db->modbases[i] = (modbase_t**)malloc(sizeof(modbase_t*)*core->opt.n_mods);
         MALLOC_CHK(db->modbases[i]);

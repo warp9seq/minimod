@@ -511,12 +511,18 @@ static void get_bases(core_t * core, db_t *db, int32_t bam_i, const char *mm_str
         while (i < mm_str_len && mm_string[i] != ',' && mm_string[i] != ';' && mm_string[i] != '?' && mm_string[i] != '.') {
 
             ASSERT_MSG(valid_mod_codes[(int)mm_string[i]], "Invalid base modification code:%c\n", mm_string[i]);
+
+            if(j >= db->mod_codes_cap[bam_i]) {
+                db->mod_codes_cap[bam_i] *= 2;
+                db->mod_codes[bam_i] = (char *)realloc(db->mod_codes[bam_i], sizeof(char) * db->mod_codes_cap[bam_i]);
+                MALLOC_CHK(db->mod_codes[bam_i]);
+            }
+
             mod_codes[j] = mm_string[i];
             j++;
 
             i++;
         }
-        // mod_codes[j] = '\0';
         mod_codes_len = j;
 
         ASSERT_MSG(mod_codes_len <= 16, "mod_codes_len:%d\n", mod_codes_len);
