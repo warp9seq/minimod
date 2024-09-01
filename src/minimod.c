@@ -438,6 +438,7 @@ void free_db(core_t* core, db_t* db) {
 
     free(db->skip_counts);
     free(db->mod_codes);
+    free(db->mod_codes_cap);
     free(db->modbases);
     free(db->bases_pos);
     free(db->ml_lens);
