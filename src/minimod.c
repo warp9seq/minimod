@@ -460,8 +460,8 @@ void init_opt(opt_t* opt) {
     opt->debug_break=-1;
 
     opt->output_fp = stdout;
-    opt->mod_codes_str = "m";
-    opt->mod_threshes_str = "0.2";
+    opt->mod_codes_str = NULL;
+    opt->mod_threshes_str = NULL;
     opt->progress_interval = 0;
     opt->output_file = NULL;
 

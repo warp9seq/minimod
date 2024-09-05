@@ -93,7 +93,7 @@ static uint8_t req_mods[256] = {
 };
 
 // threshold for the mod freq calculation (51 = 0.2 * 255)
-static double req_threshes[256] = {
+static uint8_t req_threshes[256] = {
     ['a'] = 51, ['b'] = 51, ['c'] = 51, ['e'] = 51, ['f'] = 51, ['g'] = 51, ['h'] = 51, ['m'] = 51, ['n'] = 51, ['o'] = 51, 
     ['A'] = 51, ['C'] = 51, ['G'] = 51, ['T'] = 51, ['U'] = 51, ['N'] = 51
 };
