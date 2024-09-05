@@ -172,6 +172,31 @@ uint8_t *get_ml_tag(bam1_t *record, uint32_t *len_ptr){
 
 }
 
+uint8_t parse_mod_codes(const char* mod_codes_str){
+    uint8_t n_codes = 0, i=0;
+
+    char c;
+    while((c = mod_codes_str[i]) != '\0'){
+        if(valid_mod_codes[(int)c]==0){
+            ERROR("Invalid modification code %c",c);
+            exit(EXIT_FAILURE);
+        }
+        if(req_mods[(int)c]!=255){
+            ERROR("Duplicate modification code %c",c);
+            exit(EXIT_FAILURE);
+        }
+        req_mods[(int)c] = i;
+        i++;
+    }
+    n_codes = i;
+
+    for(i=0; i<n_codes; i++){
+        INFO("modification code: %c", mod_codes_str[i]);
+    }
+
+    return n_codes;
+}
+
 uint8_t parse_mod_threshes(const char* mod_codes_str, char* mod_thresh_str){
     uint8_t n_codes = 0, i=0;
 

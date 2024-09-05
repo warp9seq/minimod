@@ -166,6 +166,12 @@ int mod_freq_main(int argc, char* argv[]) {
         #endif
         } else if(c == 0 && longindex == 13){ //expand output
             yes_or_no(&opt.flag, MINIMOD_EXP, long_options[longindex].name, "yes", 1);
+        } else {
+            print_help_msg(fp_help, opt);
+            if(fp_help == stdout){
+                exit(EXIT_SUCCESS);
+            }
+            exit(EXIT_FAILURE);
         }
     }
 

@@ -43,19 +43,18 @@ SOFTWARE.
 
 static struct option long_options[] = {
     {"mod_codes", required_argument, 0, 'c'},      //0 modification codes (ex. m , h or mh) [m]
-    {"mod_thresh", required_argument, 0, 'm'},     //1 min modification threshold 0.0 to 1.0 [0.2]
-    {"threads", required_argument, 0, 't'},        //2 number of threads [8]
-    {"batchsize", required_argument, 0, 'K'},      //3 batchsize - number of reads loaded at once [512]
-    {"max-bytes", required_argument, 0, 'B'},      //4 batchsize - number of bytes loaded at once
-    {"verbose", required_argument, 0, 'v'},        //5 verbosity level [1]
-    {"help", no_argument, 0, 'h'},                 //6
-    {"version", no_argument, 0, 'V'},              //7
-    {"prog-interval",required_argument, 0, 'p'},   //8 progress interval
-    {"debug-break",required_argument, 0, 0},       //9 break after processing the first batch (used for debugging)
-    {"profile-cpu",required_argument, 0, 0},       //10 perform section by section (used for profiling - for CPU only)
-    {"accel",required_argument, 0, 0},             //11 accelerator
-    {"expand",no_argument, 0, 0},                  //12 expand view
-    {"output",required_argument, 0, 'o'},            //13 output file
+    {"threads", required_argument, 0, 't'},        //1 number of threads [8]
+    {"batchsize", required_argument, 0, 'K'},      //2 batchsize - number of reads loaded at once [512]
+    {"max-bytes", required_argument, 0, 'B'},      //3 batchsize - number of bytes loaded at once
+    {"verbose", required_argument, 0, 'v'},        //4 verbosity level [1]
+    {"help", no_argument, 0, 'h'},                 //5
+    {"version", no_argument, 0, 'V'},              //6
+    {"prog-interval",required_argument, 0, 'p'},   //7 progress interval
+    {"debug-break",required_argument, 0, 0},       //8 break after processing the first batch (used for debugging)
+    {"profile-cpu",required_argument, 0, 0},       //9 perform section by section (used for profiling - for CPU only)
+    {"accel",required_argument, 0, 0},             //10 accelerator
+    {"expand",no_argument, 0, 0},                  //11 expand view
+    {"output",required_argument, 0, 'o'},          //12 output file
     {0, 0, 0, 0}};
 
 
@@ -63,7 +62,6 @@ static inline void print_help_msg(FILE *fp_help, opt_t opt){
     fprintf(fp_help,"Usage: minimod view ref.fa reads.bam\n");
     fprintf(fp_help,"\nbasic options:\n");
     fprintf(fp_help,"   -c STR                     modification code(s) (ex. m , h or mh) [%s]\n", opt.mod_codes_str);
-    fprintf(fp_help,"   -m FLOAT                   min modification threshold(s). Comma separated values for each modification code given in -c [%s]\n", opt.mod_threshes_str);
     fprintf(fp_help,"   -t INT                     number of processing threads [%d]\n",opt.num_thread);
     fprintf(fp_help,"   -K INT                     batch size (max number of reads loaded at once) [%d]\n",opt.batch_size);
     fprintf(fp_help,"   -B FLOAT[K/M/G]            max number of bytes loaded at once [%.1fM]\n",opt.batch_size_bytes/(float)(1000*1000));
@@ -87,7 +85,7 @@ int view_main(int argc, char* argv[]) {
     double realtime0 = realtime();
     double realtime_prog = realtime();
 
-    const char* optstring = "m:c:t:B:K:v:p:o:hV";
+    const char* optstring = "c:t:B:K:v:p:o:hV";
 
     int longindex = 0;
     int32_t c = -1;
@@ -146,20 +144,24 @@ int view_main(int argc, char* argv[]) {
             fp_help = stdout;
         } else if (c=='c') {
             opt.mod_codes_str = optarg;
-        } else if (c=='m'){
-            opt.mod_threshes_str = optarg;
-        } else if(c == 0 && longindex == 9){ //debug break
+        } else if(c == 0 && longindex == 8){ //debug break
             opt.debug_break = atoi(optarg);
-        } else if(c == 0 && longindex == 10){ //sectional benchmark todo : warning for gpu mode
+        } else if(c == 0 && longindex == 9){ //sectional benchmark todo : warning for gpu mode
             yes_or_no(&opt.flag, MINIMOD_PRF, long_options[longindex].name, optarg, 1);
-        } else if(c == 0 && longindex == 11){ //accel
+        } else if(c == 0 && longindex == 10){ //accel
         #ifdef HAVE_ACC
             yes_or_no(&opt.flag, minimod_ACC, long_options[longindex].name, optarg, 1);
         #else
             WARNING("%s", "--accel has no effect when compiled for the CPU");
         #endif
-        } else if(c == 0 && longindex == 12){ //expand output
+        } else if(c == 0 && longindex == 11){ //expand output
             yes_or_no(&opt.flag, MINIMOD_EXP, long_options[longindex].name, "yes", 1);
+        } else {
+            print_help_msg(fp_help, opt);
+            if(fp_help == stdout){
+                exit(EXIT_SUCCESS);
+            }
+            exit(EXIT_FAILURE);
         }
     }
 
@@ -199,12 +201,7 @@ int view_main(int argc, char* argv[]) {
         opt.mod_codes_str = "m";
     }
     
-    if(opt.mod_threshes_str==NULL || strlen(opt.mod_threshes_str)==0){
-        INFO("%s", "Modification threshold not provided. Using default threshold 0.2");
-        opt.mod_threshes_str = "0.2";
-    } 
-    
-    opt.n_mods = parse_mod_threshes(opt.mod_codes_str, opt.mod_threshes_str);
+    opt.n_mods = parse_mod_codes(opt.mod_codes_str);
 
     //load the reference genome
     fprintf(stderr, "[%s] Loading reference genome %s\n", __func__, ref_file);
