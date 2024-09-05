@@ -321,21 +321,35 @@ void update_freq_map(core_t * core, db_t * db) {
                     continue;
                 }
 
+                uint8_t is_mod = 0, is_called = 0;
+                uint8_t thresh = req_threshes[(int)mod_code];
+                uint8_t mod_prob = base->mod_prob;
+                
+                if(mod_prob >= 255-thresh){ // modified with mod_code
+                    is_called = 1;
+                    is_mod = 1;
+                } else if(mod_prob <= thresh){ // not modified with mod_code
+                    is_called = 1;
+                } else { // ambiguous
+                    continue;
+                }
+
+
                 char *key = make_key(tname, base->ref_pos, mod_code, strand);            
                 khiter_t k = kh_get(freqm, freq_map, key);
                 if (k == kh_end(freq_map)) { // not found, add to map
                     freq_t * freq = (freq_t *)malloc(sizeof(freq_t));
                     MALLOC_CHK(freq);
-                    freq->n_called = 1;
-                    freq->n_mod = base->mod_prob >= req_threshes[(int)mod_code] ? 1 : 0;
+                    freq->n_called = is_called;
+                    freq->n_mod = is_mod;
                     int ret;
                     k = kh_put(freqm, freq_map, key, &ret);
                     kh_value(freq_map, k) = freq;
                 } else { // found, update the values
                     free(key);
                     freq_t * freq = kh_value(freq_map, k);
-                    freq->n_called += 1;
-                    freq->n_mod += base->mod_prob >= req_threshes[(int)mod_code] ? 1 : 0;
+                    freq->n_called += is_called;
+                    freq->n_mod += is_mod;
                 }
                 
             }
@@ -618,8 +632,7 @@ static void get_bases(core_t * core, db_t *db, int32_t bam_i, const char *mm_str
             ASSERT_MSG(base_rank < bases_pos_lens[idx], "%d th base of %c not found in SEQ. %c base count is %d read_id:%s seq_len:%d mod.base:%c mod_codes:%s\n", base_rank, mb, mb, bases_pos_lens[idx], qname, seq_len, modbase, mod_codes);
             
             if(rev) {
-                read_pos = bases_pos[idx][bases_pos_lens[idx] - base_rank - 1];
-                read_pos = seq_len - read_pos - 1;
+                read_pos = seq_len - bases_pos[idx][bases_pos_lens[idx] - base_rank - 1] - 1;
             } else {
                 read_pos = bases_pos[idx][base_rank];
             }
