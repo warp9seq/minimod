@@ -43,7 +43,7 @@ Click here to see [how threshold is used in minimod](#modification-codes-and-thr
 ```bash
 minimod view ref.fa reads.bam > mods.tsv
 ```
-This writes all base modifications (default modification code "m" and modification threshold 0.2) to a file (mods.tsv) in tsv format. Sample output is given below.
+This writes all base modifications (default modification code "m") to a file (mods.tsv) in tsv format. Sample output is given below.
 ```
 Usage: minimod view ref.fa reads.bam
 
