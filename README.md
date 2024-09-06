@@ -125,7 +125,7 @@ chr22	19971259	19971259	+	1	1	1.000000	m
 | 3. end   | int | position (0-based) of the base |
 | 4. strand | char | strand (+/-) of the read |
 | 5. n_called | int | number of reads called for base modification |
-| 6. n_mod | int | number of reads with probability (>0.2) for base modification |
+| 6. n_mod | int | number of reads with base modification |
 | 7. freq | float | n_mod/n_called ratio |
 | 8. mod_code | char | base modification code as in [SAMtags: 1.7 Base modifications](https://github.com/samtools/hts-specs/blob/master/SAMtags.pdf) |
 
@@ -148,7 +148,7 @@ chr22	19973437	19973438	m	1	+	19973437	19973437	255,0,0	1	1.000000
 | 2. start | int | position (0-based) of the base |
 | 3. end   | int | position (0-based) of the base |
 | 4. mod_code | char | base modification code as in [SAMtags: 1.7 Base modifications](https://github.com/samtools/hts-specs/blob/master/SAMtags.pdf) |
-| 5. n_mod | int | number of reads with probability (>0.2) for base modification |
+| 5. n_mod | int | number of reads with base modification |
 | 6. strand | char | strand (+/-) of the read |
 | 7. start | int | = field 2 |
 | 8. end   | int | = field 3 |
