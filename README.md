@@ -214,3 +214,7 @@ Make sure that following requirements are met for each step in base modification
    ```
    minimap2 -ax map-ont --sam-hit-only -Y --secondary=no ref.idx reads.fastq
    ```
+
+# Limitations / Future Improvements
+- Does not support alignment BAM files with modification codes as numeric ChEBI codes in MM tag
+- Status of skipped bases (encoded as . or ? in MM tag) are ignored
