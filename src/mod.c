@@ -93,7 +93,7 @@ static uint8_t req_mods[256] = {
 };
 
 // threshold for the mod freq calculation (51 = 0.2 * 255)
-static double req_threshes[256] = {
+static uint8_t req_threshes[256] = {
     ['a'] = 51, ['b'] = 51, ['c'] = 51, ['e'] = 51, ['f'] = 51, ['g'] = 51, ['h'] = 51, ['m'] = 51, ['n'] = 51, ['o'] = 51, 
     ['A'] = 51, ['C'] = 51, ['G'] = 51, ['T'] = 51, ['U'] = 51, ['N'] = 51
 };
@@ -170,6 +170,31 @@ uint8_t *get_ml_tag(bam1_t *record, uint32_t *len_ptr){
 
     return array;
 
+}
+
+uint8_t parse_mod_codes(const char* mod_codes_str){
+    uint8_t n_codes = 0, i=0;
+
+    char c;
+    while((c = mod_codes_str[i]) != '\0'){
+        if(valid_mod_codes[(int)c]==0){
+            ERROR("Invalid modification code %c",c);
+            exit(EXIT_FAILURE);
+        }
+        if(req_mods[(int)c]!=255){
+            ERROR("Duplicate modification code %c",c);
+            exit(EXIT_FAILURE);
+        }
+        req_mods[(int)c] = i;
+        i++;
+    }
+    n_codes = i;
+
+    for(i=0; i<n_codes; i++){
+        INFO("modification code: %c", mod_codes_str[i]);
+    }
+
+    return n_codes;
 }
 
 uint8_t parse_mod_threshes(const char* mod_codes_str, char* mod_thresh_str){
@@ -296,21 +321,35 @@ void update_freq_map(core_t * core, db_t * db) {
                     continue;
                 }
 
+                uint8_t is_mod = 0, is_called = 0;
+                uint8_t thresh = req_threshes[(int)mod_code];
+                uint8_t mod_prob = base->mod_prob;
+                
+                if(mod_prob >= 255-thresh){ // modified with mod_code
+                    is_called = 1;
+                    is_mod = 1;
+                } else if(mod_prob <= thresh){ // not modified with mod_code
+                    is_called = 1;
+                } else { // ambiguous
+                    continue;
+                }
+
+
                 char *key = make_key(tname, base->ref_pos, mod_code, strand);            
                 khiter_t k = kh_get(freqm, freq_map, key);
                 if (k == kh_end(freq_map)) { // not found, add to map
                     freq_t * freq = (freq_t *)malloc(sizeof(freq_t));
                     MALLOC_CHK(freq);
-                    freq->n_called = 1;
-                    freq->n_mod = base->mod_prob >= req_threshes[(int)mod_code] ? 1 : 0;
+                    freq->n_called = is_called;
+                    freq->n_mod = is_mod;
                     int ret;
                     k = kh_put(freqm, freq_map, key, &ret);
                     kh_value(freq_map, k) = freq;
                 } else { // found, update the values
                     free(key);
                     freq_t * freq = kh_value(freq_map, k);
-                    freq->n_called += 1;
-                    freq->n_mod += base->mod_prob >= req_threshes[(int)mod_code] ? 1 : 0;
+                    freq->n_called += is_called;
+                    freq->n_mod += is_mod;
                 }
                 
             }
@@ -511,15 +550,22 @@ static void get_bases(core_t * core, db_t *db, int32_t bam_i, const char *mm_str
         while (i < mm_str_len && mm_string[i] != ',' && mm_string[i] != ';' && mm_string[i] != '?' && mm_string[i] != '.') {
 
             ASSERT_MSG(valid_mod_codes[(int)mm_string[i]], "Invalid base modification code:%c\n", mm_string[i]);
+
+            if(j >= db->mod_codes_cap[bam_i]) {
+                db->mod_codes_cap[bam_i] *= 2;
+                db->mod_codes[bam_i] = (char *)realloc(db->mod_codes[bam_i], sizeof(char) * (db->mod_codes_cap[bam_i] + 1)); // +1 for null terminator
+                MALLOC_CHK(db->mod_codes[bam_i]);
+            }
+
             mod_codes[j] = mm_string[i];
             j++;
 
             i++;
         }
-        // mod_codes[j] = '\0';
+        mod_codes[j] = '\0';
         mod_codes_len = j;
 
-        ASSERT_MSG(mod_codes_len <= 16, "mod_codes_len:%d\n", mod_codes_len);
+        ASSERT_MSG(mod_codes_len>0 && mod_codes_len <= 16, "mod_codes_len:%d\n", mod_codes_len);
 
         // get modification status flag
         if(i < mm_str_len && ( mm_string[i] == '?' || mm_string[i] == '.' )) {
@@ -586,8 +632,7 @@ static void get_bases(core_t * core, db_t *db, int32_t bam_i, const char *mm_str
             ASSERT_MSG(base_rank < bases_pos_lens[idx], "%d th base of %c not found in SEQ. %c base count is %d read_id:%s seq_len:%d mod.base:%c mod_codes:%s\n", base_rank, mb, mb, bases_pos_lens[idx], qname, seq_len, modbase, mod_codes);
             
             if(rev) {
-                read_pos = bases_pos[idx][bases_pos_lens[idx] - base_rank - 1];
-                read_pos = seq_len - read_pos - 1;
+                read_pos = seq_len - bases_pos[idx][bases_pos_lens[idx] - base_rank - 1] - 1;
             } else {
                 read_pos = bases_pos[idx][base_rank];
             }

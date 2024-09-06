@@ -166,6 +166,12 @@ int mod_freq_main(int argc, char* argv[]) {
         #endif
         } else if(c == 0 && longindex == 13){ //expand output
             yes_or_no(&opt.flag, MINIMOD_EXP, long_options[longindex].name, "yes", 1);
+        } else {
+            print_help_msg(fp_help, opt);
+            if(fp_help == stdout){
+                exit(EXIT_SUCCESS);
+            }
+            exit(EXIT_FAILURE);
         }
     }
 
@@ -200,6 +206,16 @@ int mod_freq_main(int argc, char* argv[]) {
         exit(EXIT_FAILURE);
     }
 
+    if(opt.mod_codes_str==NULL || strlen(opt.mod_codes_str)==0){
+        INFO("%s", "Modification codes not provided. Using default modification code m");
+        opt.mod_codes_str = "m";
+    }
+    
+    if(opt.mod_threshes_str==NULL || strlen(opt.mod_threshes_str)==0){
+        INFO("%s", "Modification threshold not provided. Using default threshold 0.2");
+        opt.mod_threshes_str = "0.2";
+    } 
+    
     opt.n_mods = parse_mod_threshes(opt.mod_codes_str, opt.mod_threshes_str);
 
     //load the reference genome

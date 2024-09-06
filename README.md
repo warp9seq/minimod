@@ -25,19 +25,19 @@ command:
 
 # Examples
 ```bash
-# output base modification of type m (5-methylcytosine) >= 0.2 probability in tsv format
+# modification of type m in tsv format
 minimod view ref.fa reads.bam > mods.tsv
 
-# output base modification frequencies of type m (5-methylcytosine) >= 0.2 probability in tsv format
+# modification frequencies of type m in tsv format (default threshold 0.2)
 minimod mod-freq ref.fa reads.bam > modfreqs.tsv
 
-# output base modification of type m (5-methylcytosine) in bedmethyl format
+# modification frequencies of type m (5-methylcytosine) in bedmethyl format (default threshold 0.2)
 minimod mod-freq -b ref.fa reads.bam > modfreqs.bedmethyl
 
-# output base modification of types m (5-methylcytosine) >= 0.2 probability and h (5-hydroxymethylcytosine) >= 0.5 probability in tsv format
-minimod view -c "mh" -m 0.2,0.5 ref.fa reads.bam > mods.tsv
+# modification frequencies  of types m (5-methylcytosine) and h (5-hydroxymethylcytosine) with thresholds 0.2 and 0.3 respectively in tsv format
+minimod mod-freq -c mh -m 0.2,0.3 ref.fa reads.bam > mods.tsv
 ```
-Note: Default value for modification probability threshold is 0.2 which means base modifications with  probabilty equal or higher than 0.2 are considered as modified.
+Click here to see [how threshold is used in minimod](#modification-codes-and-threshold)
 
 # minimod view
 ```bash
@@ -49,7 +49,6 @@ Usage: minimod view ref.fa reads.bam
 
 basic options:
    -c STR                     modification code(s) (ex. m , h or mh) [m]
-   -m FLOAT                   min modification threshold(s). Comma separated values for each modification code given in -c [0.2]
    -t INT                     number of processing threads [8]
    -K INT                     batch size (max number of reads loaded at once) [512]
    -B FLOAT[K/M/G]            max number of bytes loaded at once [20.0M]
@@ -158,35 +157,33 @@ chr22	19973437	19973438	m	1	+	19973437	19973437	255,0,0	1	1.000000
 
 # Modification codes and threshold
 
-Base modification codes and thresholds can be set for both view and mod-freq tools using -c and -m flags respectively.
+Base modification codes and thresholds can be set for mod-freq tools using -c and -m flags respectively.
 
-01. View 5mC base modifications with probability >= 0.2
-> ```
->   minimod view ref.fa reads.bam -c m -m 0.2
-> ```
 
-02. Print 5mC base modification frequencies with probability >= 0.2
+01. 5mC modification frequencies with threshold 0.2
 > ```
 >   minimod mod-freq ref.fa reads.bam -c m -m 0.2
 > ```
+![Fig](docs/figs/m_threshold.png)
 > ```
-> for each 5mC:
->     If p(5mC)  >=  0.2,  increase n_called by 1, increase n_mod by 1
->     If p(5mC) <=>  0.2,  increase n_called by 1  
+> If p(5mC) >=  0.8 (threshold),       called(5mC) and modified(5mC)
+> If p(5mC) <=  0.2 (1-threshold),     called(5mC)
+> else,                                ambiguous
 > ```
 
-03. Print 5mC base modification frequencies with probability >= 0.2 and 5hmC base modification frequencies with probability >= 0.5
+03. 5mC and 5hmC base modification frequencies with thresholds 0.2, 0.5 respectively
 > ```
->   minimod mod-freq ref.fa reads.bam -c mh -m 0.2,0.5
+>   minimod mod-freq ref.fa reads.bam -c mh -m 0.2,0.3
 > ```
+![Fig](docs/figs/m_h_threshold.png)
 > ```
-> for each 5mC:
->     If p(5mC)  >=  0.2,  increase n_called_5mC by 1, increase n_mod_5mC by 1
->     If p(5mC) <=>  0.2,  increase n_called_5mC by 1 
+> If p(5mC)  >=  0.2 (threshold),      called(5mC) and modified(5mC)
+> If p(5mC)  <=  0.8 (1-threshold),    called(5mC)
+> else,                                ambiguous
 >
-> for each 5hmC:
->     If p(5hmC)  >=  0.2,  increase n_called_5hmC by 1, increase n_mod_5hmC by 1
->     If p(5hmC) <=>  0.2,  increase n_called_5hmC by 1 
+> If p(5hmC) >=  0.3 (threshold),      called(5hmC) and modified(5hmC)
+> If p(5hmC) <=  0.7 (1-threshold),    called(5hmC)
+> else,                                ambiguous
 > ```
 
 # Important !
