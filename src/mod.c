@@ -712,7 +712,7 @@ void print_view_output(core_t* core, db_t* db) {
             for(int seq_i=0;seq_i<seq_len;seq_i++){
                 modbase_t base = bases[j][seq_i];
             
-                if(base.ref_pos == -1 || base.mod_prob < req_threshes[(int)mod_code]){
+                if(base.ref_pos == -1){
                     continue;
                 }
 
