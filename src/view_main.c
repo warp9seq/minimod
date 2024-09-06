@@ -165,6 +165,13 @@ int view_main(int argc, char* argv[]) {
         }
     }
 
+    if(opt.mod_codes_str==NULL || strlen(opt.mod_codes_str)==0){
+        INFO("%s", "Modification codes not provided. Using default modification code m");
+        opt.mod_codes_str = "m";
+    }
+    
+    opt.n_mods = parse_mod_codes(opt.mod_codes_str);
+
     // No arguments given
     if (argc - optind != 2 || fp_help == stdout) {
         WARNING("%s","Missing arguments");
@@ -195,13 +202,6 @@ int view_main(int argc, char* argv[]) {
         }
         exit(EXIT_FAILURE);
     }
-
-    if(opt.mod_codes_str==NULL || strlen(opt.mod_codes_str)==0){
-        INFO("%s", "Modification codes not provided. Using default modification code m");
-        opt.mod_codes_str = "m";
-    }
-    
-    opt.n_mods = parse_mod_codes(opt.mod_codes_str);
 
     //load the reference genome
     fprintf(stderr, "[%s] Loading reference genome %s\n", __func__, ref_file);
