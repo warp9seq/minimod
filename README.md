@@ -168,6 +168,7 @@ Base modification codes and thresholds can be set for mod-freq tools using -c an
 > ```
 > If p(5mC) >=  0.8 (threshold),       called(5mC) and modified(5mC)
 > If p(5mC) <=  0.2 (1-threshold),     called(5mC)
+> else,                                ambiguous
 > ```
 
 03. 5mC and 5hmC base modification frequencies with thresholds 0.2, 0.5 respectively
@@ -177,10 +178,12 @@ Base modification codes and thresholds can be set for mod-freq tools using -c an
 ![Fig](docs/figs/m_h_threshold.png)
 > ```
 > If p(5mC)  >=  0.2 (threshold),      called(5mC) and modified(5mC)
-> If p(5mC)  <=  0.8 (1-threshold),    called(5mC) 
+> If p(5mC)  <=  0.8 (1-threshold),    called(5mC)
+> else,                                ambiguous
 >
 > If p(5hmC) >=  0.3 (threshold),      called(5hmC) and modified(5hmC)
 > If p(5hmC) <=  0.7 (1-threshold),    called(5hmC)
+> else,                                ambiguous
 > ```
 
 # Important !
