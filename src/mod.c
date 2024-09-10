@@ -92,10 +92,10 @@ static uint8_t req_mods[256] = {
     ['A'] = 255, ['C'] = 255, ['G'] = 255, ['T'] = 255, ['U'] = 255, ['N'] = 255
 };
 
-// threshold for the mod freq calculation (51 = 0.2 * 255)
+// threshold for the mod freq calculation (204 = 0.8 * 255)
 static uint8_t req_threshes[256] = {
-    ['a'] = 51, ['b'] = 51, ['c'] = 51, ['e'] = 51, ['f'] = 51, ['g'] = 51, ['h'] = 51, ['m'] = 51, ['n'] = 51, ['o'] = 51, 
-    ['A'] = 51, ['C'] = 51, ['G'] = 51, ['T'] = 51, ['U'] = 51, ['N'] = 51
+    ['a'] = 204, ['b'] = 204, ['c'] = 204, ['e'] = 204, ['f'] = 204, ['g'] = 204, ['h'] = 204, ['m'] = 204, ['n'] = 204, ['o'] = 204, 
+    ['A'] = 204, ['C'] = 204, ['G'] = 204, ['T'] = 204, ['U'] = 204, ['N'] = 204
 };
 
 static inline int die(const char *format, ...) {
@@ -216,9 +216,9 @@ uint8_t parse_mod_threshes(const char* mod_codes_str, char* mod_thresh_str){
     n_codes = i;
 
     if(mod_thresh_str==NULL || strlen(mod_thresh_str)==0){
-        INFO("%s", "Modification threshold not provided. Using default threshold 0.2");
+        INFO("%s", "Modification threshold not provided. Using default threshold 0.8");
         for(uint8_t i=0;i<n_codes;i++){
-            req_threshes[(int)mod_codes_str[i]] = 51; // 0.2 * 255
+            req_threshes[(int)mod_codes_str[i]] = 204; // 0.8 * 255
         }
     } else {
         char *mod_thresh_str_copy = (char *)malloc(strlen(mod_thresh_str)+1);
@@ -242,6 +242,8 @@ uint8_t parse_mod_threshes(const char* mod_codes_str, char* mod_thresh_str){
                 exit(EXIT_FAILURE);
             }
 
+            INFO("modification code: %c, modification threshold: %f", mod_codes_str[i], d);
+
             req_threshes[(int)mod_codes_str[i]] = d*255;
             token = strtok(NULL, ",");
             i++;
@@ -251,10 +253,6 @@ uint8_t parse_mod_threshes(const char* mod_codes_str, char* mod_thresh_str){
             exit(EXIT_FAILURE);
         }
         free(mod_thresh_str_copy);
-    }
-
-    for(i=0; i<n_codes; i++){
-        INFO("modification code: %c, modification threshold: %f", mod_codes_str[i], req_threshes[(int)mod_codes_str[i]]/255.0);
     }
 
     return n_codes;
@@ -325,10 +323,10 @@ void update_freq_map(core_t * core, db_t * db) {
                 uint8_t thresh = req_threshes[(int)mod_code];
                 uint8_t mod_prob = base->mod_prob;
                 
-                if(mod_prob >= 255-thresh){ // modified with mod_code
+                if(mod_prob >= thresh){ // modified with mod_code
                     is_called = 1;
                     is_mod = 1;
-                } else if(mod_prob <= thresh){ // not modified with mod_code
+                } else if(mod_prob <= 255-thresh){ // not modified with mod_code
                     is_called = 1;
                 } else { // ambiguous
                     continue;
@@ -357,6 +355,12 @@ void update_freq_map(core_t * core, db_t * db) {
     }
 }
 
+void print_freq_tsv_header(core_t * core) {
+    if(!core->opt.bedmethyl_out) {
+        fprintf(core->opt.output_fp, "contig\tstart\tend\tstrand\tn_called\tn_mod\tfreq\tmod_code\n");
+    }
+}
+
 void print_freq_output(core_t * core) {
     khash_t(freqm) *freq_map = core->freq_map;
     if(core->opt.bedmethyl_out) {
@@ -380,7 +384,6 @@ void print_freq_output(core_t * core) {
         
     } else {
         // contig, start, end, strand, n_called, n_mod, freq, mod_code
-        fprintf(core->opt.output_fp, "contig\tstart\tend\tstrand\tn_called\tn_mod\tfreq\tmod_code\n");
         khint_t k;
         for (k = kh_begin(freq_map); k != kh_end(freq_map); ++k) {
             if (kh_exist(freq_map, k)) {
@@ -689,8 +692,11 @@ static void get_bases(core_t * core, db_t *db, int32_t bam_i, const char *mm_str
     }
 }
 
-void print_view_output(core_t* core, db_t* db) {
+void print_view_header(core_t* core) {
     fprintf(core->opt.output_fp, "ref_contig\tref_pos\tstrand\tread_id\tread_pos\tmod_code\tmod_prob\n");
+}
+
+void print_view_output(core_t* core, db_t* db) {
     for(int i=0;i<db->n_bam_recs;i++){
         bam1_t *record = db->bam_recs[i];
         bam_hdr_t * hdr = core->bam_hdr;

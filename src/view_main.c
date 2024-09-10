@@ -98,7 +98,6 @@ int view_main(int argc, char* argv[]) {
     opt_t opt;
     init_opt(&opt); //initialise options to defaults
     opt.subtool = VIEW;
-    opt.mod_threshes_str = "0.0";
     //parse the user args
     while ((c = getopt_long(argc, argv, optstring, long_options, &longindex)) >= 0) {
 
@@ -215,6 +214,8 @@ int view_main(int argc, char* argv[]) {
 
     //initialise a databatch
     db_t* db = init_db(core);
+
+    print_view_header(core);
 
     ret_status_t status = {core->opt.batch_size,core->opt.batch_size_bytes};
     while (status.num_reads >= core->opt.batch_size || status.num_bytes>=core->opt.batch_size_bytes) {

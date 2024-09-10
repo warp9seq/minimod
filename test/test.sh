@@ -92,14 +92,14 @@ diff -q test/tmp/test6.bedmethyl.exp.sorted test/tmp/test6.bedmethyl.sorted || d
 
 testname="Test 7: mod-freq ont with mod threshold"
 echo -e "${BLUE}${testname}${NC}"
-ex  ./minimod mod-freq -m 0.2 -t 8 test/tmp/genome_chr22.fa test/data/example-ont.bam > test/tmp/test7.tsv || die "${testname} Running the tool failed"
+ex  ./minimod mod-freq -m 0.8 -t 8 test/tmp/genome_chr22.fa test/data/example-ont.bam > test/tmp/test7.tsv || die "${testname} Running the tool failed"
 sort -k1,1 -k2,2n -k4,4 test/expected/test7.tsv > test/tmp/test7.exp.tsv.sorted
 sort -k1,1 -k2,2n -k4,4 test/tmp/test7.tsv > test/tmp/test7.tsv.sorted
 diff -q test/tmp/test7.exp.tsv.sorted test/tmp/test7.tsv.sorted || die "${testname} diff failed"
 
 testname="Test 8: mod-freq ont with mod codes m and h"
 echo -e "${BLUE}${testname}${NC}"
-ex  ./minimod mod-freq -c "mh" -m 0.2,0.2 -t 8 test/tmp/genome_chr22.fa test/data/example-ont.bam > test/tmp/test8.tsv || die "${testname} Running the tool failed"
+ex  ./minimod mod-freq -c "mh" -m 0.8,0.8 -t 8 test/tmp/genome_chr22.fa test/data/example-ont.bam > test/tmp/test8.tsv || die "${testname} Running the tool failed"
 sort -k1,1 -k2,2n -k4,4 test/expected/test8.tsv > test/tmp/test8.exp.tsv.sorted
 sort -k1,1 -k2,2n -k4,4 test/tmp/test8.tsv > test/tmp/test8.tsv.sorted
 diff -q test/tmp/test8.exp.tsv.sorted test/tmp/test8.tsv.sorted || die "${testname} diff failed"
@@ -127,7 +127,7 @@ diff -q test/tmp/test11.exp.tsv.sorted test/tmp/test11.tsv.sorted || die "${test
 
 testname="Test 12: mod-freq ont with mod codes m and h with different thresholds"
 echo -e "${BLUE}${testname}${NC}"
-ex  ./minimod mod-freq -c "mh" -m "0.2,0.5" -t 8 test/tmp/genome_chr22.fa test/data/example-ont.bam > test/tmp/test12.tsv || die "${testname} Running the tool failed"
+ex  ./minimod mod-freq -c "mh" -m "0.8,0.5" -t 8 test/tmp/genome_chr22.fa test/data/example-ont.bam > test/tmp/test12.tsv || die "${testname} Running the tool failed"
 sort -k1,1 -k2,2n -k4,4 test/expected/test12.tsv > test/tmp/test12.exp.tsv.sorted
 sort -k1,1 -k2,2n -k4,4 test/tmp/test12.tsv > test/tmp/test12.tsv.sorted
 diff -q test/tmp/test12.exp.tsv.sorted test/tmp/test12.tsv.sorted || die "${testname} diff failed"

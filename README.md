@@ -28,14 +28,14 @@ command:
 # modification of type m in tsv format
 minimod view ref.fa reads.bam > mods.tsv
 
-# modification frequencies of type m in tsv format (default threshold 0.2)
+# modification frequencies of type m in tsv format (default threshold 0.8)
 minimod mod-freq ref.fa reads.bam > modfreqs.tsv
 
-# modification frequencies of type m (5-methylcytosine) in bedmethyl format (default threshold 0.2)
+# modification frequencies of type m (5-methylcytosine) in bedmethyl format (default threshold 0.8)
 minimod mod-freq -b ref.fa reads.bam > modfreqs.bedmethyl
 
-# modification frequencies  of types m (5-methylcytosine) and h (5-hydroxymethylcytosine) with thresholds 0.2 and 0.3 respectively in tsv format
-minimod mod-freq -c mh -m 0.2,0.3 ref.fa reads.bam > mods.tsv
+# modification frequencies  of types m (5-methylcytosine) and h (5-hydroxymethylcytosine) with thresholds 0.8 and 0.7 respectively in tsv format
+minimod mod-freq -c mh -m 0.8,0.7 ref.fa reads.bam > mods.tsv
 ```
 Click here to see [how threshold is used in minimod](#modification-codes-and-threshold)
 
@@ -87,14 +87,14 @@ chr22	19979948	+	m84088_230609_030819_s1/55512555/ccs	98	m	0.623529
 ```bash
 minimod mod-freq ref.fa reads.bam > modfreqs.tsv
 ```
-This writes base modification frequencies (default modification code "m" and modification threshold 0.2) to a file (modfreqs.tsv) file in tsv format. Sample output is given below.
+This writes base modification frequencies (default modification code "m" and modification threshold 0.8) to a file (modfreqs.tsv) file in tsv format. Sample output is given below.
 ```
 Usage: minimod mod-freq ref.fa reads.bam
 
 basic options:
    -b                         output in bedMethyl format [not set]
    -c STR                     modification codes (ex. m , h or mh) [m]
-   -m FLOAT                   min modification threshold(s). Comma separated values for each modification code given in -c [0.2]
+   -m FLOAT                   min modification threshold(s). Comma separated values for each modification code given in -c [0.8]
    -t INT                     number of processing threads [8]
    -K INT                     batch size (max number of reads loaded at once) [512]
    -B FLOAT[K/M/G]            max number of bytes loaded at once [20.0M]
@@ -160,30 +160,38 @@ chr22	19973437	19973438	m	1	+	19973437	19973437	255,0,0	1	1.000000
 Base modification codes and thresholds can be set for mod-freq tools using -c and -m flags respectively.
 
 
-01. 5mC modification frequencies with threshold 0.2
+01. 5mC modification frequencies with threshold 0.8
 > ```
->   minimod mod-freq ref.fa reads.bam -c m -m 0.2
+>   minimod mod-freq ref.fa reads.bam -c m -m 0.8
 > ```
 ![Fig](docs/figs/m_threshold.png)
 > ```
 > If p(5mC) >=  0.8 (threshold),       called(5mC) and modified(5mC)
 > If p(5mC) <=  0.2 (1-threshold),     called(5mC)
-> else,                                ambiguous
+> else,                                ignored as ambiguous
+>
+> mod_freq(5mC) = total_modified(5mC)/total_called(5mC)
 > ```
 
-03. 5mC and 5hmC base modification frequencies with thresholds 0.2, 0.5 respectively
+03. 5mC and 5hmC base modification frequencies with thresholds 0.8, 0.7 respectively
 > ```
->   minimod mod-freq ref.fa reads.bam -c mh -m 0.2,0.3
+>   minimod mod-freq ref.fa reads.bam -c mh -m 0.8,0.7
 > ```
 ![Fig](docs/figs/m_h_threshold.png)
 > ```
-> If p(5mC)  >=  0.2 (threshold),      called(5mC) and modified(5mC)
-> If p(5mC)  <=  0.8 (1-threshold),    called(5mC)
+> If p(5mC)  >=  0.8 (threshold),      called(5mC) and modified(5mC)
+> If p(5mC)  <=  0.2 (1-threshold),    called(5mC)
 > else,                                ambiguous
 >
-> If p(5hmC) >=  0.3 (threshold),      called(5hmC) and modified(5hmC)
-> If p(5hmC) <=  0.7 (1-threshold),    called(5hmC)
-> else,                                ambiguous
+> mod_freq(5mC) = total_modified(5mC)/total_called(5mC)
+> ```
+
+> ```
+> If p(5hmC) >=  0.7 (threshold),      called(5hmC) and modified(5hmC)
+> If p(5hmC) <=  0.3 (1-threshold),    called(5hmC)
+> else,                                ignored as ambiguous
+>
+> mod_freq(5hmC) = total_modified(5hmC)/total_called(5hmC)
 > ```
 
 # Important !
