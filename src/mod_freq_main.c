@@ -46,7 +46,7 @@ SOFTWARE.
 static struct option long_options[] = {
     {"bedmethyl", no_argument, 0, 'b'},            //0 output in bedMethyl format
     {"mod_codes", required_argument, 0, 'c'},      //1 modification codes (ex. m , h or mh) [m]
-    {"mod_thresh", required_argument, 0, 'm'},     //2 min modification threshold 0.0 to 1.0 [0.2]
+    {"mod_thresh", required_argument, 0, 'm'},     //2 min modification threshold 0.0 to 1.0 [0.8]
     {"threads", required_argument, 0, 't'},        //3 number of threads [8]
     {"batchsize", required_argument, 0, 'K'},      //4 batchsize - number of reads loaded at once [512]
     {"max-bytes", required_argument, 0, 'B'},      //5 batchsize - number of bytes loaded at once
@@ -181,8 +181,8 @@ int mod_freq_main(int argc, char* argv[]) {
     }
     
     if(opt.mod_threshes_str==NULL || strlen(opt.mod_threshes_str)==0){
-        INFO("%s", "Modification threshold not provided. Using default threshold 0.2");
-        opt.mod_threshes_str = "0.2";
+        INFO("%s", "Modification threshold not provided. Using default threshold 0.8");
+        opt.mod_threshes_str = "0.8";
     } 
     
     opt.n_mods = parse_mod_threshes(opt.mod_codes_str, opt.mod_threshes_str);
