@@ -231,7 +231,7 @@ int mod_freq_main(int argc, char* argv[]) {
     //initialise a databatch
     db_t* db = init_db(core);
 
-    //load the first data batch
+    print_freq_tsv_header(core);
 
     ret_status_t status = {core->opt.batch_size,core->opt.batch_size_bytes};
     while (status.num_reads >= core->opt.batch_size || status.num_bytes>=core->opt.batch_size_bytes) {

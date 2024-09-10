@@ -216,6 +216,8 @@ int view_main(int argc, char* argv[]) {
     //initialise a databatch
     db_t* db = init_db(core);
 
+    print_view_header(core);
+
     ret_status_t status = {core->opt.batch_size,core->opt.batch_size_bytes};
     while (status.num_reads >= core->opt.batch_size || status.num_bytes>=core->opt.batch_size_bytes) {
 

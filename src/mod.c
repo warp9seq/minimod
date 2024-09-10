@@ -357,6 +357,12 @@ void update_freq_map(core_t * core, db_t * db) {
     }
 }
 
+void print_freq_tsv_header(core_t * core) {
+    if(!core->opt.bedmethyl_out) {
+        fprintf(core->opt.output_fp, "contig\tstart\tend\tstrand\tn_called\tn_mod\tfreq\tmod_code\n");
+    }
+}
+
 void print_freq_output(core_t * core) {
     khash_t(freqm) *freq_map = core->freq_map;
     if(core->opt.bedmethyl_out) {
@@ -380,7 +386,6 @@ void print_freq_output(core_t * core) {
         
     } else {
         // contig, start, end, strand, n_called, n_mod, freq, mod_code
-        fprintf(core->opt.output_fp, "contig\tstart\tend\tstrand\tn_called\tn_mod\tfreq\tmod_code\n");
         khint_t k;
         for (k = kh_begin(freq_map); k != kh_end(freq_map); ++k) {
             if (kh_exist(freq_map, k)) {
@@ -689,8 +694,11 @@ static void get_bases(core_t * core, db_t *db, int32_t bam_i, const char *mm_str
     }
 }
 
-void print_view_output(core_t* core, db_t* db) {
+void print_view_header(core_t* core) {
     fprintf(core->opt.output_fp, "ref_contig\tref_pos\tstrand\tread_id\tread_pos\tmod_code\tmod_prob\n");
+}
+
+void print_view_output(core_t* core, db_t* db) {
     for(int i=0;i<db->n_bam_recs;i++){
         bam1_t *record = db->bam_recs[i];
         bam_hdr_t * hdr = core->bam_hdr;
