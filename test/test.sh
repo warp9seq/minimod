@@ -37,10 +37,22 @@ if [ ! -f test/tmp/truth.tsv ]; then
 fi
 
 exp_corr=0.84 # update this if the expected correlation changes
-testname="Accuracy Test: mod-freq results correlation with truthset"
+testname="Accuracy Test: mod-freq bedmethyl correlation with truthset"
 echo -e "${BLUE}${testname}${NC}"
 ex  ./minimod mod-freq -t 8 -b test/tmp/genome_chr22.fa test/data/example-ont.bam > test/tmp/accu.bedmethyl  || die "${testname} Running the tool failed"
 corr=`./test/compare.py test/tmp/truth.tsv test/tmp/accu.bedmethyl`
+if (( $(echo "$corr >= $exp_corr" | bc -l) )); then
+    echo -e "${GREEN}Corr: $corr\tExpected: $exp_corr\tPassed${NC}\n"
+elif (( $(echo "$exp_corr > $corr" | bc -l) )); then
+    echo -e "${RED}Corr: $corr\tExpected: $exp_corr\tDecreased${NC}\n"
+    die "${testname} Correlation decreased"
+fi
+
+exp_corr=0.85 # update this if the expected correlation changes
+testname="Accuracy Test: mod-freq tsv correlation with truthset"
+echo -e "${BLUE}${testname}${NC}"
+ex  ./minimod mod-freq -t 8 test/tmp/genome_chr22.fa test/data/example-ont.bam > test/tmp/accu.mm.tsv  || die "${testname} Running the tool failed"
+corr=`./test/compare.py test/tmp/truth.tsv test/tmp/accu.mm.tsv`
 if (( $(echo "$corr >= $exp_corr" | bc -l) )); then
     echo -e "${GREEN}Corr: $corr\tExpected: $exp_corr\tPassed${NC}\n"
 elif (( $(echo "$exp_corr > $corr" | bc -l) )); then
