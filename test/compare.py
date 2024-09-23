@@ -38,6 +38,28 @@ def update_stats(collection, key, num_reads, num_methylated_reads, atype):
     else:
         collection[key].accumulate(num_reads, num_methylated_reads)
 
+
+def load_mm_tsv(filename):
+    out = dict()
+    csv_reader = csv.DictReader(open(filename), delimiter='\t')
+
+    for record in csv_reader:
+        contig = record["contig"]
+        start = int(record["start"])
+        strand = record["strand"]
+        n_mod = int(record["n_mod"])
+        n_called = int(record["n_called"])
+
+        # accumulate on forward strand
+        if strand == "+":
+            key = make_key(contig, str(start), str(start))
+        else:
+            key = make_key(contig, str(start - 1), str(start - 1))
+
+        update_stats(out, key, n_called, n_mod, "mm.tsv")
+
+    return out
+
 def load_tsv(filename):
     out = dict()
     csv_reader = csv.DictReader(open(filename), delimiter='\t')
@@ -60,9 +82,8 @@ def load_bedmethyl(filename):
     fh = open(filename)
     for line in fh:
         fields = line.rstrip().split()
-        chromosome = fields[0]
+        contig = fields[0]
         start = int(fields[1])
-        end = int(fields[2])
         strand = fields[5]
         num_reads = float(fields[9])
         percent_methylated = float(fields[10])
@@ -71,9 +92,9 @@ def load_bedmethyl(filename):
 
         # accumulate on forward strand
         if strand == "+":
-            key = make_key(chromosome, str(start), str(start))
+            key = make_key(contig, str(start), str(start))
         else:
-            key = make_key(chromosome, str(start - 1), str(start - 1))
+            key = make_key(contig, str(start - 1), str(start - 1))
 
         update_stats(out, key, num_reads, methylated_reads, "bedmethyl")
 
@@ -83,6 +104,8 @@ def load_bedmethyl(filename):
 def load_methylation(filename):
     if filename.find("bedmethyl") != -1:
         return load_bedmethyl(filename)
+    elif filename.find(".mm.tsv") != -1: #minimod mod_freq output
+        return load_mm_tsv(filename)
     elif filename.find("tsv") != -1:
         return load_tsv(filename)
     else:
