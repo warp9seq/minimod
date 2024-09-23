@@ -37,22 +37,10 @@ if [ ! -f test/tmp/truth.tsv ]; then
 fi
 
 exp_corr=0.84 # update this if the expected correlation changes
-testname="Accuracy Test: mod-freq bedmethyl correlation with truthset"
+testname="Accuracy Test: mod-freq results correlation with truthset"
 echo -e "${BLUE}${testname}${NC}"
 ex  ./minimod mod-freq -t 8 -b test/tmp/genome_chr22.fa test/data/example-ont.bam > test/tmp/accu.bedmethyl  || die "${testname} Running the tool failed"
 corr=`./test/compare.py test/tmp/truth.tsv test/tmp/accu.bedmethyl`
-if (( $(echo "$corr >= $exp_corr" | bc -l) )); then
-    echo -e "${GREEN}Corr: $corr\tExpected: $exp_corr\tPassed${NC}\n"
-elif (( $(echo "$exp_corr > $corr" | bc -l) )); then
-    echo -e "${RED}Corr: $corr\tExpected: $exp_corr\tDecreased${NC}\n"
-    die "${testname} Correlation decreased"
-fi
-
-exp_corr=0.85 # update this if the expected correlation changes
-testname="Accuracy Test: mod-freq tsv correlation with truthset"
-echo -e "${BLUE}${testname}${NC}"
-ex  ./minimod mod-freq -t 8 test/tmp/genome_chr22.fa test/data/example-ont.bam > test/tmp/accu.mm.tsv  || die "${testname} Running the tool failed"
-corr=`./test/compare.py test/tmp/truth.tsv test/tmp/accu.mm.tsv`
 if (( $(echo "$corr >= $exp_corr" | bc -l) )); then
     echo -e "${GREEN}Corr: $corr\tExpected: $exp_corr\tPassed${NC}\n"
 elif (( $(echo "$exp_corr > $corr" | bc -l) )); then
@@ -156,31 +144,5 @@ echo -e "${BLUE}${testname}${NC}"
 ex  ./minimod mod-freq -t 8 test/tmp/genome_chr22.fa test/data/example-ont.bam -o test/tmp/test14.tsv || die "${testname} Running the tool failed"
 sort -k1,1 -k2,2n -k4,4 test/tmp/test14.tsv > test/tmp/test14.tsv.sorted
 diff -q test/tmp/test5.exp.tsv.sorted test/tmp/test14.tsv.sorted || die "${testname} diff failed"
-
-# ======= Extensive tests (prerequisits: buttery-eel, minimap2) - tested on gtgpu =======
-# blow5=/home/hasindu/scratch/hg2_prom_lsk114_5khz/chr22/PGXXXX230339_reads_chr22.blow5
-# guppybin=/data/suneth/tools/ont-dorado-server/bin
-# model=dna_r10.4.1_e8.2_400bps_5khz_modbases_5hmc_5mc_cg_hac.cfg
-# ref=/genome/hg38noAlt.fa
-# refidx=/genome/hg38noAlt.idx
-
-# buttery-eel -g $guppybin --port 5000 --use_tcp --device cuda:all --call_mods --config $model -i $blow5 -o "reads.unaligned.sam" || die "${testname} Running buttery-eel failed"
-# samtools fastq -@ 32 -TMM,ML "reads.unaligned.sam" | minimap2 -t 32 -x map-ont --sam-hit-only -Y -a -y --secondary=no $refidx - | samtools sort -@ 32 - > "reads.bam" || die "${testname} Running samtools, minimap2 failed"
-# samtools index -@ 32 "reads.bam" || die "${testname} Running samtools index failed"
-
-# testname="Ext. Test 1: view extensive test using PGXXXX230339_reads_chr22"
-# expected=/data/suneth/do_not_delete/ext_test_minimod/ext.test1.tsv
-# echo -e "${BLUE}${testname}${NC}"
-# ex  ./minimod view -m 0.0 -t 32 $ref reads.bam > test/tmp/ext.test1.tsv  || die "${testname} Running the tool failed"
-# diff -q $expected test/tmp/ext.test1.tsv || die "${testname} diff failed"
-
-# testname="Ext. Test 2: mod-freq extensive test using PGXXXX230339_reads_chr22"
-# expected=/data/suneth/do_not_delete/ext_test_minimod/ext.test2.tsv
-# echo -e "${BLUE}${testname}${NC}"
-# # ex  ./minimod mod-freq -t 32 $ref reads.bam > test/tmp/ext.test2.tsv || die "${testname} Running the tool failed"
-# sort -k1,1 -k2,2n -k4,4 $expected > test/expected/ext.test2.tsv.sorted
-# sort -k1,1 -k2,2n -k4,4 test/tmp/ext.test2.tsv > test/tmp/ext.test2.tsv.sorted
-# diff -q test/expected/ext.test2.tsv.sorted test/tmp/ext.test2.tsv.sorted || die "${testname} diff failed"
-# ============================================================================================
 
 echo -e "${GREEN}ALL TESTS PASSED !${NC}"
