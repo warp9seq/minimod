@@ -61,7 +61,7 @@ testname="Ext. Test 2: mod-freq extensive test using na12878_prom_lsk114"
 echo -e "${BLUE}${testname}${NC}"
 exp_corr=0.90
 ex  ./minimod mod-freq -c "m[CG]" -K 4092 -B 100M -b -t 32 /genome/hg38noAlt.fa /home/hasindu/scratch/na12878_prom_lsk114/compare-bisulfite/remora_with_supple/remora_mapped.bam > test/tmp/ext.test2.bedmethyl || die "${testname} Running the tool failed"
-corr=`./test/compare.py /data/suneth/tool-validation/hg2_chr22_bi.tsv test/tmp/ext.test2.bedmethyl`
+corr=`./test/compare.py /data/suneth/tool-validation/bisulfite.ENCFF835NTC.bedmethyl test/tmp/ext.test2.bedmethyl`
 if (( $(echo "$corr >= $exp_corr" | bc -l) )); then
     echo -e "${GREEN}Corr: $corr\tExpected: $exp_corr\tPassed${NC}\n"
 elif (( $(echo "$exp_corr > $corr" | bc -l) )); then
