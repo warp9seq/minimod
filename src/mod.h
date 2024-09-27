@@ -43,7 +43,8 @@ void print_freq_output(core_t* core);
 void print_view_header(core_t* core);
 void print_view_output(core_t* core, db_t* db);
 void destroy_freq_map(khash_t(freqm)* freq_map);
-uint8_t parse_mod_threshes(const char* mod_codes_str, char* mod_thresh_str);
-uint8_t parse_mod_codes(const char* mod_codes_str);
+void parse_mod_codes(opt_t *opt, char* mod_codes_str);
+void parse_mod_threshes(opt_t * opt, char* mod_thresh_str);
+void print_view_options(opt_t *opt);
 
 #endif

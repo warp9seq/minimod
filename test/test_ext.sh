@@ -48,7 +48,7 @@ mkdir -p test/tmp || die "Creating the tmp directory failed"
 testname="Ext. Test 1: mod-freq extensive test using PGXXXX230339_reads_chr22"
 echo -e "${BLUE}${testname}${NC}"
 exp_corr=0.90
-ex  ./minimod mod-freq -b -t 32 /genome/hg38noAlt.fa /data/suneth/tool-validation/minimod/PGXXXX230339_reads_chr22/PGXXXX230339_reads_chr22.remora.bam > test/tmp/ext.test1.bedmethyl || die "${testname} Running the tool failed"
+ex  ./minimod mod-freq -c "m[CG]" -K 4092 -B 100M -b -t 32 /genome/hg38noAlt.fa /data/suneth/tool-validation/minimod/PGXXXX230339_reads_chr22/PGXXXX230339_reads_chr22.remora.bam > test/tmp/ext.test1.bedmethyl || die "${testname} Running the tool failed"
 corr=`./test/compare.py /data/suneth/tool-validation/hg2_chr22_bi.tsv test/tmp/ext.test1.bedmethyl`
 if (( $(echo "$corr >= $exp_corr" | bc -l) )); then
     echo -e "${GREEN}Corr: $corr\tExpected: $exp_corr\tPassed${NC}\n"
@@ -60,7 +60,7 @@ fi
 testname="Ext. Test 2: mod-freq extensive test using na12878_prom_lsk114"
 echo -e "${BLUE}${testname}${NC}"
 exp_corr=0.90
-ex  ./minimod mod-freq -b -t 32 /genome/hg38noAlt.fa /home/hasindu/scratch/na12878_prom_lsk114/compare-bisulfite/remora_with_supple/remora_mapped.bam > test/tmp/ext.test2.bedmethyl || die "${testname} Running the tool failed"
+ex  ./minimod mod-freq -c "m[CG]" -K 4092 -B 100M -b -t 32 /genome/hg38noAlt.fa /home/hasindu/scratch/na12878_prom_lsk114/compare-bisulfite/remora_with_supple/remora_mapped.bam > test/tmp/ext.test2.bedmethyl || die "${testname} Running the tool failed"
 corr=`./test/compare.py /data/suneth/tool-validation/hg2_chr22_bi.tsv test/tmp/ext.test2.bedmethyl`
 if (( $(echo "$corr >= $exp_corr" | bc -l) )); then
     echo -e "${GREEN}Corr: $corr\tExpected: $exp_corr\tPassed${NC}\n"

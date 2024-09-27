@@ -61,7 +61,7 @@ static struct option long_options[] = {
 static inline void print_help_msg(FILE *fp_help, opt_t opt){
     fprintf(fp_help,"Usage: minimod view ref.fa reads.bam\n");
     fprintf(fp_help,"\nbasic options:\n");
-    fprintf(fp_help,"   -c STR                     modification code(s) (ex. m , h or mh) [%s]\n", opt.mod_codes_str);
+    fprintf(fp_help,"   -c STR                     modification code(s) (ex. m , h or mh) [%s]\n", opt.req_mod_codes);
     fprintf(fp_help,"   -t INT                     number of processing threads [%d]\n",opt.num_thread);
     fprintf(fp_help,"   -K INT                     batch size (max number of reads loaded at once) [%d]\n",opt.batch_size);
     fprintf(fp_help,"   -B FLOAT[K/M/G]            max number of bytes loaded at once [%.1fM]\n",opt.batch_size_bytes/(float)(1000*1000));
@@ -92,6 +92,7 @@ int view_main(int argc, char* argv[]) {
 
     char *ref_file = NULL;
     char *bam_file = NULL;
+    char *mod_codes_str = NULL;
 
     FILE *fp_help = stderr;
 
@@ -142,7 +143,7 @@ int view_main(int argc, char* argv[]) {
         } else if (c=='h'){
             fp_help = stdout;
         } else if (c=='c') {
-            opt.mod_codes_str = optarg;
+            mod_codes_str = optarg;
         } else if(c == 0 && longindex == 8){ //debug break
             opt.debug_break = atoi(optarg);
         } else if(c == 0 && longindex == 9){ //sectional benchmark todo : warning for gpu mode
@@ -164,12 +165,13 @@ int view_main(int argc, char* argv[]) {
         }
     }
 
-    if(opt.mod_codes_str==NULL || strlen(opt.mod_codes_str)==0){
+    if(mod_codes_str==NULL || strlen(mod_codes_str)==0){
         INFO("%s", "Modification codes not provided. Using default modification code m");
-        opt.mod_codes_str = "m";
+        mod_codes_str = "m";
     }
     
-    opt.n_mods = parse_mod_codes(opt.mod_codes_str);
+    parse_mod_codes(&opt, mod_codes_str);
+    print_view_options(&opt);
 
     // No arguments given
     if (argc - optind != 2 || fp_help == stdout) {
@@ -202,10 +204,18 @@ int view_main(int argc, char* argv[]) {
         exit(EXIT_FAILURE);
     }
 
-    //load the reference genome
+    //load the reference genome, get the contexts, and destroy the reference
+    double realtime1 = realtime();
     fprintf(stderr, "[%s] Loading reference genome %s\n", __func__, ref_file);
     load_ref(ref_file);
-    fprintf(stderr, "[%s] Reference genome loaded in %.3f sec\n", __func__, realtime()-realtime0);
+    fprintf(stderr, "[%s] Reference genome loaded in %.3f sec\n", __func__, realtime()-realtime1);
+
+    double realtime2 = realtime();
+    fprintf(stderr, "[%s] Loading contexts in reference\n", __func__);
+    load_ref_contexts(opt.req_mod_codes, opt.n_mods, opt.req_mod_contexts);
+    fprintf(stderr, "[%s] Reference contexts loaded in %.3f sec\n", __func__, realtime()-realtime2);
+
+    destroy_ref_forward();
 
     //initialise the core data structure
     core_t* core = init_core(bam_file, opt, realtime0);
@@ -251,7 +261,7 @@ int view_main(int argc, char* argv[]) {
         counter++;
     }
 
-    destroy_ref();
+    destroy_ref(opt.n_mods);
 
     // free the databatch
     free_db(core, db);
@@ -276,5 +286,7 @@ int view_main(int argc, char* argv[]) {
     //free the core data structure
     free_core(core,opt);
 
+    free_opt(&opt);
+    
     return 0;
 }
