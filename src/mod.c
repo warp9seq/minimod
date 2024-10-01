@@ -253,22 +253,24 @@ void destroy_freq_map(khash_t(freqm)* freq_map){
     kh_destroy(freqm, freq_map);
 }
 
-char* make_key(const char *chrom, int pos, char mod_code, char strand){
+char* make_key(const char *chrom, int pos, uint16_t ins_offset, char mod_code, char strand){
     int start_strlen = snprintf(NULL, 0, "%d", pos);
-    int key_strlen = strlen(chrom) + start_strlen  + 6;
+    int offset_strlen = snprintf(NULL, 0, "%d", ins_offset);
+    int key_strlen = strlen(chrom) + start_strlen  + offset_strlen + 7;
     
     char* key = (char *)malloc(key_strlen * sizeof(char));
     MALLOC_CHK(key);
-    snprintf(key, key_strlen, "%s\t%d\t%c\t%c", chrom, pos, mod_code, strand);
+    snprintf(key, key_strlen, "%s\t%d\t%d\t%c\t%c", chrom, pos, ins_offset, mod_code, strand);
     return key;
 }
 
-void decode_key(char *key, char **chrom, int *pos, char *mod_code, char *strand){
+void decode_key(char *key, char **chrom, int *pos, uint16_t * ins_offset, char *mod_code, char *strand){
     char* token = strtok(key, "\t");
     *chrom = calloc(strlen(token)+1, sizeof(char));
     MALLOC_CHK(*chrom);
     strcpy(*chrom, token);
     *pos = atoi(strtok(NULL, "\t"));
+    *ins_offset = atoi(strtok(NULL, "\t"));
     *mod_code = strtok(NULL, "\t")[0];
     *strand = strtok(NULL, "\t")[0];
 }
@@ -314,8 +316,7 @@ void update_freq_map(core_t * core, db_t * db) {
                     continue;
                 }
 
-
-                char *key = make_key(tname, base->ref_pos, mod_code, strand);            
+                char *key = make_key(tname, base->ref_pos, base->ins_offset, mod_code, strand);            
                 khiter_t k = kh_get(freqm, freq_map, key);
                 if (k == kh_end(freq_map)) { // not found, add to map
                     freq_t * freq = (freq_t *)malloc(sizeof(freq_t));
@@ -339,7 +340,11 @@ void update_freq_map(core_t * core, db_t * db) {
 
 void print_freq_tsv_header(core_t * core) {
     if(!core->opt.bedmethyl_out) {
-        fprintf(core->opt.output_fp, "contig\tstart\tend\tstrand\tn_called\tn_mod\tfreq\tmod_code\n");
+        if(core->opt.insertions){
+            fprintf(core->opt.output_fp, "contig\tstart\tend\tstrand\tn_called\tn_mod\tfreq\tmod_code\tins_offset\n");
+        } else {
+            fprintf(core->opt.output_fp, "contig\tstart\tend\tstrand\tn_called\tn_mod\tfreq\tmod_code\n");
+        }
     }
 }
 
@@ -354,10 +359,11 @@ void print_freq_output(core_t * core) {
                 double freq_value = (double)freq->n_mod*100/freq->n_called;
                 char *contig = NULL;
                 int ref_pos;
+                uint16_t ins_offset;
                 char mod_code;
                 char strand;
                 char * key = (char *) kh_key(freq_map, k);
-                decode_key(key, &contig, &ref_pos, &mod_code, &strand);
+                decode_key(key, &contig, &ref_pos, &ins_offset, &mod_code, &strand);
                 int end = ref_pos+1;
                 fprintf(core->opt.output_fp, "%s\t%d\t%d\t%c\t%d\t%c\t%d\t%d\t255,0,0\t%d\t%f\n", contig, ref_pos, end, mod_code, freq->n_called, strand, ref_pos, end, freq->n_called, freq_value);
                 free(contig);
@@ -373,11 +379,17 @@ void print_freq_output(core_t * core) {
                 double freq_value = (double)freq->n_mod/freq->n_called;
                 char * contig = NULL;
                 int ref_pos;
+                uint16_t ins_offset;
                 char mod_code;
                 char strand;
                 char * key = (char *) kh_key(freq_map, k);
-                decode_key(key, &contig, &ref_pos, &mod_code, &strand);
-                fprintf(core->opt.output_fp, "%s\t%d\t%d\t%c\t%d\t%d\t%f\t%c\n", contig, ref_pos, ref_pos, strand, freq->n_called, freq->n_mod, freq_value, mod_code);
+                decode_key(key, &contig, &ref_pos, &ins_offset, &mod_code, &strand);
+
+                if(core->opt.insertions){
+                    fprintf(core->opt.output_fp, "%s\t%d\t%d\t%c\t%d\t%d\t%f\t%c\t%d\n", contig, ref_pos, ref_pos, strand, freq->n_called, freq->n_mod, freq_value, mod_code, ins_offset);
+                } else {
+                    fprintf(core->opt.output_fp, "%s\t%d\t%d\t%c\t%d\t%d\t%f\t%c\n", contig, ref_pos, ref_pos, strand, freq->n_called, freq->n_mod, freq_value, mod_code);
+                }
                 free(contig);
             }
         }

@@ -90,6 +90,13 @@ sort -k1,1 -k2,2n -k4,4 test/expected/test5.tsv > test/tmp/test5.exp.tsv.sorted
 sort -k1,1 -k2,2n -k4,4 test/tmp/test5.tsv > test/tmp/test5.tsv.sorted
 diff -q test/tmp/test5.exp.tsv.sorted test/tmp/test5.tsv.sorted || die "${testname} diff failed"
 
+testname="Test 5a: mod-freq ont with insertions"
+echo -e "${BLUE}${testname}${NC}"
+ex  ./minimod mod-freq -t 8 --insertions test/tmp/genome_chr22.fa test/data/example-ont.bam > test/tmp/test5a.tsv || die "${testname} Running the tool failed"
+sort -k1,1 -k2,2n -k4,4 test/expected/test5a.tsv > test/tmp/test5a.exp.tsv.sorted
+sort -k1,1 -k2,2n -k4,4 test/tmp/test5a.tsv > test/tmp/test5a.tsv.sorted
+diff -q test/tmp/test5a.exp.tsv.sorted test/tmp/test5a.tsv.sorted || die "${testname} diff failed"
+
 testname="Test 6: mod-freq ont bedmethyl output"
 echo -e "${BLUE}${testname}${NC}"
 ex  ./minimod mod-freq -b -t 8 test/tmp/genome_chr22.fa test/data/example-ont.bam > test/tmp/test6.bedmethyl || die "${testname} Running the tool failed"
