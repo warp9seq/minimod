@@ -22,8 +22,8 @@ jobs:
         run: ./scripts/install-hts.sh
       - name: install valgrind
         run: sudo apt-get install -y valgrind
-      - name: memtest
-        run: make memtest
+      - name: test
+        run: make test
   ubuntu_16:
     name: Ubuntu 16
     runs-on: ubuntu-22.04
@@ -36,8 +36,8 @@ jobs:
         run: ./scripts/install-hts.sh
       - name: install valgrind
         run: apt-get install -y valgrind
-      - name: memtest
-        run: make memtest
+      - name: test
+        run: make test
   ubuntu_18:
     name: Ubuntu 18
     runs-on: ubuntu-22.04
