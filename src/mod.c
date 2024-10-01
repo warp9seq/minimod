@@ -200,16 +200,29 @@ void parse_mod_codes(opt_t *opt, char* mod_codes_str) {
 
 void parse_mod_threshes(opt_t * opt, char* mod_thresh_str) {
     int i=0;
+    int n_mods = 0;
+    int thresh_str_cap = 1;
+    while(mod_thresh_str[i] != '\0'){
+        char * thresh_str = (char *)malloc(thresh_str_cap * sizeof(char) + 1);
+        MALLOC_CHK(thresh_str);
+        int j = 0;
+        while(mod_thresh_str[i] != ',' && mod_thresh_str[i] != '\0'){
+            if(j >= thresh_str_cap){
+                thresh_str_cap *= 2;
+                thresh_str = (char *)realloc(thresh_str, thresh_str_cap * sizeof(char) + 1);
+                MALLOC_CHK(thresh_str);
+            }
+            thresh_str[j] = mod_thresh_str[i];
+            i++;
+            j++;
+        }
+        thresh_str[j] = '\0';
 
-    char* token = strtok(mod_thresh_str, ",");
-    i=0;
-    while(token!=NULL){
-        char *end;
         errno = 0;
-        double d = strtod(token, &end);
+        double d = atof(thresh_str);
 
-        if (errno != 0 || end == token || *end != '\0') {
-            ERROR("Invalid modification threshold %s",token);
+        if(errno != 0){
+            ERROR("Invalid threshold. You entered %s",thresh_str);
             exit(EXIT_FAILURE);
         }
         
@@ -218,13 +231,20 @@ void parse_mod_threshes(opt_t * opt, char* mod_thresh_str) {
             exit(EXIT_FAILURE);
         }
 
-        INFO("Modification code: %c, Context: %s, Threshold: %f", opt->req_mod_codes[i], opt->req_mod_contexts[(int)opt->req_mod_codes[i]], d);
+        INFO("Modification code: %c, Context: %s, Threshold: %f", opt->req_mod_codes[n_mods], opt->req_mod_contexts[(int)opt->req_mod_codes[n_mods]], d);
 
-        opt->req_threshes[(int)opt->req_mod_codes[i]] = d*255;
-        token = strtok(NULL, ",");
+        
+        opt->req_threshes[(int)opt->req_mod_codes[n_mods]] = d*255;
+        
+        free(thresh_str);
+        n_mods++;
+        if(mod_thresh_str[i] == '\0'){
+            break;
+        }
         i++;
     }
-    if(i!=opt->n_mods){
+
+    if(n_mods!=opt->n_mods){
         ERROR("Number of modification codes and thresholds do not match. Codes:%d, Thresholds:%d",opt->n_mods,i);
         exit(EXIT_FAILURE);
     }
