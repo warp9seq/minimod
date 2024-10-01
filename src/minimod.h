@@ -68,8 +68,9 @@ typedef struct {
     char *region_str; //the region string in format chr:start-end
 
     int8_t bedmethyl_out; //output in bedMethyl format, only for mod-freq
-    char * mod_threshes_str;
-    char* mod_codes_str;
+    uint8_t req_threshes[256];      // address by mod code to get the threshold
+    char* req_mod_contexts[256];    // address by mod code to get the context
+    char req_mod_codes[17];         // address by index to get the mod code
     char* output_file;
     FILE* output_fp;
     int progress_interval;
@@ -161,7 +162,6 @@ typedef struct {
     int64_t skipped_reads; //reads skipped due to various reasons
     int64_t skipped_reads_bytes;
 
-    //output maps
     khash_t(freqm)* freq_map;
 
 } core_t;
@@ -230,5 +230,8 @@ void free_db(core_t* core, db_t* db);
 
 /* free the core data structure */
 void free_core(core_t* core,opt_t opt);
+
+/* free user specified options */
+void free_opt(opt_t* opt);
 
 #endif

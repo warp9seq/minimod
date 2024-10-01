@@ -76,6 +76,54 @@ void load_ref(const char * genome) {
 
 }
 
+static void search_context_kmp(const char* pat, const char* txt, uint8_t* result) {
+    int M = strlen(pat);
+    int N = strlen(txt);
+    int* lps = (int*)malloc(M * sizeof(int));
+    int len = 0;
+    lps[0] = 0;
+    int i = 1;
+    while (i < M) {
+        if (pat[i] == pat[len]) {
+            len++;
+            lps[i] = len;
+            i++;
+        }
+        else {
+            if (len != 0) {
+                len = lps[len - 1];
+            }
+            else {
+                lps[i] = 0;
+                i++;
+            }
+        }
+    }
+
+    int count = 0;
+    i = 0;
+    int j = 0; 
+  
+    while ((N - i) >= (M - j)) {
+        if (pat[j] == txt[i]) {
+            j++;
+            i++;
+        }
+        if (j == M) {
+            for (int k = 0; k < 1; k++) {
+                result[i - j + k] = 1;
+            }
+            (count)++;
+            j = lps[j - 1];
+        }
+        else if (i < N && pat[j] != txt[i]) {
+            if (j != 0) j = lps[j - 1];
+            else i = i + 1;
+        }
+    }
+    free(lps);
+}
+
 int has_chr(const char * chr) {
     khiter_t k = kh_get(refm, ref_map, chr);
     return k != kh_end(ref_map);
@@ -86,15 +134,43 @@ ref_t * get_ref(const char * chr) {
     return kh_value(ref_map, k);
 }
 
-void destroy_ref() {
+void load_ref_contexts(char * mod_codes, int n_mod_codes, char ** mod_contexts) {
+    for (khiter_t k = kh_begin(ref_map); k != kh_end(ref_map); ++k) {
+        if (kh_exist(ref_map, k)) {
+            ref_t * ref = kh_value(ref_map, k);
+            ref->is_context = (uint8_t **) malloc(n_mod_codes * sizeof(uint8_t *));
+            MALLOC_CHK(ref->is_context);
+            for (int i = 0; i < n_mod_codes; i++) {
+                ref->is_context[i] = (uint8_t *) calloc(ref->ref_seq_length, sizeof(uint8_t));
+                MALLOC_CHK(ref->is_context[i]);
+                search_context_kmp(mod_contexts[(int) mod_codes[i]], ref->forward, ref->is_context[i]);
+            }
+        }
+    }
+}
+
+void destroy_ref_forward() {
     khiter_t k;
     for (k = kh_begin(ref_map); k != kh_end(ref_map); ++k) {
         if (kh_exist(ref_map, k)) {
             ref_t * ref = kh_value(ref_map, k);
             free(ref->forward);
-            free(ref);
+        }
+    }
+}
+
+void destroy_ref(int n_mod_codes) {
+    khiter_t k;
+    for (k = kh_begin(ref_map); k != kh_end(ref_map); ++k) {
+        if (kh_exist(ref_map, k)) {
+            ref_t * ref = kh_value(ref_map, k);
+            for (int i = 0; i < n_mod_codes; i++) {
+                free(ref->is_context[i]);
+            }
             char * ref_name = (char *) kh_key(ref_map, k);
             free(ref_name);
+            free(ref->is_context);
+            free(ref);
         }
     }
     kh_destroy(refm, ref_map);

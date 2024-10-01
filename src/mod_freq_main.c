@@ -66,8 +66,8 @@ static inline void print_help_msg(FILE *fp_help, opt_t opt){
     fprintf(fp_help,"Usage: minimod mod-freq ref.fa reads.bam\n");
     fprintf(fp_help,"\nbasic options:\n");
     fprintf(fp_help,"   -b                         output in bedMethyl format [%s]\n", (opt.bedmethyl_out?"yes":"not set"));
-    fprintf(fp_help,"   -c STR                     modification codes (ex. m , h or mh) [%s]\n", opt.mod_codes_str);
-    fprintf(fp_help,"   -m FLOAT                   min modification threshold(s). Comma separated values for each modification code given in -c [%s]\n", opt.mod_threshes_str);
+    fprintf(fp_help,"   -c STR                     modification codes (ex. m , h or mh) [%s]\n", opt.req_mod_codes);
+    fprintf(fp_help,"   -m FLOAT                   min modification threshold(s). Comma separated values for each modification code given in -c [%s]\n", opt.req_threshes);
     fprintf(fp_help,"   -t INT                     number of processing threads [%d]\n",opt.num_thread);
     fprintf(fp_help,"   -K INT                     batch size (max number of reads loaded at once) [%d]\n",opt.batch_size);
     fprintf(fp_help,"   -B FLOAT[K/M/G]            max number of bytes loaded at once [%.1fM]\n",opt.batch_size_bytes/(float)(1000*1000));
@@ -98,6 +98,8 @@ int mod_freq_main(int argc, char* argv[]) {
 
     char *ref_file = NULL;
     char *bam_file = NULL;
+    char *mod_codes_str = NULL;
+    char *mod_threshes_str = NULL;
 
     FILE *fp_help = stderr;
 
@@ -149,9 +151,9 @@ int mod_freq_main(int argc, char* argv[]) {
         } else if (c=='h'){
             fp_help = stdout;
         } else if (c=='m'){
-            opt.mod_threshes_str = optarg;
+            mod_threshes_str = optarg;
         } else if (c=='c') {
-            opt.mod_codes_str = optarg;
+            mod_codes_str = optarg;
         } else if (c=='b'){
             opt.bedmethyl_out = 1;
         }else if(c == 0 && longindex == 10){ //debug break
@@ -175,17 +177,18 @@ int mod_freq_main(int argc, char* argv[]) {
         }
     }
 
-    if(opt.mod_codes_str==NULL || strlen(opt.mod_codes_str)==0){
+    if(mod_codes_str==NULL || strlen(mod_codes_str)==0){
         INFO("%s", "Modification codes not provided. Using default modification code m");
-        opt.mod_codes_str = "m";
+        mod_codes_str = "m";
     }
     
-    if(opt.mod_threshes_str==NULL || strlen(opt.mod_threshes_str)==0){
+    if(mod_threshes_str==NULL || strlen(mod_threshes_str)==0){
         INFO("%s", "Modification threshold not provided. Using default threshold 0.8");
-        opt.mod_threshes_str = "0.8";
+        mod_threshes_str = "0.8";
     } 
     
-    opt.n_mods = parse_mod_threshes(opt.mod_codes_str, opt.mod_threshes_str);
+    parse_mod_codes(&opt, mod_codes_str);
+    parse_mod_threshes(&opt, mod_threshes_str);
 
     // No arguments given
     if (argc - optind != 2 || fp_help == stdout) {
@@ -218,10 +221,18 @@ int mod_freq_main(int argc, char* argv[]) {
         exit(EXIT_FAILURE);
     }
 
-    //load the reference genome
+    //load the reference genome, get the contexts, and destroy the reference
+    double realtime1 = realtime();
     fprintf(stderr, "[%s] Loading reference genome %s\n", __func__, ref_file);
     load_ref(ref_file);
-    fprintf(stderr, "[%s] Reference genome loaded in %.3f sec\n", __func__, realtime()-realtime0);
+    fprintf(stderr, "[%s] Reference genome loaded in %.3f sec\n", __func__, realtime()-realtime1);
+
+    double realtime2 = realtime();
+    fprintf(stderr, "[%s] Loading contexts in reference\n", __func__);
+    load_ref_contexts(opt.req_mod_codes, opt.n_mods, opt.req_mod_contexts);
+    fprintf(stderr, "[%s] Reference contexts loaded in %.3f sec\n", __func__, realtime()-realtime2);
+
+    destroy_ref_forward();
 
     //initialise the core data structure
     core_t* core = init_core(bam_file, opt, realtime0);
@@ -270,7 +281,7 @@ int mod_freq_main(int argc, char* argv[]) {
 
     output_core(core);
 
-    destroy_ref();
+    destroy_ref(opt.n_mods);
 
     // free the databatch
     free_db(core, db);
@@ -294,6 +305,8 @@ int mod_freq_main(int argc, char* argv[]) {
 
     //free the core data structure
     free_core(core,opt);
+
+    free_opt(&opt);
 
     return 0;
 }

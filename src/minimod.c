@@ -40,6 +40,7 @@ SOFTWARE.
 #include "misc.h"
 #include "error.h"
 #include "khash.h"
+#include "ref.h"
 
 #include <sys/wait.h>
 #include <unistd.h>
@@ -460,8 +461,6 @@ void init_opt(opt_t* opt) {
     opt->debug_break=-1;
 
     opt->output_fp = stdout;
-    opt->mod_codes_str = NULL;
-    opt->mod_threshes_str = NULL;
     opt->progress_interval = 0;
     opt->output_file = NULL;
 
@@ -469,4 +468,11 @@ void init_opt(opt_t* opt) {
     opt->flag |= MINIMOD_ACC;
 #endif
 
+}
+
+/* free user specified options */
+void free_opt(opt_t* opt) {
+    for(int i=0;i<opt->n_mods;i++){
+        free(opt->req_mod_contexts[(int) opt->req_mod_codes[i]]);
+    }
 }

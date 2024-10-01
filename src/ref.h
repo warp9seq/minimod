@@ -35,11 +35,14 @@ SOFTWARE.
 typedef struct {
     int32_t ref_seq_length;
     char * forward;
+    uint8_t ** is_context;
 } ref_t;
 
 void load_ref(const char * genome);
 int has_chr(const char * chr);
-void destroy_ref();
+void destroy_ref(int n_mod_codes);
 ref_t * get_ref(const char * chr);
+void load_ref_contexts(char * mod_codes, int n_mod_codes, char ** mod_contexts);
+void destroy_ref_forward();
 
 #endif
