@@ -59,6 +59,7 @@ static struct option long_options[] = {
     {"accel",required_argument, 0, 0},             //12 accelerator
     {"expand",no_argument, 0, 0},                  //13 expand view
     {"output",required_argument, 0, 'o'},          //14 output file
+    {"insertions",no_argument, 0, 0},              //15 enable modifications in insertions
     {0, 0, 0, 0}};
 
 
@@ -68,6 +69,7 @@ static inline void print_help_msg(FILE *fp_help, opt_t opt){
     fprintf(fp_help,"   -b                         output in bedMethyl format [%s]\n", (opt.bedmethyl_out?"yes":"not set"));
     fprintf(fp_help,"   -c STR                     modification codes (ex. m , h or mh) [%s]\n", opt.req_mod_codes);
     fprintf(fp_help,"   -m FLOAT                   min modification threshold(s). Comma separated values for each modification code given in -c [%s]\n", opt.req_threshes);
+    fprintf(fp_help,"   --insertions               enable modifications in insertions [%s]\n", (opt.insertions?"yes":"no"));
     fprintf(fp_help,"   -t INT                     number of processing threads [%d]\n",opt.num_thread);
     fprintf(fp_help,"   -K INT                     batch size (max number of reads loaded at once) [%d]\n",opt.batch_size);
     fprintf(fp_help,"   -B FLOAT[K/M/G]            max number of bytes loaded at once [%.1fM]\n",opt.batch_size_bytes/(float)(1000*1000));
@@ -168,6 +170,8 @@ int mod_freq_main(int argc, char* argv[]) {
         #endif
         } else if(c == 0 && longindex == 13){ //expand output
             yes_or_no(&opt.flag, MINIMOD_EXP, long_options[longindex].name, "yes", 1);
+        } else if(c == 0 && longindex == 15){ //insertions
+            opt.insertions = 1;
         } else {
             print_help_msg(fp_help, opt);
             if(fp_help == stdout){
