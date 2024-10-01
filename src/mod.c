@@ -388,7 +388,7 @@ void print_freq_output(core_t * core) {
     }
 }
 
-static void get_aln(int ** aln, bam_hdr_t *hdr, bam1_t *record){
+static void get_aln(int ** aln, int ** ins, int ** ins_offset, bam_hdr_t *hdr, bam1_t *record){
     int32_t tid = record->core.tid;
     assert(tid < hdr->n_targets);
     int32_t pos = record->core.pos;
@@ -405,9 +405,13 @@ static void get_aln(int ** aln, bam_hdr_t *hdr, bam1_t *record){
     int ref_pos = pos;
 
     int * aligned_pairs = *aln;
+    int * ins_pos = *ins;
+    int * ins_off = *ins_offset;
     //fill the aligned_pairs array with -1
     for(int i=0;i<seq_len;i++){
         aligned_pairs[i] = -1;
+        ins_pos[i] = -1;
+        ins_off[i] = 0;
     }
 
     for (uint32_t ci = 0; ci < n_cigar; ++ci) {
@@ -424,7 +428,7 @@ static void get_aln(int ** aln, bam_hdr_t *hdr, bam1_t *record){
         int ref_inc = 0;
 
         // Process match between the read and the reference
-        int8_t is_aligned = 0;
+        int8_t is_aligned = 0, is_inserted = 0;
         if(cigar_op == BAM_CMATCH || cigar_op == BAM_CEQUAL || cigar_op == BAM_CDIFF) {
             is_aligned = 1;
             read_inc = 1;
@@ -437,6 +441,7 @@ static void get_aln(int ** aln, bam_hdr_t *hdr, bam1_t *record){
             ref_inc = 1;
         } else if(cigar_op == BAM_CINS) {
             read_inc = 1;
+            is_inserted = 1;
         } else if(cigar_op == BAM_CSOFT_CLIP) {
             read_inc = 1;
         } else if(cigar_op == BAM_CHARD_CLIP) {
@@ -459,6 +464,18 @@ static void get_aln(int ** aln, bam_hdr_t *hdr, bam1_t *record){
                 aligned_pairs[read_pos] = start;
             }
 
+            if(is_inserted) {
+                ASSERT_MSG(read_pos < seq_len, "read_pos:%d seq_len:%d\n", read_pos, seq_len);
+                int start = ref_pos-1;
+                int offset = j+1;
+                if(rev) {
+                    start = pos + end - ref_pos - 1;
+                    offset = cigar_len - j;
+                }
+                ins_pos[read_pos] = start;
+                ins_off[read_pos] = offset;
+            }
+
             // increment
             read_pos += read_inc;
             ref_pos += ref_inc;
@@ -466,7 +483,7 @@ static void get_aln(int ** aln, bam_hdr_t *hdr, bam1_t *record){
     }
 }
 
-static void get_bases(core_t * core, db_t *db, int32_t bam_i, const char *mm_string, uint8_t *ml, uint32_t ml_len, int *aln_pairs, bam_hdr_t *hdr, bam1_t *record) {
+static void get_bases(core_t * core, db_t *db, int32_t bam_i, const char *mm_string, uint8_t *ml, uint32_t ml_len, int *aln_pairs, int * ins, int * ins_offsets, bam_hdr_t *hdr, bam1_t *record) {
     const char *qname = bam_get_qname(record);
     int8_t rev = bam_is_rev(record);
     int32_t tid = record->core.tid;
@@ -625,7 +642,13 @@ static void get_bases(core_t * core, db_t *db, int32_t bam_i, const char *mm_str
             ASSERT_MSG(read_pos>=0 && read_pos < seq_len, "Base pos cannot exceed seq len. read_pos: %d seq_len: %d\n", read_pos, seq_len);
 
             int ref_pos = aln_pairs[read_pos];
-            if(ref_pos == -1) {
+            int ins_offset = 0;
+            if(core->opt.insertions==1) {
+                ins_offset = ins_offsets[read_pos];
+                ref_pos = ref_pos == -1 ? ins[read_pos] : ref_pos;
+            }
+
+            if(ref_pos == -1) { // not aligned nor insertion
                 if(mod_codes_len > 0) {
                     ml_idx = ml_start_idx + c*mod_codes_len + mod_codes_len - 1;
                 }
@@ -647,14 +670,21 @@ static void get_bases(core_t * core, db_t *db, int32_t bam_i, const char *mm_str
                     continue;
                 }
 
-                if ((!rev && ref->is_context[mod_code_idx[(int)mod_code]][ref_pos] == 1) || (rev && ref->is_context[mod_code_idx[(int)mod_code]][ref_pos - 1] == 1)) { // in context
-                    ASSERT_MSG(ml_idx<ml_len, "ml_idx:%d ml_len:%d\n", ml_idx, ml_len);
-                    uint8_t mod_prob = ml[ml_idx];
-                    ASSERT_MSG(mod_prob <= 255 && mod_prob>=0, "mod_prob:%d\n", mod_prob);
+                if(core->opt.insertions) { // no need to check context for insertions
 
-                    db->modbases[bam_i][mod_code_idx[(int)mod_code]][read_pos].mod_prob = mod_prob;
-                    db->modbases[bam_i][mod_code_idx[(int)mod_code]][read_pos].ref_pos = ref_pos;   
+                } else if ((!rev && ref->is_context[mod_code_idx[(int)mod_code]][ref_pos] == 1) || (rev && ref->is_context[mod_code_idx[(int)mod_code]][ref_pos - 1] == 1)) { // in context
+                    
+                } else {
+                    continue;
                 }
+
+                ASSERT_MSG(ml_idx<ml_len, "ml_idx:%d ml_len:%d\n", ml_idx, ml_len);
+                uint8_t mod_prob = ml[ml_idx];
+                ASSERT_MSG(mod_prob <= 255 && mod_prob>=0, "mod_prob:%d\n", mod_prob);
+
+                db->modbases[bam_i][mod_code_idx[(int)mod_code]][read_pos].mod_prob = mod_prob;
+                db->modbases[bam_i][mod_code_idx[(int)mod_code]][read_pos].ref_pos = ref_pos;
+                db->modbases[bam_i][mod_code_idx[(int)mod_code]][read_pos].ins_offset = ins_offset;                
             }
 
         }
@@ -664,7 +694,11 @@ static void get_bases(core_t * core, db_t *db, int32_t bam_i, const char *mm_str
 }
 
 void print_view_header(core_t* core) {
-    fprintf(core->opt.output_fp, "ref_contig\tref_pos\tstrand\tread_id\tread_pos\tmod_code\tmod_prob\n");
+    if(core->opt.insertions==1){
+        fprintf(core->opt.output_fp, "ref_contig\tref_pos\tstrand\tread_id\tread_pos\tmod_code\tmod_prob\tins_offset\n");
+    } else {
+        fprintf(core->opt.output_fp, "ref_contig\tref_pos\tstrand\tread_id\tread_pos\tmod_code\tmod_prob\n");
+    }
 }
 
 void print_view_output(core_t* core, db_t* db) {
@@ -693,7 +727,11 @@ void print_view_output(core_t* core, db_t* db) {
                     continue;
                 }
 
-                fprintf(core->opt.output_fp, "%s\t%d\t%c\t%s\t%d\t%c\t%f\n", tname, base.ref_pos, strand, qname, seq_i, mod_code, base.mod_prob/255.0);
+                if(core->opt.insertions==1){
+                    fprintf(core->opt.output_fp, "%s\t%d\t%c\t%s\t%d\t%c\t%f\t%d\n", tname, base.ref_pos, strand, qname, seq_i, mod_code, base.mod_prob/255.0, base.ins_offset);
+                } else {
+                    fprintf(core->opt.output_fp, "%s\t%d\t%c\t%s\t%d\t%c\t%f\n", tname, base.ref_pos, strand, qname, seq_i, mod_code, base.mod_prob/255.0);
+                }
             
             }
         }
@@ -711,7 +749,7 @@ void modbases_single(core_t* core, db_t* db, int32_t i) {
 
     bam_hdr_t *hdr = core->bam_hdr;
 
-    get_aln(&(db->aln[i]), hdr, record);
-    get_bases(core, db, i, mm, ml, ml_len, db->aln[i], hdr, record);
+    get_aln(&(db->aln[i]), &(db->ins[i]), &(db->ins_offset[i]), hdr, record);
+    get_bases(core, db, i, mm, ml, ml_len, db->aln[i], db->ins[i], db->ins_offset[i], hdr, record);
 
 }

@@ -57,10 +57,17 @@ diff -q test/tmp/test1.exp.tsv.sorted test/tmp/test1.tsv.sorted || die "${testna
 
 testname="Test 2: view ont"
 echo -e "${BLUE}${testname}${NC}"
-ex  ./minimod view -t 8 -c "m[CG]" test/tmp/genome_chr22.fa test/data/example-ont.bam > test/tmp/test2.tsv || die "${testname} Running the tool failed"
+ex  ./minimod view -t 8 -c m[CG] test/tmp/genome_chr22.fa test/data/example-ont.bam > test/tmp/test2.tsv || die "${testname} Running the tool failed"
 sort -k1,1 -k2,2n -k3,3 -k6,6 test/expected/test2.tsv > test/tmp/test2.exp.tsv.sorted
 sort -k1,1 -k2,2n -k3,3 -k6,6 test/tmp/test2.tsv > test/tmp/test2.tsv.sorted
 diff -q test/tmp/test2.exp.tsv.sorted test/tmp/test2.tsv.sorted || die "${testname} diff failed"
+
+testname="Test 2a: view ont with insertions"
+echo -e "${BLUE}${testname}${NC}"
+ex  ./minimod view -t 8 -c m[CG] --insertions test/tmp/genome_chr22.fa test/data/example-ont.bam > test/tmp/test2a.tsv || die "${testname} Running the tool failed"
+sort -k1,1 -k2,2n -k3,3 -k6,6 test/expected/test2a.tsv > test/tmp/test2a.exp.tsv.sorted
+sort -k1,1 -k2,2n -k3,3 -k6,6 test/tmp/test2a.tsv > test/tmp/test2a.tsv.sorted
+diff -q test/tmp/test2a.exp.tsv.sorted test/tmp/test2a.tsv.sorted || die "${testname} diff failed"
 
 testname="Test 3: mod-freq hifi"
 echo -e "${BLUE}${testname}${NC}"
