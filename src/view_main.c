@@ -55,6 +55,7 @@ static struct option long_options[] = {
     {"accel",required_argument, 0, 0},             //10 accelerator
     {"expand",no_argument, 0, 0},                  //11 expand view
     {"output",required_argument, 0, 'o'},          //12 output file
+    {"insertions",no_argument, 0, 0},              //13 enable modifications in insertions
     {0, 0, 0, 0}};
 
 
@@ -62,6 +63,7 @@ static inline void print_help_msg(FILE *fp_help, opt_t opt){
     fprintf(fp_help,"Usage: minimod view ref.fa reads.bam\n");
     fprintf(fp_help,"\nbasic options:\n");
     fprintf(fp_help,"   -c STR                     modification code(s) (ex. m , h or mh) [%s]\n", opt.req_mod_codes);
+    fprintf(fp_help,"   --insertions               enable modifications in insertions [%s]\n", (opt.insertions?"yes":"no"));
     fprintf(fp_help,"   -t INT                     number of processing threads [%d]\n",opt.num_thread);
     fprintf(fp_help,"   -K INT                     batch size (max number of reads loaded at once) [%d]\n",opt.batch_size);
     fprintf(fp_help,"   -B FLOAT[K/M/G]            max number of bytes loaded at once [%.1fM]\n",opt.batch_size_bytes/(float)(1000*1000));
@@ -156,6 +158,8 @@ int view_main(int argc, char* argv[]) {
         #endif
         } else if(c == 0 && longindex == 11){ //expand output
             yes_or_no(&opt.flag, MINIMOD_EXP, long_options[longindex].name, "yes", 1);
+        } else if(c == 0 && longindex == 13){ //insertions
+            opt.insertions = 1;
         } else {
             print_help_msg(fp_help, opt);
             if(fp_help == stdout){
@@ -169,7 +173,7 @@ int view_main(int argc, char* argv[]) {
         INFO("%s", "Modification codes not provided. Using default modification code m");
         mod_codes_str = "m";
     }
-    
+
     parse_mod_codes(&opt, mod_codes_str);
     print_view_options(&opt);
 
