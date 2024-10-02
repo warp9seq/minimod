@@ -134,7 +134,7 @@ ref_t * get_ref(const char * chr) {
     return kh_value(ref_map, k);
 }
 
-void load_ref_contexts(char * mod_codes, int n_mod_codes, char ** mod_contexts) {
+void load_ref_contexts(int n_mod_codes, char ** mod_contexts) {
     for (khiter_t k = kh_begin(ref_map); k != kh_end(ref_map); ++k) {
         if (kh_exist(ref_map, k)) {
             ref_t * ref = kh_value(ref_map, k);
@@ -143,7 +143,7 @@ void load_ref_contexts(char * mod_codes, int n_mod_codes, char ** mod_contexts) 
             for (int i = 0; i < n_mod_codes; i++) {
                 ref->is_context[i] = (uint8_t *) calloc(ref->ref_seq_length, sizeof(uint8_t));
                 MALLOC_CHK(ref->is_context[i]);
-                search_context_kmp(mod_contexts[(int) mod_codes[i]], ref->forward, ref->is_context[i]);
+                search_context_kmp(mod_contexts[i], ref->forward, ref->is_context[i]);
             }
         }
     }
