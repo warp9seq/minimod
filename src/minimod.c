@@ -189,6 +189,14 @@ db_t* init_db(core_t* core) {
     MALLOC_CHK(db->ml);
     db->aln = (int**)(malloc(sizeof(int*) * db->cap_bam_recs));
     MALLOC_CHK(db->aln);
+
+    if(core->opt.insertions) {
+        db->ins = (int**)(malloc(sizeof(int*) * db->cap_bam_recs));
+        MALLOC_CHK(db->ins);
+        db->ins_offset = (int**)(malloc(sizeof(int*) * db->cap_bam_recs));
+        MALLOC_CHK(db->ins_offset);
+    }
+    
     db->bases_pos = (int***)(malloc(sizeof(int**) * db->cap_bam_recs));
     MALLOC_CHK(db->bases_pos);
     db->skip_counts = (int**)(malloc(sizeof(int*) * db->cap_bam_recs));
@@ -283,6 +291,14 @@ ret_status_t load_db(core_t* core, db_t* db) {
         }
 
         db->aln[i] = (int*)malloc(sizeof(int)*rec->core.l_qseq);
+        MALLOC_CHK(db->aln[i]);
+
+        if(core->opt.insertions) {
+            db->ins[i] = (int*)malloc(sizeof(int)*rec->core.l_qseq);
+            MALLOC_CHK(db->ins[i]);
+            db->ins_offset[i] = (int*)malloc(sizeof(int)*rec->core.l_qseq);
+            MALLOC_CHK(db->ins_offset[i]);
+        }
 
         for(int j=0;j<core->opt.n_mods;j++){
             db->modbases[i][j] = (modbase_t*)malloc(sizeof(modbase_t)*l_qseq);
@@ -409,6 +425,10 @@ void free_db_tmp(core_t* core, db_t* db) {
     for (i = 0; i < db->n_bam_recs; i++) {        
         free(db->ml[i]);
         free(db->aln[i]);
+        if(core->opt.insertions) {
+            free(db->ins[i]);
+            free(db->ins_offset[i]);
+        }
         for(int j=0;j<core->opt.n_mods;j++){
             free(db->modbases[i][j]);
         }
@@ -446,6 +466,10 @@ void free_db(core_t* core, db_t* db) {
     free(db->mm);
     free(db->ml);
     free(db->aln);
+    if(core->opt.insertions) {
+        free(db->ins);
+        free(db->ins_offset);
+    }
     free(db->bam_recs);
     free(db->means);
     free(db);

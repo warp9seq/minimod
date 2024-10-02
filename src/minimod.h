@@ -78,6 +78,7 @@ typedef struct {
     int8_t subtool; //0:view, 1:mod-freq
 
     uint8_t n_mods;
+    uint8_t insertions; //is insertions enabled, add ins column to the output
 
 } opt_t;
 
@@ -89,6 +90,7 @@ typedef struct {
 typedef struct {
     int ref_pos;
     uint8_t mod_prob;
+    uint16_t ins_offset;
 } modbase_t;
 
 KHASH_MAP_INIT_STR(freqm, freq_t *);
@@ -107,7 +109,9 @@ typedef struct {
     uint8_t ** ml;
 
     // alignment
-    int ** aln;
+    int ** aln; //aligned bases
+    int ** ins; //insertion ref_pos
+    int ** ins_offset; //insertion offset from the ref_pos
     int *** bases_pos;
     int ** skip_counts;
     char ** mod_codes;
