@@ -89,9 +89,8 @@ typedef struct {
 
 typedef struct {
     int ref_pos;
-    uint16_t ins_offset;
     uint8_t mod_prob;
-
+    uint16_t ins_offset;
 } modbase_t;
 
 KHASH_MAP_INIT_STR(freqm, freq_t *);
