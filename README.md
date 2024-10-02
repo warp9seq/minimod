@@ -25,17 +25,17 @@ command:
 
 # Examples
 ```bash
-# modification of type m in tsv format
+# view all modifications in tsv format (default mod code: m, context:CG)
 minimod view ref.fa reads.bam > mods.tsv
 
-# modification frequencies of type m in tsv format (default threshold 0.8)
+# modification frequencies in tsv format (default mod code: m and threshold: 0.8 context:CG)
 minimod mod-freq ref.fa reads.bam > modfreqs.tsv
 
-# modification frequencies of type m (5-methylcytosine) in bedmethyl format (default threshold 0.8)
+# modification frequencies in bedmethyl format (default mod code: m and threshold: 0.8 context:CG)
 minimod mod-freq -b ref.fa reads.bam > modfreqs.bedmethyl
 
-# modification frequencies  of types m (5-methylcytosine) and h (5-hydroxymethylcytosine) with thresholds 0.8 and 0.7 respectively in tsv format
-minimod mod-freq -c mh -m 0.8,0.7 ref.fa reads.bam > mods.tsv
+# modification frequencies of multiple types ( m (5-methylcytosine) and h (5-hydroxymethylcytosine) in CG context with thresholds 0.8 and 0.7 respectively )
+minimod mod-freq -c m[CG],h[CG] -m 0.8,0.7 ref.fa reads.bam > mods.tsv
 ```
 Click here to see [how threshold is used in minimod](#modification-codes-and-threshold)
 
@@ -57,6 +57,7 @@ basic options:
    -o FILE                    output file [stdout]
    --verbose INT              verbosity level [4]
    --version                  print version
+   --insertions               enable modifications in insertions
 ```
 
 **Sample mods.tsv output**
@@ -82,12 +83,13 @@ chr22	19979948	+	m84088_230609_030819_s1/55512555/ccs	98	m	0.623529
 | 5. read_pos | int | position (0-based) of the base in read |
 | 6. mod_code | char | base modification code as in [SAMtags: 1.7 Base modifications](https://github.com/samtools/hts-specs/blob/master/SAMtags.pdf)  |
 | 7. mod_prob | float | probability (0.0-1.0) of base modification |
+| 8. ins_offset | int | offset of inserted base from ref_pos (only output when --insertions is specified) |
 
 # minimod mod-freq
 ```bash
 minimod mod-freq ref.fa reads.bam > modfreqs.tsv
 ```
-This writes base modification frequencies (default modification code "m" and modification threshold 0.8) to a file (modfreqs.tsv) file in tsv format. Sample output is given below.
+This writes base modification frequencies (default modification code "m" in CG context with modification threshold 0.8) to a file (modfreqs.tsv) file in tsv format.
 ```
 Usage: minimod mod-freq ref.fa reads.bam
 
@@ -103,6 +105,7 @@ basic options:
    -o FILE                    output file [stdout]
    --verbose INT              verbosity level [4]
    --version                  print version
+   --insertions               enable modifications in insertions
 ```
 
 **Sample modfreqs.tsv output**
@@ -128,6 +131,7 @@ chr22	19971259	19971259	+	1	1	1.000000	m
 | 6. n_mod | int | number of reads with base modification |
 | 7. freq | float | n_mod/n_called ratio |
 | 8. mod_code | char | base modification code as in [SAMtags: 1.7 Base modifications](https://github.com/samtools/hts-specs/blob/master/SAMtags.pdf) |
+| 9. ins_offset | int | offset of inserted base from ref_pos (only output when --insertions is specified)
 
 **Sample modfreqs.bedmethyl output**
 ```
@@ -160,7 +164,7 @@ chr22	19973437	19973438	m	1	+	19973437	19973437	255,0,0	1	1.000000
 Base modification codes and thresholds can be set for mod-freq tools using -c and -m flags respectively.
 
 
-01. 5mC modification frequencies with threshold 0.8
+01. 5mC modification(in CG context) frequencies with threshold 0.8
 > ```
 >   minimod mod-freq ref.fa reads.bam -c m -m 0.8
 > ```
@@ -173,7 +177,7 @@ Base modification codes and thresholds can be set for mod-freq tools using -c an
 > mod_freq(5mC) = total_modified(5mC)/total_called(5mC)
 > ```
 
-03. 5mC and 5hmC base modification frequencies with thresholds 0.8, 0.7 respectively
+03. 5mC and 5hmC base modification(in CG context) frequencies with thresholds 0.8, 0.7 respectively
 > ```
 >   minimod mod-freq ref.fa reads.bam -c mh -m 0.8,0.7
 > ```
