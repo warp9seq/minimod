@@ -216,35 +216,31 @@ Base modification threshold can be set for mod-freq tool using -m option.
 # Modified bases in insertions
 minimod can handle insterted modified bases(where canonical base in not in reference) by specifiying --insertions flag for both mod-freq and view tools.
 
-Specifying --insertions will add an extra ins_offset column to the output. Sample outputs are given below.
+Specifying --insertions will add an extra ins_offset column to the output which is the position of modified base within the inserted region.
 
 **Sample output of view with --insertions**
 ```bash
 ref_contig	ref_pos	strand	read_id	read_pos	mod_code	mod_prob	ins_offset
-chr22	19966677	+	89870c83-8790-419f-acf8-8a8e93a0f3c9	186	m	0.972549	0
-chr22	19966761	+	89870c83-8790-419f-acf8-8a8e93a0f3c9	266	m	0.505882	0
-chr22	19966774	+	89870c83-8790-419f-acf8-8a8e93a0f3c9	279	m	0.949020	0
-chr22	19966782	+	89870c83-8790-419f-acf8-8a8e93a0f3c9	287	m	0.972549	0
-chr22	19966804	+	89870c83-8790-419f-acf8-8a8e93a0f3c9	309	m	0.286275	0
-chr22	19966873	+	89870c83-8790-419f-acf8-8a8e93a0f3c9	377	m	0.003922	0
-chr22	19966962	+	89870c83-8790-419f-acf8-8a8e93a0f3c9	463	m	0.988235	0
-chr22	19967025	+	89870c83-8790-419f-acf8-8a8e93a0f3c9	526	m	0.952941	0
-chr22	19967029	+	89870c83-8790-419f-acf8-8a8e93a0f3c9	530	m	0.886275	0
+chr22	19967897	+	89870c83-8790-419f-acf8-8a8e93a0f3c9	1396	m	0.537255	0
+# chr22	19968083	+	89870c83-8790-419f-acf8-8a8e93a0f3c9	1582	m	0.000000	2
+chr22	19968225	+	89870c83-8790-419f-acf8-8a8e93a0f3c9	1722	m	0.105882	0
+chr22	19968330	+	89870c83-8790-419f-acf8-8a8e93a0f3c9	1826	m	0.505882	0
+chr22	19968390	+	89870c83-8790-419f-acf8-8a8e93a0f3c9	1885	m	0.960784	0
+chr22	19968435	+	89870c83-8790-419f-acf8-8a8e93a0f3c9	1930	m	0.917647	0
 ```
 
 **Sample output of mod-freq with --insertions**
 ```bash
 contig	start	end	strand	n_called	n_mod	freq	mod_code	ins_offset
-chr22	20016024	20016024	+	2	0	0.000000	m	0
-chr22	20017059	20017059	-	4	0	0.000000	m	0
-chr22	19989035	19989035	+	3	2	0.666667	m	0
-chr22	20016841	20016841	-	5	0	0.000000	m	0
-chr22	20016249	20016249	-	1	0	0.000000	m	0
-chr22	20003531	20003531	-	1	0	0.000000	m	0
-chr22	19975732	19975732	+	1	0	0.000000	m	0
-chr22	19995038	19995038	-	1	0	0.000000	m	0
-chr22	19999619	19999619	-	9	6	0.666667	m	0
+chr22	19981825	19981825	-	1	1	1.000000	m	0
+# chr22	19968083	19968083	+	1	0	0.000000	m	2
+chr22	20014485	20014485	+	1	1	1.000000	m	0
+chr22	20017214	20017214	-	1	0	0.000000	m	0
+chr22	20004425	20004425	+	2	2	1.000000	m	0
+chr22	20016700	20016700	-	4	0	0.000000	m	0
 ```
+Highlighted line corresponds to a 5mC modification within an insertion (A mC G) at position 19968083
+
 
 # Important !
 Make sure that following requirements are met for each step in base modification calling pipeline.
