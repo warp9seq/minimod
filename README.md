@@ -37,14 +37,15 @@ minimod mod-freq -b ref.fa reads.bam > modfreqs.bedmethyl
 # modification frequencies of multiple types ( m (5-methylcytosine) and h (5-hydroxymethylcytosine) in CG context with thresholds 0.8 and 0.7 respectively )
 minimod mod-freq -c m[CG],h[CG] -m 0.8,0.7 ref.fa reads.bam > mods.tsv
 ```
-Click here to see [how threshold is used in minimod](#modification-codes-and-threshold)
+- See [how modification codes can be specified?](#modification-codes)
+- See [how threshold is used in minimod?](#modification-threshold)
 
 # minimod view
 ```bash
 minimod view ref.fa reads.bam > mods.tsv
 ```
 This writes all base modifications (default modification code "m") to a file (mods.tsv) in tsv format. Sample output is given below.
-```
+```bash
 Usage: minimod view ref.fa reads.bam
 
 basic options:
@@ -59,6 +60,8 @@ basic options:
    --version                  print version
    --insertions               enable modifications in insertions
 ```
+
+- See [how to consider inserted modified bases?](#modified-bases-in-insertions)
 
 **Sample mods.tsv output**
 ```bash
@@ -90,7 +93,7 @@ chr22	19979948	+	m84088_230609_030819_s1/55512555/ccs	98	m	0.623529
 minimod mod-freq ref.fa reads.bam > modfreqs.tsv
 ```
 This writes base modification frequencies (default modification code "m" in CG context with modification threshold 0.8) to a file (modfreqs.tsv) file in tsv format.
-```
+```bash
 Usage: minimod mod-freq ref.fa reads.bam
 
 basic options:
@@ -109,7 +112,7 @@ basic options:
 ```
 
 **Sample modfreqs.tsv output**
-```
+```bash
 contig	start	end	strand	n_called	n_mod	freq	mod_code
 chr22	20016337	20016337	+	5	0	0.000000	m
 chr22	20016594	20016594	+	2	0	0.000000	m
@@ -134,7 +137,7 @@ chr22	19971259	19971259	+	1	1	1.000000	m
 | 9. ins_offset | int | offset of inserted base from ref_pos (only output when --insertions is specified)
 
 **Sample modfreqs.bedmethyl output**
-```
+```bash
 chr22	20016337	20016338	m	5	+	20016337	20016337	255,0,0	5	0.000000
 chr22	20016594	20016595	m	2	+	20016594	20016594	255,0,0	2	0.000000
 chr22	20017045	20017046	m	1	+	20017045	20017045	255,0,0	1	0.000000
@@ -159,14 +162,26 @@ chr22	19973437	19973438	m	1	+	19973437	19973437	255,0,0	1	1.000000
 | 9. n_mod | int | = field 5 |
 | 10. freq | float | n_mod/n_called ratio |
 
-# Modification codes and threshold
+# Modification codes
+Base modification codes can be set for both view and mod-freq tool using -c option.
+ Here is an example command to explain all possible context formats
+```bash
+minimod view -c a(C),h(CG),m,a(*) ref.fa reads.bam
+minimod mod-freq -c a(C),h(CG),m,a(*) ref.fa reads.bam
+```
+Consider following modification 
+- type a modifications of all A bases
+- type h modifications in CG context (CpG sites)
+- type m modifications in default CG context
+- type a modifications in all contexts
 
-Base modification codes and thresholds can be set for mod-freq tools using -c and -m flags respectively.
+# Modification threshold
+Base modification threshold can be set for mod-freq tool using -m option.
 
 
-01. 5mC modification(in CG context) frequencies with threshold 0.8
+01. 5mC modification(default context :CG) frequencies with threshold 0.8
 > ```
->   minimod mod-freq ref.fa reads.bam -c m -m 0.8
+>   minimod mod-freq -c m -m 0.8 ref.fa reads.bam
 > ```
 ![Fig](docs/figs/m_threshold.png)
 > ```
@@ -177,9 +192,9 @@ Base modification codes and thresholds can be set for mod-freq tools using -c an
 > mod_freq(5mC) = total_modified(5mC)/total_called(5mC)
 > ```
 
-03. 5mC and 5hmC base modification(in CG context) frequencies with thresholds 0.8, 0.7 respectively
+03. 5mC and 5hmC base modification(default context :CG) frequencies with thresholds 0.8, 0.7 respectively
 > ```
->   minimod mod-freq ref.fa reads.bam -c mh -m 0.8,0.7
+>   minimod mod-freq -c mh -m 0.8,0.7 ref.fa reads.bam
 > ```
 ![Fig](docs/figs/m_h_threshold.png)
 > ```
@@ -197,6 +212,39 @@ Base modification codes and thresholds can be set for mod-freq tools using -c an
 >
 > mod_freq(5hmC) = total_modified(5hmC)/total_called(5hmC)
 > ```
+
+# Modified bases in insertions
+minimod can handle insterted modified bases(where canonical base in not in reference) by specifiying --insertions flag for both mod-freq and view tools.
+
+Specifying --insertions will add an extra ins_offset column to the output. Sample outputs are given below.
+
+**Sample output of view with --insertions**
+```bash
+ref_contig	ref_pos	strand	read_id	read_pos	mod_code	mod_prob	ins_offset
+chr22	19966677	+	89870c83-8790-419f-acf8-8a8e93a0f3c9	186	m	0.972549	0
+chr22	19966761	+	89870c83-8790-419f-acf8-8a8e93a0f3c9	266	m	0.505882	0
+chr22	19966774	+	89870c83-8790-419f-acf8-8a8e93a0f3c9	279	m	0.949020	0
+chr22	19966782	+	89870c83-8790-419f-acf8-8a8e93a0f3c9	287	m	0.972549	0
+chr22	19966804	+	89870c83-8790-419f-acf8-8a8e93a0f3c9	309	m	0.286275	0
+chr22	19966873	+	89870c83-8790-419f-acf8-8a8e93a0f3c9	377	m	0.003922	0
+chr22	19966962	+	89870c83-8790-419f-acf8-8a8e93a0f3c9	463	m	0.988235	0
+chr22	19967025	+	89870c83-8790-419f-acf8-8a8e93a0f3c9	526	m	0.952941	0
+chr22	19967029	+	89870c83-8790-419f-acf8-8a8e93a0f3c9	530	m	0.886275	0
+```
+
+**Sample output of mod-freq with --insertions**
+```bash
+contig	start	end	strand	n_called	n_mod	freq	mod_code	ins_offset
+chr22	20016024	20016024	+	2	0	0.000000	m	0
+chr22	20017059	20017059	-	4	0	0.000000	m	0
+chr22	19989035	19989035	+	3	2	0.666667	m	0
+chr22	20016841	20016841	-	5	0	0.000000	m	0
+chr22	20016249	20016249	-	1	0	0.000000	m	0
+chr22	20003531	20003531	-	1	0	0.000000	m	0
+chr22	19975732	19975732	+	1	0	0.000000	m	0
+chr22	19995038	19995038	-	1	0	0.000000	m	0
+chr22	19999619	19999619	-	9	6	0.666667	m	0
+```
 
 # Important !
 Make sure that following requirements are met for each step in base modification calling pipeline.
