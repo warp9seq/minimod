@@ -733,8 +733,15 @@ static void get_bases(core_t * core, db_t *db, int32_t bam_i, const char *mm_str
                 ASSERT_MSG(ml_idx<ml_len, "ml_idx:%d ml_len:%d\n", ml_idx, ml_len);
                 uint8_t mod_prob = ml[ml_idx];
                 ASSERT_MSG(mod_prob <= 255 && mod_prob>=0, "mod_prob:%d\n", mod_prob);
-    
-                db->mod_prob[bam_i][mod_code_idx[(int)mod_code]][read_pos] = mod_prob;      
+
+                if(db->mod_prob[bam_i][mod_code_idx[(int)mod_code]][read_pos] != -1) {
+                    WARNING("Multiple modification calls for the same base in read:%s ref_pos:%d mod_code:%c read_pos:%d\nKeeping the call with higher modification probability. Ignoring the other calls.\n", qname, ref_pos, mod_code, read_pos);
+                    if(mod_prob > db->mod_prob[bam_i][mod_code_idx[(int)mod_code]][read_pos]) {
+                        db->mod_prob[bam_i][mod_code_idx[(int)mod_code]][read_pos] = mod_prob;
+                    }
+                } else {
+                    db->mod_prob[bam_i][mod_code_idx[(int)mod_code]][read_pos] = mod_prob;
+                }      
             }
 
         }
