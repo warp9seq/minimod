@@ -68,9 +68,9 @@ typedef struct {
     char *region_str; //the region string in format chr:start-end
 
     int8_t bedmethyl_out; //output in bedMethyl format, only for mod-freq
-    uint8_t req_threshes[256];      // address by mod code to get the threshold
-    char* req_mod_contexts[256];    // address by mod code to get the context
-    char req_mod_codes[17];         // address by index to get the mod code
+    uint8_t req_threshes[17];      // required threshold for each mod code
+    char* req_mod_contexts[17];    // required context for each mod code
+    char req_mod_codes[17];        // required mod codes
     char* output_file;
     FILE* output_fp;
     int progress_interval;
@@ -86,12 +86,6 @@ typedef struct {
     uint16_t n_called;
     uint16_t n_mod;
 } freq_t;
-
-typedef struct {
-    int ref_pos;
-    uint8_t mod_prob;
-    uint16_t ins_offset;
-} modbase_t;
 
 KHASH_MAP_INIT_STR(freqm, freq_t *);
 enum subtool {VIEW=0, MOD_FREQ=1};
@@ -109,17 +103,16 @@ typedef struct {
     uint8_t ** ml;
 
     // alignment
-    int ** aln; //aligned bases
-    int ** ins; //insertion ref_pos
-    int ** ins_offset; //insertion offset from the ref_pos
-    int *** bases_pos;
-    int ** skip_counts;
-    char ** mod_codes;
-    uint8_t * mod_codes_cap;
+    int ** aln; // aln[rec_i][read_pos] = ref_pos
+    int ** ins; // ins[rec_i][read_pos] = ins_pos
+    int ** ins_offset; // ins_offset[rec_i][read_pos] = ins_offset
+    int *** mod_prob; // mod_prob[rec_i][mod_i][read_pos] = mod_prob
+    int *** bases_pos; // bases_pos[rec_i][base_i] = read_pos
+    int ** skip_counts; // skip_counts[rec_i][read_pos] = skip_count
+    char ** mod_codes; // mod_codes[rec_i][mod_i] = mod_code
+    uint8_t * mod_codes_cap; // mod_codes_cap[rec_i] = mod_codes_cap
 
     double *means;
-    // view output
-    modbase_t *** modbases;
 
     //stats
     int64_t sum_bytes;

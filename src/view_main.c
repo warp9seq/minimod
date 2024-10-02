@@ -216,7 +216,7 @@ int view_main(int argc, char* argv[]) {
 
     double realtime2 = realtime();
     fprintf(stderr, "[%s] Loading contexts in reference\n", __func__);
-    load_ref_contexts(opt.req_mod_codes, opt.n_mods, opt.req_mod_contexts);
+    load_ref_contexts(opt.n_mods, opt.req_mod_contexts);
     fprintf(stderr, "[%s] Reference contexts loaded in %.3f sec\n", __func__, realtime()-realtime2);
 
     destroy_ref_forward();

@@ -46,7 +46,7 @@ static const int valid_strands[256] = { ['+'] = 1, ['-'] = 1 };
 static const int base_idx_lookup[256] = { ['A'] = 0, ['C'] = 1, ['G'] = 2, ['T'] = 3, ['U'] = 4, ['N'] = 5, ['a'] = 0, ['c'] = 1, ['g'] = 2, ['t'] = 3, ['u'] = 4, ['n'] = 5 };
 static const char base_complement_lookup[256] = { ['A'] = 'T', ['C'] = 'G', ['G'] = 'C', ['T'] = 'A', ['U'] = 'A', ['N'] = 'N', ['a'] = 't', ['c'] = 'g', ['g'] = 'c', ['t'] = 'a', ['u'] = 'a', ['n'] = 'n' };
 static const uint8_t valid_mod_codes[256] = { ['a'] = 1, ['b'] = 1, ['c'] = 1, ['e'] = 1, ['f'] = 1, ['g'] = 1, ['h'] = 1, ['m'] = 1, ['n'] = 1, ['o'] = 1,  ['A'] = 1, ['C'] = 1, ['G'] = 1, ['T'] = 1, ['U'] = 1, ['N'] = 1 };
-static uint8_t mod_code_idx[256]; // address by mod code to get the index
+static int mod_code_idx[256]; // address by mod code to get the index
 
 static inline int die(const char *format, ...) {
     va_list args;
@@ -127,8 +127,8 @@ void parse_mod_codes(opt_t *opt, char* mod_codes_str) {
     uint8_t n_codes = 0;
     int i=0;
 
-    for(i=0;i<256;i++){ // reset the mod_code_idx array to 255 (not requested)
-        mod_code_idx[i] = 255;
+    for(i=0;i<256;i++){ // reset the mod_code_idx array to -1 (not requested)
+        mod_code_idx[i] = -1;
     }
 
     i=0;
@@ -142,14 +142,14 @@ void parse_mod_codes(opt_t *opt, char* mod_codes_str) {
             ERROR("Invalid modification code %c", c);
             exit(EXIT_FAILURE);
         }
-        if(mod_code_idx[(int)c] != 255){ // already set
+        if(mod_code_idx[(int)c] != -1){ // already set
             ERROR("Duplicate modification code %c", c);
             exit(EXIT_FAILURE);
         }
         
         mod_code_idx[(int)c] = n_codes;
         opt->req_mod_codes[n_codes] = c;
-        n_codes++;
+        
         i++;
 
         int context_cap = 2;
@@ -178,21 +178,22 @@ void parse_mod_codes(opt_t *opt, char* mod_codes_str) {
                 j++;
             }
             context[j] = '\0';
-            opt->req_mod_contexts[(int)c] = context;
+            opt->req_mod_contexts[n_codes] = context;
             i++;
         } else if(mod_codes_str[i] == ','){ // context is *
             INFO("Context not provided for modification code %c. Using CG", c);
             strcpy(context, "CG");
-            opt->req_mod_contexts[(int)c] = context;
+            opt->req_mod_contexts[n_codes] = context;
             i++;
         } else if(mod_codes_str[i] == '\0'){
             INFO("Context not provided for modification code %c. Using CG", c);
             strcpy(context, "CG");
-            opt->req_mod_contexts[(int)c] = context;
+            opt->req_mod_contexts[n_codes] = context;
         } else {
             ERROR("Invalid character %c after modification code %c", mod_codes_str[i], c);
             exit(EXIT_FAILURE);
         }
+        n_codes++;
     }
 
     opt->n_mods = n_codes;
@@ -200,7 +201,7 @@ void parse_mod_codes(opt_t *opt, char* mod_codes_str) {
 
 void parse_mod_threshes(opt_t * opt, char* mod_thresh_str) {
     int i=0;
-    int n_mods = 0;
+    int n_thresh = 0;
     int thresh_str_cap = 1;
     while(mod_thresh_str[i] != '\0'){
         char * thresh_str = (char *)malloc(thresh_str_cap * sizeof(char) + 1);
@@ -231,21 +232,20 @@ void parse_mod_threshes(opt_t * opt, char* mod_thresh_str) {
             exit(EXIT_FAILURE);
         }
 
-        INFO("Modification code: %c, Context: %s, Threshold: %f", opt->req_mod_codes[n_mods], opt->req_mod_contexts[(int)opt->req_mod_codes[n_mods]], d);
+        INFO("Modification code: %c, Context: %s, Threshold: %f", opt->req_mod_codes[n_thresh], opt->req_mod_contexts[n_thresh], d);
 
-        
-        opt->req_threshes[(int)opt->req_mod_codes[n_mods]] = d*255;
+        opt->req_threshes[n_thresh] = d*255;
         
         free(thresh_str);
-        n_mods++;
+        n_thresh++;
         if(mod_thresh_str[i] == '\0'){
             break;
         }
         i++;
     }
 
-    if(n_mods!=opt->n_mods){
-        ERROR("Number of modification codes and thresholds do not match. Codes:%d, Thresholds:%d",opt->n_mods,i);
+    if(n_thresh != opt->n_mods){
+        ERROR("Number of modification codes and thresholds do not match. Codes:%d, Thresholds:%d",opt->n_mods,n_thresh);
         exit(EXIT_FAILURE);
     }
 }
@@ -253,10 +253,8 @@ void parse_mod_threshes(opt_t * opt, char* mod_thresh_str) {
 
 void print_view_options(opt_t *opt) {
     int i;
-    for(i=0; i<256; i++){
-        if(mod_code_idx[i] != 255){
-            INFO("Modification code: %c, Context: %s", i, opt->req_mod_contexts[i]);
-        }
+    for(i=0; i < opt->n_mods; i++){
+        INFO("Modification code: %c, Context: %s", opt->req_mod_codes[i], opt->req_mod_contexts[i]);
     }
 }
 
@@ -309,23 +307,25 @@ void update_freq_map(core_t * core, db_t * db) {
         uint32_t seq_len = record->core.l_qseq;
         char strand = rev ? '-' : '+';
 
-        modbase_t ** bases = db->modbases[i];
-
         for(int j=0;j<core->opt.n_mods;j++){
             char mod_code = core->opt.req_mod_codes[j];
-            if(mod_code_idx[(int)mod_code]==255){ // mod code not required
-                continue;
-            }
             for(int seq_i=0;seq_i<seq_len;seq_i++){
-                modbase_t * base = &bases[j][seq_i];
-
-                if(base->ref_pos == -1){ // no modification
+                
+                if(db->mod_prob[i][j][seq_i] == -1){ // not called
                     continue;
                 }
 
+                if(core->opt.insertions && db->aln[i][seq_i] == -1 && db->ins[i][seq_i] == -1){ // not aligned, not inserted
+                    continue;
+                } else if(!core->opt.insertions && db->aln[i][seq_i] == -1){ // not aligned
+                    continue;
+                }
+
+                int ref_pos = db->aln[i][seq_i] == -1 ? db->ins[i][seq_i] : db->aln[i][seq_i];
+                
                 uint8_t is_mod = 0, is_called = 0;
-                uint8_t thresh = core->opt.req_threshes[(int)mod_code];
-                uint8_t mod_prob = base->mod_prob;
+                uint8_t thresh = core->opt.req_threshes[j];
+                uint8_t mod_prob = db->mod_prob[i][j][seq_i];
                 
                 if(mod_prob >= thresh){ // modified with mod_code
                     is_called = 1;
@@ -336,7 +336,13 @@ void update_freq_map(core_t * core, db_t * db) {
                     continue;
                 }
 
-                char *key = make_key(tname, base->ref_pos, base->ins_offset, mod_code, strand);            
+                char *key = NULL;
+                if(core->opt.insertions){
+                    key = make_key(tname, ref_pos, db->ins_offset[i][seq_i], mod_code, strand);
+                } else {
+                    key = make_key(tname, ref_pos, 0, mod_code, strand);
+                }
+
                 khiter_t k = kh_get(freqm, freq_map, key);
                 if (k == kh_end(freq_map)) { // not found, add to map
                     freq_t * freq = (freq_t *)malloc(sizeof(freq_t));
@@ -370,6 +376,7 @@ void print_freq_tsv_header(core_t * core) {
 
 void print_freq_output(core_t * core) {
     khash_t(freqm) *freq_map = core->freq_map;
+
     if(core->opt.bedmethyl_out) {
         // chrom, start, end, mod_code, n_called, strand, start, end, "255,0,0",  n_called, freq
         khint_t k;
@@ -423,6 +430,7 @@ void print_freq_output(core_t * core) {
 static void get_aln(core_t * core, int ** aln, int ** ins, int ** ins_offset, bam_hdr_t *hdr, bam1_t *record){
     int32_t tid = record->core.tid;
     assert(tid < hdr->n_targets);
+    const char *tname = (tid >= 0) ? hdr->target_name[tid] : "*";
     int32_t pos = record->core.pos;
     int32_t end = bam_endpos(record);
 
@@ -432,6 +440,9 @@ static void get_aln(core_t * core, int ** aln, int ** ins, int ** ins_offset, ba
     uint32_t n_cigar = record->core.n_cigar;
 
     int seq_len = record->core.l_qseq;
+
+    ref_t *ref = get_ref(tname);
+    ASSERT_MSG(ref != NULL, "Contig %s not found in ref_map\n", tname);
   
     int read_pos = 0;
     int ref_pos = pos;
@@ -501,6 +512,9 @@ static void get_aln(core_t * core, int ** aln, int ** ins, int ** ins_offset, ba
                     start = pos + end - ref_pos - 1;
                 }
                 aligned_pairs[read_pos] = start;
+
+                ASSERT_MSG(ref_pos >= 0 && ref_pos < ref->ref_seq_length, "ref_pos:%d ref_len:%d\n", ref_pos, ref->ref_seq_length);
+                ASSERT_MSG(ref->ref_seq_length == hdr->target_len[tid], "ref_len:%d target_len:%d\n", ref->ref_seq_length, hdr->target_len[tid]);
             }
 
             if(core->opt.insertions && is_inserted) {
@@ -531,6 +545,8 @@ static void get_bases(core_t * core, db_t *db, int32_t bam_i, const char *mm_str
     uint8_t *seq = bam_get_seq(record);
     uint32_t seq_len = record->core.l_qseq;
 
+    ref_t *ref = get_ref(tname);
+
     // 5 int arrays to keep base pos of A, C, G, T, N bases.
     // A: 0, C: 1, G: 2, T: 3, U:4, N: 5
     // so that, nth base of A is at base_pos[0][n] and so on.
@@ -543,12 +559,9 @@ static void get_bases(core_t * core, db_t *db, int32_t bam_i, const char *mm_str
         int base_char = seq_nt16_str[bam_seqi(seq, i)];
         int idx = base_idx_lookup[(int)base_char];
         bases_pos[idx][bases_pos_lens[idx]++] = i;
-
-        modbase_t base;
-        base.ref_pos = -1;
-        base.mod_prob = 0;
+        
         for(int j=0;j<core->opt.n_mods;j++){
-            db->modbases[bam_i][j][i] = base;
+            db->mod_prob[bam_i][j][i] = -1;
         }
     }
 
@@ -681,9 +694,7 @@ static void get_bases(core_t * core, db_t *db, int32_t bam_i, const char *mm_str
             ASSERT_MSG(read_pos>=0 && read_pos < seq_len, "Base pos cannot exceed seq len. read_pos: %d seq_len: %d\n", read_pos, seq_len);
 
             int ref_pos = aln_pairs[read_pos];
-            int ins_offset = 0;
-            if(core->opt.insertions==1) {
-                ins_offset = ins_offsets[read_pos];
+            if(core->opt.insertions) {
                 ref_pos = ref_pos == -1 ? ins[read_pos] : ref_pos;
             }
 
@@ -694,25 +705,19 @@ static void get_bases(core_t * core, db_t *db, int32_t bam_i, const char *mm_str
                 continue;
             }
 
-            ref_t *ref = get_ref(tname);
-            ASSERT_MSG(ref != NULL, "Contig %s not found in ref_map\n", tname);
-            ASSERT_MSG(ref_pos >= 0 && ref_pos < ref->ref_seq_length, "ref_pos:%d ref_len:%d\n", ref_pos, ref->ref_seq_length);
-            ASSERT_MSG(ref->ref_seq_length == hdr->target_len[tid], "ref_len:%d target_len:%d\n", ref->ref_seq_length, hdr->target_len[tid]);
-            
             // mod prob per each mod code. TO-DO: need to change when code is ChEBI id
             for(int m=0; m<mod_codes_len; m++) {
                 char mod_code = mod_codes[m];
                 
                 ml_idx = ml_start_idx + c*mod_codes_len + m;
 
-                if(mod_code_idx[(int)mod_code]==255){ // mod code not required
+                if(mod_code_idx[(int)mod_code]==-1){ // mod code not required
                     continue;
                 }
 
                 if(core->opt.insertions) { // no need to check context for insertions
 
                 } else if ((!rev && ref->is_context[mod_code_idx[(int)mod_code]][ref_pos] == 1) || (rev && ref->is_context[mod_code_idx[(int)mod_code]][ref_pos - 1] == 1)) { // in context
-                    
                 } else {
                     continue;
                 }
@@ -720,10 +725,8 @@ static void get_bases(core_t * core, db_t *db, int32_t bam_i, const char *mm_str
                 ASSERT_MSG(ml_idx<ml_len, "ml_idx:%d ml_len:%d\n", ml_idx, ml_len);
                 uint8_t mod_prob = ml[ml_idx];
                 ASSERT_MSG(mod_prob <= 255 && mod_prob>=0, "mod_prob:%d\n", mod_prob);
-
-                db->modbases[bam_i][mod_code_idx[(int)mod_code]][read_pos].mod_prob = mod_prob;
-                db->modbases[bam_i][mod_code_idx[(int)mod_code]][read_pos].ref_pos = ref_pos;
-                db->modbases[bam_i][mod_code_idx[(int)mod_code]][read_pos].ins_offset = ins_offset;                
+    
+                db->mod_prob[bam_i][mod_code_idx[(int)mod_code]][read_pos] = mod_prob;      
             }
 
         }
@@ -753,23 +756,25 @@ void print_view_output(core_t* core, db_t* db) {
         int8_t rev = bam_is_rev(record);
         char strand = rev ? '-' : '+';
 
-        modbase_t ** bases = db->modbases[i];
         for(int j=0;j<core->opt.n_mods;j++){
             char mod_code = core->opt.req_mod_codes[j];
-            if(mod_code_idx[(int)mod_code]==255){ // mod code not required
-                continue;
-            }
             for(int seq_i=0;seq_i<seq_len;seq_i++){
-                modbase_t base = bases[j][seq_i];
-            
-                if(base.ref_pos == -1){
+                if(db->mod_prob[i][j][seq_i] == -1){ // no modification
                     continue;
                 }
 
+                if(core->opt.insertions && db->aln[i][seq_i] == -1 && db->ins[i][seq_i] == -1){ // not aligned, not inserted
+                    continue;
+                } else if(!core->opt.insertions && db->aln[i][seq_i] == -1){ // not aligned
+                    continue;
+                }
+
+                int ref_pos = db->aln[i][seq_i] == -1 ? db->ins[i][seq_i] : db->aln[i][seq_i];
+
                 if(core->opt.insertions==1){
-                    fprintf(core->opt.output_fp, "%s\t%d\t%c\t%s\t%d\t%c\t%f\t%d\n", tname, base.ref_pos, strand, qname, seq_i, mod_code, base.mod_prob/255.0, base.ins_offset);
+                    fprintf(core->opt.output_fp, "%s\t%d\t%c\t%s\t%d\t%c\t%f\t%d\n", tname, ref_pos, strand, qname, seq_i, mod_code, db->mod_prob[i][j][seq_i]/255.0, db->ins_offset[i][seq_i]);
                 } else {
-                    fprintf(core->opt.output_fp, "%s\t%d\t%c\t%s\t%d\t%c\t%f\n", tname, base.ref_pos, strand, qname, seq_i, mod_code, base.mod_prob/255.0);
+                    fprintf(core->opt.output_fp, "%s\t%d\t%c\t%s\t%d\t%c\t%f\n", tname, ref_pos, strand, qname, seq_i, mod_code, db->mod_prob[i][j][seq_i]/255.0);
                 }
             
             }
