@@ -69,6 +69,13 @@ sort -k1,1 -k2,2n -k3,3 -k6,6 test/expected/test2a.tsv > test/tmp/test2a.exp.tsv
 sort -k1,1 -k2,2n -k3,3 -k6,6 test/tmp/test2a.tsv > test/tmp/test2a.tsv.sorted
 diff -q test/tmp/test2a.exp.tsv.sorted test/tmp/test2a.tsv.sorted || die "${testname} diff failed"
 
+testname="Test 2b: view ont with all contexts"
+echo -e "${BLUE}${testname}${NC}"
+ex  ./minimod view -t 8 -c m[*] test/tmp/genome_chr22.fa test/data/example-ont.bam > test/tmp/test2b.tsv || die "${testname} Running the tool failed"
+sort -k1,1 -k2,2n -k3,3 -k6,6 test/expected/test2b.tsv > test/tmp/test2b.exp.tsv.sorted
+sort -k1,1 -k2,2n -k3,3 -k6,6 test/tmp/test2b.tsv > test/tmp/test2b.tsv.sorted
+diff -q test/tmp/test2b.exp.tsv.sorted test/tmp/test2b.tsv.sorted || die "${testname} diff failed"
+
 testname="Test 3: mod-freq hifi"
 echo -e "${BLUE}${testname}${NC}"
 ex  ./minimod mod-freq -t 8 test/tmp/genome_chr22.fa test/data/example-hifi.bam > test/tmp/test3.tsv  || die "${testname} Running the tool failed"
@@ -158,5 +165,6 @@ echo -e "${BLUE}${testname}${NC}"
 ex  ./minimod mod-freq -t 8 test/tmp/genome_chr22.fa test/data/example-ont.bam -o test/tmp/test14.tsv || die "${testname} Running the tool failed"
 sort -k1,1 -k2,2n -k4,4 test/tmp/test14.tsv > test/tmp/test14.tsv.sorted
 diff -q test/tmp/test5.exp.tsv.sorted test/tmp/test14.tsv.sorted || die "${testname} diff failed"
+
 
 echo -e "${GREEN}ALL TESTS PASSED !${NC}"
