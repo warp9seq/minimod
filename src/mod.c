@@ -420,7 +420,7 @@ void print_freq_output(core_t * core) {
     }
 }
 
-static void get_aln(int ** aln, int ** ins, int ** ins_offset, bam_hdr_t *hdr, bam1_t *record){
+static void get_aln(core_t * core, int ** aln, int ** ins, int ** ins_offset, bam_hdr_t *hdr, bam1_t *record){
     int32_t tid = record->core.tid;
     assert(tid < hdr->n_targets);
     int32_t pos = record->core.pos;
@@ -437,13 +437,20 @@ static void get_aln(int ** aln, int ** ins, int ** ins_offset, bam_hdr_t *hdr, b
     int ref_pos = pos;
 
     int * aligned_pairs = *aln;
-    int * ins_pos = *ins;
-    int * ins_off = *ins_offset;
+    int * ins_pos = NULL;
+    int * ins_off = NULL;
     //fill the aligned_pairs array with -1
     for(int i=0;i<seq_len;i++){
         aligned_pairs[i] = -1;
-        ins_pos[i] = -1;
-        ins_off[i] = 0;
+    }
+
+    if(core->opt.insertions){
+        ins_pos = *ins;
+        ins_off = *ins_offset;
+        for(int i=0;i<seq_len;i++){
+            ins_pos[i] = -1;
+            ins_off[i] = 0;
+        }
     }
 
     for (uint32_t ci = 0; ci < n_cigar; ++ci) {
@@ -496,7 +503,7 @@ static void get_aln(int ** aln, int ** ins, int ** ins_offset, bam_hdr_t *hdr, b
                 aligned_pairs[read_pos] = start;
             }
 
-            if(is_inserted) {
+            if(core->opt.insertions && is_inserted) {
                 ASSERT_MSG(read_pos < seq_len, "read_pos:%d seq_len:%d\n", read_pos, seq_len);
                 int start = ref_pos-1;
                 int offset = j+1;
@@ -781,7 +788,12 @@ void modbases_single(core_t* core, db_t* db, int32_t i) {
 
     bam_hdr_t *hdr = core->bam_hdr;
 
-    get_aln(&(db->aln[i]), &(db->ins[i]), &(db->ins_offset[i]), hdr, record);
-    get_bases(core, db, i, mm, ml, ml_len, db->aln[i], db->ins[i], db->ins_offset[i], hdr, record);
+    if(core->opt.insertions) {
+        get_aln(core, &(db->aln[i]), &(db->ins[i]), &(db->ins_offset[i]), hdr, record);
+        get_bases(core, db, i, mm, ml, ml_len, db->aln[i], db->ins[i], db->ins_offset[i], hdr, record);
+    } else {
+        get_aln(core, &(db->aln[i]), NULL, NULL, hdr, record);
+        get_bases(core, db, i, mm, ml, ml_len, db->aln[i], NULL, NULL, hdr, record);
+    }
 
 }
