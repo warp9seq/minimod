@@ -159,13 +159,13 @@ void parse_mod_codes(opt_t *opt, char* mod_codes_str) {
         if(mod_codes_str[i] == '['){ // context given
             i++;
             int j = 0;
-
-            while(mod_codes_str[i] != ']'){
-                if(valid_bases[(int)mod_codes_str[i]]==0){
-                    if(mod_codes_str[i] == '\0' || mod_codes_str[i] == ','){
-                        ERROR("Context not closed with a closing bracket for modification code %c", c);
-                    }
-                    ERROR("Invalid base %c in context for modification code %c", mod_codes_str[i], c);
+            int is_star = 0;
+            while(mod_codes_str[i] != ']' || mod_codes_str[i] == '\0'){
+                if(mod_codes_str[i] == '*'){
+                    is_star = 1;
+                }
+                if(valid_bases[(int)mod_codes_str[i]]==0 && mod_codes_str[i] != '*'){
+                    ERROR("Invalid character %c in context for modification code %c", mod_codes_str[i], c);
                     exit(EXIT_FAILURE);
                 }
                 if(j >= context_cap){
@@ -177,7 +177,15 @@ void parse_mod_codes(opt_t *opt, char* mod_codes_str) {
                 i++;
                 j++;
             }
+            if(mod_codes_str[i] == '\0'){
+                ERROR("Context not closed with a ] for modification code %c", c);
+                exit(EXIT_FAILURE);
+            }
             context[j] = '\0';
+            if(is_star && j > 1){
+                ERROR("Invalid context for modification code %c. * should be the only character in the context", c);
+                exit(EXIT_FAILURE);
+            }
             opt->req_mod_contexts[n_codes] = context;
             i++;
         } else if(mod_codes_str[i] == ','){ // context is *
