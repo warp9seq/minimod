@@ -164,16 +164,15 @@ chr22	19973437	19973438	m	1	+	19973437	19973437	255,0,0	1	1.000000
 
 # Modification codes
 Base modification codes can be set for both view and mod-freq tool using -c option.
- Here is an example command to explain all possible context formats
+ Here is an example command to explain all possible context formats.
 ```bash
 minimod view -c a[C],h[CG],m,a[*] ref.fa reads.bam
 minimod mod-freq -c a[C],h[CG],m,a[*] ref.fa reads.bam
 ```
-Consider following modification 
-- type a modifications of all A bases
-- type h modifications in CG context (CpG sites)
-- type m modifications in default CG context
-- type a modifications in all contexts
+- **a[C]** : type a modifications of all A bases
+- **h[CG]**: type h modifications in CG context (CpG sites)
+- **m**: type m modifications in default CG context
+- **a[*]**: type a modifications in all contexts
 
 If the context is not specified in square brackets along with modification code, minimod will consider following default contexts.
 
