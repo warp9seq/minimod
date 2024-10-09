@@ -47,6 +47,7 @@ static const int base_idx_lookup[256] = { ['A'] = 0, ['C'] = 1, ['G'] = 2, ['T']
 static const char base_complement_lookup[256] = { ['A'] = 'T', ['C'] = 'G', ['G'] = 'C', ['T'] = 'A', ['U'] = 'A', ['N'] = 'N', ['a'] = 't', ['c'] = 'g', ['g'] = 'c', ['t'] = 'a', ['u'] = 'a', ['n'] = 'n' };
 static const uint8_t valid_mod_codes[256] = { ['a'] = 1, ['b'] = 1, ['c'] = 1, ['e'] = 1, ['f'] = 1, ['g'] = 1, ['h'] = 1, ['m'] = 1, ['n'] = 1, ['o'] = 1,  ['A'] = 1, ['C'] = 1, ['G'] = 1, ['T'] = 1, ['U'] = 1, ['N'] = 1 };
 static int mod_code_idx[256]; // address by mod code to get the index
+static const char* default_context[256] = { ['m'] = "CG", ['h'] = "CG", ['f'] = "C", ['c'] = "C", ['C'] = "C", ['g'] = "T", ['e'] = "T", ['b'] = "T", ['T'] = "T", ['U'] = "U", ['a'] = "A", ['A'] = "A", ['o'] = "G", ['G'] = "G", ['n'] = "N", ['N'] = "N" };
 
 static inline int die(const char *format, ...) {
     va_list args;
@@ -189,13 +190,13 @@ void parse_mod_codes(opt_t *opt, char* mod_codes_str) {
             opt->req_mod_contexts[n_codes] = context;
             i++;
         } else if(mod_codes_str[i] == ','){ // context is *
-            INFO("Context not provided for modification code %c. Using CG", c);
-            strcpy(context, "CG");
+            INFO("Context not provided for modification code %c. Using %s", c, default_context[(int)c]);
+            strcpy(context, default_context[(int)c]);
             opt->req_mod_contexts[n_codes] = context;
             i++;
         } else if(mod_codes_str[i] == '\0'){
-            INFO("Context not provided for modification code %c. Using CG", c);
-            strcpy(context, "CG");
+            INFO("Context not provided for modification code %c. Using %s", c, default_context[(int)c]);
+            strcpy(context, default_context[(int)c]);
             opt->req_mod_contexts[n_codes] = context;
         } else {
             ERROR("Invalid character %c after modification code %c", mod_codes_str[i], c);
