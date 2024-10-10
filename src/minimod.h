@@ -107,7 +107,7 @@ typedef struct {
     int ** aln; // aln[rec_i][read_pos] = ref_pos
     int ** ins; // ins[rec_i][read_pos] = ins_pos
     int ** ins_offset; // ins_offset[rec_i][read_pos] = ins_offset
-    uint8_t * haplotypes; // haplotypes[rec_i] = haplotype
+    int * haplotypes; // haplotypes[rec_i] = haplotype
     int *** mod_prob; // mod_prob[rec_i][mod_i][read_pos] = mod_prob
     int *** bases_pos; // bases_pos[rec_i][base_i] = read_pos
     int ** skip_counts; // skip_counts[rec_i][read_pos] = skip_count
