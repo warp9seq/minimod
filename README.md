@@ -37,7 +37,7 @@ minimod mod-freq -b ref.fa reads.bam > modfreqs.bedmethyl
 # modification frequencies of multiple types ( m (5-methylcytosine) and h (5-hydroxymethylcytosine) in CG context with thresholds 0.8 and 0.7 respectively )
 minimod mod-freq -c m[CG],h[CG] -m 0.8,0.7 ref.fa reads.bam > mods.tsv
 ```
-- See [how modification codes can be specified?](#modification-codes)
+- See [how modification codes can be specified?](#modification-codes-and-contexts)
 - See [how threshold is used in minimod?](#modification-threshold)
 
 # minimod view
@@ -166,7 +166,7 @@ chr22	19973437	19973438	m	1	+	19973437	19973437	255,0,0	1	1.000000
 | 9. n_mod | int | = field 5 |
 | 10. freq | float | n_mod/n_called ratio |
 
-# Modification codes
+# Modification codes and contexts
 Base modification codes can be set for both view and mod-freq tool using -c option.
 
 Here is an example command to explain all possible context formats.
