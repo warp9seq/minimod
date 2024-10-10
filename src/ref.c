@@ -131,6 +131,9 @@ int has_chr(const char * chr) {
 
 ref_t * get_ref(const char * chr) {
     khiter_t k = kh_get(refm, ref_map, chr);
+    if (k == kh_end(ref_map)) {
+        return NULL;
+    }
     return kh_value(ref_map, k);
 }
 

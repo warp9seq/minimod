@@ -32,6 +32,10 @@ if [ ! -f test/tmp/genome_chr22.fa ]; then
     wget  -N -O test/tmp/genome_chr22.fa "https://raw.githubusercontent.com/imsuneth/shared-files/main/genome_chr22.fa" || die "Downloading the genome chr22 failed"
 fi
 
+if [ ! -f test/tmp/genome_chr1.fa ]; then
+    wget  -N -O test/tmp/genome_chr1.fa "https://github.com/imsuneth/shared-files/raw/refs/heads/main/genome_chr1.fa" || die "Downloading the genome chr1 failed"
+fi
+
 if [ ! -f test/tmp/truth.tsv ]; then
     wget  -N -O test/tmp/truth.tsv "https://raw.githubusercontent.com/imsuneth/shared-files/main/truth.tsv" || die "Downloading the truthset failed"
 fi
@@ -76,6 +80,13 @@ sort -k1,1 -k2,2n -k3,3 -k6,6 test/expected/test2b.tsv > test/tmp/test2b.exp.tsv
 sort -k1,1 -k2,2n -k3,3 -k6,6 test/tmp/test2b.tsv > test/tmp/test2b.tsv.sorted
 diff -q test/tmp/test2b.exp.tsv.sorted test/tmp/test2b.tsv.sorted || die "${testname} diff failed"
 
+testname="Test 2c: view ont with haplotypes"
+echo -e "${BLUE}${testname}${NC}"
+ex  ./minimod view -t 8 -c m[CG] --haplotypes test/tmp/genome_chr1.fa test/data/hap.bam > test/tmp/test2c.tsv || die "${testname} Running the tool failed"
+sort -k1,1 -k2,2n -k3,3 -k6,6 test/expected/test2c.tsv > test/tmp/test2c.exp.tsv.sorted
+sort -k1,1 -k2,2n -k3,3 -k6,6 test/tmp/test2c.tsv > test/tmp/test2c.tsv.sorted
+diff -q test/tmp/test2c.exp.tsv.sorted test/tmp/test2c.tsv.sorted || die "${testname} diff failed"
+
 testname="Test 3: mod-freq hifi"
 echo -e "${BLUE}${testname}${NC}"
 ex  ./minimod mod-freq -t 8 test/tmp/genome_chr22.fa test/data/example-hifi.bam > test/tmp/test3.tsv  || die "${testname} Running the tool failed"
@@ -103,6 +114,20 @@ ex  ./minimod mod-freq -t 8 --insertions test/tmp/genome_chr22.fa test/data/exam
 sort -k1,1 -k2,2n -k4,4 test/expected/test5a.tsv > test/tmp/test5a.exp.tsv.sorted
 sort -k1,1 -k2,2n -k4,4 test/tmp/test5a.tsv > test/tmp/test5a.tsv.sorted
 diff -q test/tmp/test5a.exp.tsv.sorted test/tmp/test5a.tsv.sorted || die "${testname} diff failed"
+
+testname="Test 5b: mod-freq ont with all contexts"
+echo -e "${BLUE}${testname}${NC}"
+ex  ./minimod mod-freq -t 8 -c m[*] test/tmp/genome_chr22.fa test/data/example-ont.bam > test/tmp/test5b.tsv || die "${testname} Running the tool failed"
+sort -k1,1 -k2,2n -k4,4 test/expected/test5b.tsv > test/tmp/test5b.exp.tsv.sorted
+sort -k1,1 -k2,2n -k4,4 test/tmp/test5b.tsv > test/tmp/test5b.tsv.sorted
+diff -q test/tmp/test5b.exp.tsv.sorted test/tmp/test5b.tsv.sorted || die "${testname} diff failed"
+
+testname="Test 5c: mod-freq ont with haplotypes"
+echo -e "${BLUE}${testname}${NC}"
+ex  ./minimod mod-freq -t 8 --haplotypes test/tmp/genome_chr1.fa test/data/hap.bam > test/tmp/test5c.tsv || die "${testname} Running the tool failed"
+sort -k1,1 -k2,2n -k4,4 test/expected/test5c.tsv > test/tmp/test5c.exp.tsv.sorted
+sort -k1,1 -k2,2n -k4,4 test/tmp/test5c.tsv > test/tmp/test5c.tsv.sorted
+diff -q test/tmp/test5c.exp.tsv.sorted test/tmp/test5c.tsv.sorted || die "${testname} diff failed"
 
 testname="Test 6: mod-freq ont bedmethyl output"
 echo -e "${BLUE}${testname}${NC}"

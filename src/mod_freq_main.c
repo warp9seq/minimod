@@ -60,6 +60,7 @@ static struct option long_options[] = {
     {"expand",no_argument, 0, 0},                  //13 expand view
     {"output",required_argument, 0, 'o'},          //14 output file
     {"insertions",no_argument, 0, 0},              //15 enable modifications in insertions
+    {"haplotypes",no_argument, 0, 0},              //16 enable haplotype mode
     {0, 0, 0, 0}};
 
 
@@ -70,6 +71,7 @@ static inline void print_help_msg(FILE *fp_help, opt_t opt){
     fprintf(fp_help,"   -c STR                     modification codes (ex. m , h or mh) [%s]\n", opt.req_mod_codes);
     fprintf(fp_help,"   -m FLOAT                   min modification threshold(s). Comma separated values for each modification code given in -c [%s]\n", opt.req_threshes);
     fprintf(fp_help,"   --insertions               enable modifications in insertions [%s]\n", (opt.insertions?"yes":"no"));
+    fprintf(fp_help,"   --haplotypes               enable haplotype mode [%s]\n", (opt.haplotypes?"yes":"no"));
     fprintf(fp_help,"   -t INT                     number of processing threads [%d]\n",opt.num_thread);
     fprintf(fp_help,"   -K INT                     batch size (max number of reads loaded at once) [%d]\n",opt.batch_size);
     fprintf(fp_help,"   -B FLOAT[K/M/G]            max number of bytes loaded at once [%.1fM]\n",opt.batch_size_bytes/(float)(1000*1000));
@@ -172,6 +174,8 @@ int mod_freq_main(int argc, char* argv[]) {
             yes_or_no(&opt.flag, MINIMOD_EXP, long_options[longindex].name, "yes", 1);
         } else if(c == 0 && longindex == 15){ //insertions
             opt.insertions = 1;
+        } else if(c == 0 && longindex == 16){ //haplotypes
+            opt.haplotypes = 1;
         } else {
             print_help_msg(fp_help, opt);
             if(fp_help == stdout){
