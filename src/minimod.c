@@ -198,7 +198,7 @@ db_t* init_db(core_t* core) {
     }
 
     if(core->opt.haplotypes){
-        db->haplotypes = (uint8_t*)(malloc(sizeof(uint8_t) * db->cap_bam_recs));
+        db->haplotypes = (int*)(malloc(sizeof(int) * db->cap_bam_recs));
         MALLOC_CHK(db->haplotypes);
     }
     

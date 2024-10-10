@@ -296,10 +296,11 @@ void destroy_freq_map(khash_t(freqm)* freq_map){
     kh_destroy(freqm, freq_map);
 }
 
-char* make_key(const char *chrom, int pos, uint16_t ins_offset, char mod_code, char strand, uint8_t haplotype){
+char* make_key(const char *chrom, int pos, uint16_t ins_offset, char mod_code, char strand, int haplotype){
     int start_strlen = snprintf(NULL, 0, "%d", pos);
     int offset_strlen = snprintf(NULL, 0, "%d", ins_offset);
-    int key_strlen = strlen(chrom) + start_strlen  + offset_strlen + 9;
+    int haplotype_strlen = snprintf(NULL, 0, "%d", haplotype);
+    int key_strlen = strlen(chrom) + start_strlen  + offset_strlen + haplotype_strlen + 8;
     
     char* key = (char *)malloc(key_strlen * sizeof(char));
     MALLOC_CHK(key);
@@ -307,7 +308,7 @@ char* make_key(const char *chrom, int pos, uint16_t ins_offset, char mod_code, c
     return key;
 }
 
-void decode_key(char *key, char **chrom, int *pos, uint16_t * ins_offset, char *mod_code, char *strand, uint8_t *haplotype){
+void decode_key(char *key, char **chrom, int *pos, uint16_t * ins_offset, char *mod_code, char *strand, int *haplotype){
     char* token = strtok(key, "\t");
     *chrom = calloc(strlen(token)+1, sizeof(char));
     MALLOC_CHK(*chrom);
@@ -316,7 +317,7 @@ void decode_key(char *key, char **chrom, int *pos, uint16_t * ins_offset, char *
     *ins_offset = strtoul(strtok(NULL, "\t"), NULL, 10);
     *mod_code = strtok(NULL, "\t")[0];
     *strand = strtok(NULL, "\t")[0];
-    *haplotype = strtoul(strtok(NULL, "\t"), NULL, 10);
+    *haplotype = atoi(strtok(NULL, "\t"));
 }
 
 // freq_map is used by multiple threads, so need to lock it
@@ -363,7 +364,7 @@ void update_freq_map(core_t * core, db_t * db) {
                 }
 
                 int ins_offset = 0;
-                uint8_t haplotype = 0;
+                int haplotype = 0;
                 char *key = NULL;
                 if(core->opt.insertions){
                     ins_offset = db->ins_offset[i][seq_i];
@@ -389,7 +390,27 @@ void update_freq_map(core_t * core, db_t * db) {
                     freq->n_called += is_called;
                     freq->n_mod += is_mod;
                 }
-                
+
+                if(core->opt.haplotypes) {
+                    // total counts
+                    key = make_key(tname, ref_pos, ins_offset, mod_code, strand, -1);
+
+                    k = kh_get(freqm, freq_map, key);
+                    if (k == kh_end(freq_map)) { // not found, add to map
+                        freq_t * freq = (freq_t *)malloc(sizeof(freq_t));
+                        MALLOC_CHK(freq);
+                        freq->n_called = is_called;
+                        freq->n_mod = is_mod;
+                        int ret;
+                        k = kh_put(freqm, freq_map, key, &ret);
+                        kh_value(freq_map, k) = freq;
+                    } else { // found, update the values
+                        free(key);
+                        freq_t * freq = kh_value(freq_map, k);
+                        freq->n_called += is_called;
+                        freq->n_mod += is_mod;
+                    }
+                }
             }
         }
     }
@@ -426,7 +447,7 @@ void print_freq_output(core_t * core) {
                 uint16_t ins_offset;
                 char mod_code;
                 char strand;
-                uint8_t haplotype;
+                int haplotype;
                 char * key = (char *) kh_key(freq_map, k);
                 decode_key(key, &contig, &ref_pos, &ins_offset, &mod_code, &strand, &haplotype);
                 int end = ref_pos+1;
@@ -447,7 +468,7 @@ void print_freq_output(core_t * core) {
                 uint16_t ins_offset;
                 char mod_code;
                 char strand;
-                uint8_t haplotype;
+                int haplotype;
                 char * key = (char *) kh_key(freq_map, k);
                 decode_key(key, &contig, &ref_pos, &ins_offset, &mod_code, &strand, &haplotype);
 
@@ -457,7 +478,11 @@ void print_freq_output(core_t * core) {
                     fprintf(core->opt.output_fp, "\t%d", ins_offset);
                 } 
                 if(core->opt.haplotypes) {
-                    fprintf(core->opt.output_fp, "\t%d", haplotype);
+                    if(haplotype == -1){
+                        fprintf(core->opt.output_fp, "\t*");
+                    } else {
+                        fprintf(core->opt.output_fp, "\t%d", haplotype);
+                    }
                 }
                 fprintf(core->opt.output_fp, "\n");
                 free(contig);

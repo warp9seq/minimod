@@ -291,19 +291,19 @@ chr1	24926	-	m84088_240522_013656_s1/197203096/ccs	189	m	0.988235	1
 ```
 **Sample output of mod-freq with --haplotypes**
 
-Note: Here freq value is calculated for each haplotype separately.
 ```bash
 $ minimod mod-freq --haplotypes ref.fa reads.bam
 
 contig	start	end	strand	n_called	n_mod	freq	mod_code	haplotype
-chr1	35737	35737	-	1	1	1.000000	m	1
-chr1	21616	21616	-	1	0	0.000000	m	1
-chr1	21616	21616	-	2	1	0.500000	m	2
-chr1	51737	51737	+	7	7	1.000000	m	1
-chr1	30409	30409	+	1	1	1.000000	m	2
-chr1	30606	30606	-	1	1	1.000000	m	1
+chr1	23002	23002	-	3	3	1.000000	m	1
+chr1	23002	23002	-	3	3	1.000000	m	2
+chr1	23002	23002	-	6	6	1.000000	m	*
+chr1	23096	23096	+	1	0	0.000000	m	1
+chr1	23096	23096	+	3	3	1.000000	m	2
+chr1	23096	23096	+	4	3	0.750000	m	*
 ```
 
+freq value of modifications with haplotype=* is calculated taking modifications from all haplotypes
 
 # Important !
 Make sure that following requirements are met for each step in base modification calling pipeline.
