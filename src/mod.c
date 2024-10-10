@@ -120,7 +120,23 @@ uint8_t *get_ml_tag(bam1_t *record, uint32_t *len_ptr){
     *len_ptr = len;
 
     return array;
+}
 
+// get the haplotype integer from the HP tag
+uint8_t get_hp_tag(bam1_t *record){
+    
+        const char* tag = "HP";
+        // get the HP tag
+        uint8_t *data = bam_aux_get(record, tag);
+        if(data == NULL){
+            LOG_TRACE("%s tag not found in read %s",tag, bam_get_qname(record));
+            return 0;
+        }
+    
+        // get the integer value
+        uint8_t hp = (uint8_t) bam_aux2i(data);
+    
+        return hp;
 }
 
 void parse_mod_codes(opt_t *opt, char* mod_codes_str) {
@@ -280,26 +296,27 @@ void destroy_freq_map(khash_t(freqm)* freq_map){
     kh_destroy(freqm, freq_map);
 }
 
-char* make_key(const char *chrom, int pos, uint16_t ins_offset, char mod_code, char strand){
+char* make_key(const char *chrom, int pos, uint16_t ins_offset, char mod_code, char strand, uint8_t haplotype){
     int start_strlen = snprintf(NULL, 0, "%d", pos);
     int offset_strlen = snprintf(NULL, 0, "%d", ins_offset);
-    int key_strlen = strlen(chrom) + start_strlen  + offset_strlen + 7;
+    int key_strlen = strlen(chrom) + start_strlen  + offset_strlen + 9;
     
     char* key = (char *)malloc(key_strlen * sizeof(char));
     MALLOC_CHK(key);
-    snprintf(key, key_strlen, "%s\t%d\t%d\t%c\t%c", chrom, pos, ins_offset, mod_code, strand);
+    snprintf(key, key_strlen, "%s\t%d\t%u\t%c\t%c\t%d", chrom, pos, ins_offset, mod_code, strand, haplotype);
     return key;
 }
 
-void decode_key(char *key, char **chrom, int *pos, uint16_t * ins_offset, char *mod_code, char *strand){
+void decode_key(char *key, char **chrom, int *pos, uint16_t * ins_offset, char *mod_code, char *strand, uint8_t *haplotype){
     char* token = strtok(key, "\t");
     *chrom = calloc(strlen(token)+1, sizeof(char));
     MALLOC_CHK(*chrom);
     strcpy(*chrom, token);
     *pos = atoi(strtok(NULL, "\t"));
-    *ins_offset = atoi(strtok(NULL, "\t"));
+    *ins_offset = strtoul(strtok(NULL, "\t"), NULL, 10);
     *mod_code = strtok(NULL, "\t")[0];
     *strand = strtok(NULL, "\t")[0];
+    *haplotype = strtoul(strtok(NULL, "\t"), NULL, 10);
 }
 
 // freq_map is used by multiple threads, so need to lock it
@@ -334,7 +351,7 @@ void update_freq_map(core_t * core, db_t * db) {
                 
                 uint8_t is_mod = 0, is_called = 0;
                 uint8_t thresh = core->opt.req_threshes[j];
-                uint8_t mod_prob = db->mod_prob[i][j][seq_i];
+                int mod_prob = db->mod_prob[i][j][seq_i];
                 
                 if(mod_prob >= thresh){ // modified with mod_code
                     is_called = 1;
@@ -345,12 +362,17 @@ void update_freq_map(core_t * core, db_t * db) {
                     continue;
                 }
 
+                int ins_offset = 0;
+                uint8_t haplotype = 0;
                 char *key = NULL;
                 if(core->opt.insertions){
-                    key = make_key(tname, ref_pos, db->ins_offset[i][seq_i], mod_code, strand);
-                } else {
-                    key = make_key(tname, ref_pos, 0, mod_code, strand);
+                    ins_offset = db->ins_offset[i][seq_i];
                 }
+                if(core->opt.haplotypes){
+                    haplotype = db->haplotypes[i];
+                }
+
+                key = make_key(tname, ref_pos, ins_offset, mod_code, strand, haplotype);
 
                 khiter_t k = kh_get(freqm, freq_map, key);
                 if (k == kh_end(freq_map)) { // not found, add to map
@@ -374,12 +396,18 @@ void update_freq_map(core_t * core, db_t * db) {
 }
 
 void print_freq_tsv_header(core_t * core) {
-    if(!core->opt.bedmethyl_out) {
+    if(!core->opt.bedmethyl_out) { // tsv output header, no header for bedmethyl
+        char * common = "contig\tstart\tend\tstrand\tn_called\tn_mod\tfreq\tmod_code";
+        char * ins_offset = "";
+        char * haplotype = "";
         if(core->opt.insertions){
-            fprintf(core->opt.output_fp, "contig\tstart\tend\tstrand\tn_called\tn_mod\tfreq\tmod_code\tins_offset\n");
-        } else {
-            fprintf(core->opt.output_fp, "contig\tstart\tend\tstrand\tn_called\tn_mod\tfreq\tmod_code\n");
+            ins_offset = "\tins_offset";
         }
+        if(core->opt.haplotypes){
+            haplotype = "\thaplotype";
+        }
+
+        fprintf(core->opt.output_fp, "%s%s%s\n", common, ins_offset, haplotype);
     }
 }
 
@@ -398,8 +426,9 @@ void print_freq_output(core_t * core) {
                 uint16_t ins_offset;
                 char mod_code;
                 char strand;
+                uint8_t haplotype;
                 char * key = (char *) kh_key(freq_map, k);
-                decode_key(key, &contig, &ref_pos, &ins_offset, &mod_code, &strand);
+                decode_key(key, &contig, &ref_pos, &ins_offset, &mod_code, &strand, &haplotype);
                 int end = ref_pos+1;
                 fprintf(core->opt.output_fp, "%s\t%d\t%d\t%c\t%d\t%c\t%d\t%d\t255,0,0\t%d\t%f\n", contig, ref_pos, end, mod_code, freq->n_called, strand, ref_pos, end, freq->n_called, freq_value);
                 free(contig);
@@ -418,14 +447,19 @@ void print_freq_output(core_t * core) {
                 uint16_t ins_offset;
                 char mod_code;
                 char strand;
+                uint8_t haplotype;
                 char * key = (char *) kh_key(freq_map, k);
-                decode_key(key, &contig, &ref_pos, &ins_offset, &mod_code, &strand);
+                decode_key(key, &contig, &ref_pos, &ins_offset, &mod_code, &strand, &haplotype);
+
+                fprintf(core->opt.output_fp, "%s\t%d\t%d\t%c\t%d\t%d\t%f\t%c", contig, ref_pos, ref_pos, strand, freq->n_called, freq->n_mod, freq_value, mod_code);
 
                 if(core->opt.insertions){
-                    fprintf(core->opt.output_fp, "%s\t%d\t%d\t%c\t%d\t%d\t%f\t%c\t%d\n", contig, ref_pos, ref_pos, strand, freq->n_called, freq->n_mod, freq_value, mod_code, ins_offset);
-                } else {
-                    fprintf(core->opt.output_fp, "%s\t%d\t%d\t%c\t%d\t%d\t%f\t%c\n", contig, ref_pos, ref_pos, strand, freq->n_called, freq->n_mod, freq_value, mod_code);
+                    fprintf(core->opt.output_fp, "\t%d", ins_offset);
+                } 
+                if(core->opt.haplotypes) {
+                    fprintf(core->opt.output_fp, "\t%d", haplotype);
                 }
+                fprintf(core->opt.output_fp, "\n");
                 free(contig);
             }
         }
@@ -752,11 +786,17 @@ static void get_bases(core_t * core, db_t *db, int32_t bam_i, const char *mm_str
 }
 
 void print_view_header(core_t* core) {
-    if(core->opt.insertions==1){
-        fprintf(core->opt.output_fp, "ref_contig\tref_pos\tstrand\tread_id\tread_pos\tmod_code\tmod_prob\tins_offset\n");
-    } else {
-        fprintf(core->opt.output_fp, "ref_contig\tref_pos\tstrand\tread_id\tread_pos\tmod_code\tmod_prob\n");
+    char * common = "ref_contig\tref_pos\tstrand\tread_id\tread_pos\tmod_code\tmod_prob";
+    char * ins_offset = "";
+    char * haplotype = "";
+    if(core->opt.insertions){
+        ins_offset = "\tins_offset";
     }
+    if(core->opt.haplotypes){
+        haplotype = "\thaplotype";
+    }
+
+    fprintf(core->opt.output_fp, "%s%s%s\n", common, ins_offset, haplotype);
 }
 
 void print_view_output(core_t* core, db_t* db) {
@@ -787,12 +827,14 @@ void print_view_output(core_t* core, db_t* db) {
 
                 int ref_pos = db->aln[i][seq_i] == -1 ? db->ins[i][seq_i] : db->aln[i][seq_i];
 
+                fprintf(core->opt.output_fp, "%s\t%d\t%c\t%s\t%d\t%c\t%f", tname, ref_pos, strand, qname, seq_i, mod_code, db->mod_prob[i][j][seq_i]/255.0);
                 if(core->opt.insertions==1){
-                    fprintf(core->opt.output_fp, "%s\t%d\t%c\t%s\t%d\t%c\t%f\t%d\n", tname, ref_pos, strand, qname, seq_i, mod_code, db->mod_prob[i][j][seq_i]/255.0, db->ins_offset[i][seq_i]);
-                } else {
-                    fprintf(core->opt.output_fp, "%s\t%d\t%c\t%s\t%d\t%c\t%f\n", tname, ref_pos, strand, qname, seq_i, mod_code, db->mod_prob[i][j][seq_i]/255.0);
+                    fprintf(core->opt.output_fp, "\t%d", db->ins_offset[i][seq_i]);
                 }
-            
+                if(core->opt.haplotypes==1){
+                    fprintf(core->opt.output_fp, "\t%d", db->haplotypes[i]);
+                }
+                fprintf(core->opt.output_fp, "\n");
             }
         }
     }
@@ -808,6 +850,10 @@ void modbases_single(core_t* core, db_t* db, int32_t i) {
     uint8_t *ml = db->ml[i];
 
     bam_hdr_t *hdr = core->bam_hdr;
+
+    if(core->opt.haplotypes) {
+        db->haplotypes[i] = get_hp_tag(record);
+    }
 
     if(core->opt.insertions) {
         get_aln(core, &(db->aln[i]), &(db->ins[i]), &(db->ins_offset[i]), hdr, record);

@@ -237,13 +237,16 @@ Base modification threshold can be set for mod-freq tool using -m option.
 > mod_freq(5hmC) = total_modified(5hmC)/total_called(5hmC)
 > ```
 
-# Modified bases in insertions
+# Enable insertions
 minimod can handle insterted modified bases(where canonical base in not in reference) by specifiying --insertions flag for both mod-freq and view tools.
 
 Specifying --insertions will add an extra ins_offset column to the output which is the position of modified base within the inserted region.
 
 **Sample output of view with --insertions**
+
 ```bash
+$ minimod view --insertions ref.fa reads.bam
+
 ref_contig	ref_pos	strand	read_id	read_pos	mod_code	mod_prob	ins_offset
 chr22	19967897	+	89870c83-8790-419f-acf8-8a8e93a0f3c9	1396	m	0.537255	0
 # chr22	19968083	+	89870c83-8790-419f-acf8-8a8e93a0f3c9	1582	m	0.000000	2
@@ -255,6 +258,8 @@ chr22	19968435	+	89870c83-8790-419f-acf8-8a8e93a0f3c9	1930	m	0.917647	0
 
 **Sample output of mod-freq with --insertions**
 ```bash
+$ minimod mod-freq --insertions ref.fa reads.bam
+
 contig	start	end	strand	n_called	n_mod	freq	mod_code	ins_offset
 chr22	19981825	19981825	-	1	1	1.000000	m	0
 # chr22	19968083	19968083	+	1	0	0.000000	m	2
@@ -264,6 +269,36 @@ chr22	20004425	20004425	+	2	2	1.000000	m	0
 chr22	20016700	20016700	-	4	0	0.000000	m	0
 ```
 Highlighted line corresponds to a 5mC modification within an insertion (A mC G) at position 19968083
+
+# Enable haplotypes
+minimod can output the haplotype in a separate integer column by specifiying --haplotypes flag for both view and mod-freq tools.
+
+**Sample output of view with --haplotypes**
+```bash
+$ minimod view --haplotypes ref.fa reads.bam
+
+ref_contig	ref_pos	strand	read_id	read_pos	mod_code	mod_prob	haplotype
+chr1	10484	-	m84088_240522_013656_s1/164692234/ccs	16262	m	0.980392	2
+chr1	10471	-	m84088_240522_013656_s1/164692234/ccs	16275	m	0.772549	2
+chr1	10469	-	m84088_240522_013656_s1/164692234/ccs	16277	m	0.254902	2
+chr1	25115	-	m84088_240522_013656_s1/197203096/ccs	0	m	0.290196	1
+chr1	25059	-	m84088_240522_013656_s1/197203096/ccs	56	m	0.886275	1
+chr1	24926	-	m84088_240522_013656_s1/197203096/ccs	189	m	0.988235	1
+```
+**Sample output of mod-freq with --haplotypes**
+
+Note: Here freq value is calculated for each haplotype separately.
+```bash
+$ minimod mod-freq --haplotypes ref.fa reads.bam
+
+contig	start	end	strand	n_called	n_mod	freq	mod_code	haplotype
+chr1	35737	35737	-	1	1	1.000000	m	1
+chr1	21616	21616	-	1	0	0.000000	m	1
+chr1	21616	21616	-	2	1	0.500000	m	2
+chr1	51737	51737	+	7	7	1.000000	m	1
+chr1	30409	30409	+	1	1	1.000000	m	2
+chr1	30606	30606	-	1	1	1.000000	m	1
+```
 
 
 # Important !

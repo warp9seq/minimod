@@ -196,6 +196,11 @@ db_t* init_db(core_t* core) {
         db->ins_offset = (int**)(malloc(sizeof(int*) * db->cap_bam_recs));
         MALLOC_CHK(db->ins_offset);
     }
+
+    if(core->opt.haplotypes){
+        db->haplotypes = (uint8_t*)(malloc(sizeof(uint8_t) * db->cap_bam_recs));
+        MALLOC_CHK(db->haplotypes);
+    }
     
     db->bases_pos = (int***)(malloc(sizeof(int**) * db->cap_bam_recs));
     MALLOC_CHK(db->bases_pos);
@@ -466,6 +471,9 @@ void free_db(core_t* core, db_t* db) {
     if(core->opt.insertions) {
         free(db->ins);
         free(db->ins_offset);
+    }
+    if(core->opt.haplotypes){
+        free(db->haplotypes);
     }
     free(db->bam_recs);
     free(db->means);

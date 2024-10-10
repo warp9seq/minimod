@@ -67,7 +67,7 @@ typedef struct {
 
     char *region_str; //the region string in format chr:start-end
 
-    int8_t bedmethyl_out; //output in bedMethyl format, only for mod-freq
+    uint8_t bedmethyl_out; //output in bedMethyl format, only for mod-freq
     uint8_t req_threshes[17];      // required threshold for each mod code
     char* req_mod_contexts[17];    // required context for each mod code
     char req_mod_codes[17];        // required mod codes
@@ -75,10 +75,11 @@ typedef struct {
     FILE* output_fp;
     int progress_interval;
 
-    int8_t subtool; //0:view, 1:mod-freq
+    uint8_t subtool; //0:view, 1:mod-freq
 
     uint8_t n_mods;
     uint8_t insertions; //is insertions enabled, add ins column to the output
+    uint8_t haplotypes; //is haplotypes enabled, add haplotype column to the output
 
 } opt_t;
 
@@ -106,6 +107,7 @@ typedef struct {
     int ** aln; // aln[rec_i][read_pos] = ref_pos
     int ** ins; // ins[rec_i][read_pos] = ins_pos
     int ** ins_offset; // ins_offset[rec_i][read_pos] = ins_offset
+    uint8_t * haplotypes; // haplotypes[rec_i] = haplotype
     int *** mod_prob; // mod_prob[rec_i][mod_i][read_pos] = mod_prob
     int *** bases_pos; // bases_pos[rec_i][base_i] = read_pos
     int ** skip_counts; // skip_counts[rec_i][read_pos] = skip_count
