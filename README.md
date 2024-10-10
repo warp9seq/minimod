@@ -58,7 +58,8 @@ basic options:
    -o FILE                    output file [stdout]
    --verbose INT              verbosity level [4]
    --version                  print version
-   --insertions               enable modifications in insertions
+   --insertions               enable modifications in insertions [no]
+   --haplotypes               enable haplotype mode [no]
 ```
 
 - See [how to consider inserted modified bases?](#modified-bases-in-insertions)
@@ -87,6 +88,7 @@ chr22	19979948	+	m84088_230609_030819_s1/55512555/ccs	98	m	0.623529
 | 6. mod_code | char | base modification code as in [SAMtags: 1.7 Base modifications](https://github.com/samtools/hts-specs/blob/master/SAMtags.pdf)  |
 | 7. mod_prob | float | probability (0.0-1.0) of base modification |
 | 8. ins_offset | int | offset of inserted base from ref_pos (only output when --insertions is specified) |
+| 9. haplotype | int | haplotype of the read (only output when --haplotypes is specified) |
 
 # minimod mod-freq
 ```bash
@@ -108,7 +110,8 @@ basic options:
    -o FILE                    output file [stdout]
    --verbose INT              verbosity level [4]
    --version                  print version
-   --insertions               enable modifications in insertions
+   --insertions               enable modifications in insertions [no]
+   --haplotypes               enable haplotype mode [no]
 ```
 
 **Sample modfreqs.tsv output**
@@ -134,7 +137,8 @@ chr22	19971259	19971259	+	1	1	1.000000	m
 | 6. n_mod | int | number of reads with base modification |
 | 7. freq | float | n_mod/n_called ratio |
 | 8. mod_code | char | base modification code as in [SAMtags: 1.7 Base modifications](https://github.com/samtools/hts-specs/blob/master/SAMtags.pdf) |
-| 9. ins_offset | int | offset of inserted base from ref_pos (only output when --insertions is specified)
+| 9. ins_offset | int | offset of inserted base from ref_pos (only output when --insertions is specified) |
+| 10. haplotype | int | haplotype of the read (only output when --haplotypes is specified) |
 
 **Sample modfreqs.bedmethyl output**
 ```bash
