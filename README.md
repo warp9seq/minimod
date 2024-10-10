@@ -244,7 +244,7 @@ Base modification threshold can be set for mod-freq tool using -m option.
 # Enable insertions
 minimod can handle insterted modified bases(where canonical base in not in reference) by specifiying --insertions flag for both mod-freq and view tools.
 
-Specifying --insertions will add an extra ins_offset column to the output which is the position of modified base within the inserted region.
+Specifying --insertions will add an extra ins_offset column(**only in tsv output**) which is the position of modified base within the inserted region.
 
 **Sample output of view with --insertions**
 
@@ -275,7 +275,7 @@ chr22	20016700	20016700	-	4	0	0.000000	m	0
 Highlighted line corresponds to a 5mC modification within an insertion (A mC G) at position 19968083
 
 # Enable haplotypes
-minimod can output the haplotype in a separate integer column by specifiying --haplotypes flag for both view and mod-freq tools.
+minimod can output the haplotype in a separate integer column (**only in tsv output**) by specifiying --haplotypes flag for both view and mod-freq tools.
 
 **Sample output of view with --haplotypes**
 ```bash
