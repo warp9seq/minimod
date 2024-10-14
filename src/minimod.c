@@ -46,7 +46,7 @@ SOFTWARE.
 #include <unistd.h>
 
 /* initialise the core data structure */
-core_t* init_core(const char *bamfilename, opt_t opt,double realtime0) {
+core_t* init_core(opt_t opt,double realtime0) {
 
     core_t* core = (core_t*)malloc(sizeof(core_t));
     MALLOC_CHK(core);
@@ -66,7 +66,7 @@ core_t* init_core(const char *bamfilename, opt_t opt,double realtime0) {
     core->skipped_reads_bytes=0;
 
     // load bam file
-    core->bam_fp = sam_open(bamfilename, "r");
+    core->bam_fp = sam_open(opt.bam_file, "r");
     NULL_CHK(core->bam_fp);
 
     if(opt.num_thread > 1){
@@ -74,10 +74,10 @@ core_t* init_core(const char *bamfilename, opt_t opt,double realtime0) {
     }
 
     // load bam index file
-    core->bam_idx = sam_index_load(core->bam_fp, bamfilename);
+    core->bam_idx = sam_index_load(core->bam_fp, opt.bam_file);
     if(core->bam_idx==NULL){
-        ERROR("could not load the .bai index file for %s", bamfilename);
-        fprintf(stderr, "Please run 'samtools index %s'\n", bamfilename);
+        ERROR("could not load the .bai index file for %s", opt.bam_file);
+        fprintf(stderr, "Please run 'samtools index %s'\n", opt.bam_file);
         exit(EXIT_FAILURE);
     }
 
@@ -492,6 +492,8 @@ void init_opt(opt_t* opt) {
     opt->output_fp = stdout;
     opt->progress_interval = 0;
     opt->output_file = NULL;
+    opt->bam_file = NULL;
+    opt->ref_file = NULL;
 
 #ifdef HAVE_ACC
     opt->flag |= MINIMOD_ACC;

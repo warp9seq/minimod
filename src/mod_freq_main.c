@@ -100,8 +100,6 @@ int mod_freq_main(int argc, char* argv[]) {
     int longindex = 0;
     int32_t c = -1;
 
-    char *ref_file = NULL;
-    char *bam_file = NULL;
     char *mod_codes_str = NULL;
     char *mod_threshes_str = NULL;
 
@@ -208,10 +206,10 @@ int mod_freq_main(int argc, char* argv[]) {
         exit(EXIT_FAILURE);
     }
 
-    ref_file = argv[optind];
-    bam_file = argv[optind+1];
+    opt.ref_file = argv[optind];
+    opt.bam_file = argv[optind+1];
 
-    if (ref_file == NULL) {
+    if (opt.ref_file == NULL) {
         WARNING("%s","Reference file not provided");
         print_help_msg(fp_help, opt);
         if(fp_help == stdout){
@@ -220,7 +218,7 @@ int mod_freq_main(int argc, char* argv[]) {
         exit(EXIT_FAILURE);
     }
 
-    if (bam_file == NULL) {
+    if (opt.bam_file == NULL) {
         WARNING("%s","BAM file not provided");
         print_help_msg(fp_help, opt);
         if(fp_help == stdout){
@@ -231,8 +229,8 @@ int mod_freq_main(int argc, char* argv[]) {
 
     //load the reference genome, get the contexts, and destroy the reference
     double realtime1 = realtime();
-    fprintf(stderr, "[%s] Loading reference genome %s\n", __func__, ref_file);
-    load_ref(ref_file);
+    fprintf(stderr, "[%s] Loading reference genome %s\n", __func__, opt.ref_file);
+    load_ref(opt.ref_file);
     fprintf(stderr, "[%s] Reference genome loaded in %.3f sec\n", __func__, realtime()-realtime1);
 
     double realtime2 = realtime();
@@ -243,7 +241,7 @@ int mod_freq_main(int argc, char* argv[]) {
     destroy_ref_forward();
 
     //initialise the core data structure
-    core_t* core = init_core(bam_file, opt, realtime0);
+    core_t* core = init_core(opt, realtime0);
 
     int32_t counter=0;
 

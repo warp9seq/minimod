@@ -71,6 +71,8 @@ typedef struct {
     uint8_t req_threshes[17];      // required threshold for each mod code
     char* req_mod_contexts[17];    // required context for each mod code
     char req_mod_codes[17];        // required mod codes
+    char * bam_file;
+    char * ref_file;
     char* output_file;
     FILE* output_fp;
     int progress_interval;
@@ -197,7 +199,7 @@ typedef struct {
 void init_opt(opt_t* opt);
 
 /* initialise the core data structure */
-core_t* init_core(const char *bamfile, opt_t opt, double realtime0);
+core_t* init_core(opt_t opt, double realtime0);
 
 /* initialise a data batch */
 db_t* init_db(core_t* core);
