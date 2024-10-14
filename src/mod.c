@@ -502,6 +502,8 @@ static void get_aln(core_t * core, int ** aln, int ** ins, int ** ins_offset, ba
     int32_t pos = record->core.pos;
     int32_t end = bam_endpos(record);
 
+    const char *qname = bam_get_qname(record);
+
     int8_t rev = bam_is_rev(record);
 
     uint32_t *cigar = bam_get_cigar(record);
@@ -510,7 +512,7 @@ static void get_aln(core_t * core, int ** aln, int ** ins, int ** ins_offset, ba
     int seq_len = record->core.l_qseq;
 
     ref_t *ref = get_ref(tname);
-    ASSERT_MSG(ref != NULL, "Contig %s not found in ref_map\n", tname);
+    ASSERT_MSG(ref != NULL, "Contig %s not found in reference provided\n", tname);
   
     int read_pos = 0;
     int ref_pos = pos;
@@ -564,7 +566,7 @@ static void get_aln(core_t * core, int ** aln, int ** ins, int ** ins_offset, ba
             read_inc = 1;
         } else if(cigar_op == BAM_CHARD_CLIP) {
             read_inc = 0;
-            ERROR("Hard clipping(%d) not supported. Use minimap2 with -Y to use soft clipping for suplimentary alignment.\n", cigar_op);
+            ERROR("Hard clipping found in %s and they are not supported.\nTry following workarounds.\n\t01. Filter out non-primary alignments\n\t\tsamtools view -h -F 2308 reads.bam -o primary_reads.bam\n\t02. Use minimap2 with -Y to use soft clipping for suplimentary alignments.\n", qname); 
             exit(EXIT_FAILURE);
         } else {
             ERROR("Unhandled CIGAR OPT Cigar: %d\n", cigar_op);
@@ -716,9 +718,9 @@ static void get_bases(core_t * core, db_t *db, int32_t bam_i, const char *mm_str
                 assert(l < 10); // if this fails, use dynamic allocation for skip_count_str
             }
             skip_count_str[l] = '\0';
-            ASSERT_MSG(l > 0, "invalid skip count:%d.\n", l);
+            ASSERT_MSG(l > 0, "Invalid skip count:%d.\n", l);
             sscanf(skip_count_str, "%d", &skip_counts[k]);
-            ASSERT_MSG(skip_counts[k] >= 0, "skip count cannot be negative: %d.\n", skip_counts[k]);
+            ASSERT_MSG(skip_counts[k] >= 0, "Skip count cannot be negative: %d.\n", skip_counts[k]);
             
             k++;
         }
@@ -759,7 +761,7 @@ static void get_bases(core_t * core, db_t *db, int32_t bam_i, const char *mm_str
                 read_pos = bases_pos[idx][base_rank];
             }
 
-            ASSERT_MSG(read_pos>=0 && read_pos < seq_len, "Base pos cannot exceed seq len. read_pos: %d seq_len: %d\n", read_pos, seq_len);
+            ASSERT_MSG(read_pos>=0 && read_pos < seq_len, "Read pos cannot exceed seq len. read_pos: %d seq_len: %d\n", read_pos, seq_len);
 
             int ref_pos = aln_pairs[read_pos];
             if(core->opt.insertions) {
@@ -790,9 +792,9 @@ static void get_bases(core_t * core, db_t *db, int32_t bam_i, const char *mm_str
                     continue;
                 }
 
-                ASSERT_MSG(ml_idx<ml_len, "ml_idx:%d ml_len:%d\n", ml_idx, ml_len);
+                ASSERT_MSG(ml_idx<ml_len, "Mod prob index mismatch. ml_idx:%d ml_len:%d\n", ml_idx, ml_len);
                 uint8_t mod_prob = ml[ml_idx];
-                ASSERT_MSG(mod_prob <= 255 && mod_prob>=0, "mod_prob:%d\n", mod_prob);
+                ASSERT_MSG(mod_prob <= 255 && mod_prob>=0, "Invalid mod_prob:%d\n", mod_prob);
 
                 if(db->mod_prob[bam_i][mod_code_idx[(int)mod_code]][read_pos] != -1) {
                     WARNING("Multiple modification calls for the same base in read:%s ref_pos:%d mod_code:%c read_pos:%d\nKeeping the call with higher modification probability. Ignoring the other calls.\n", qname, ref_pos, mod_code, read_pos);
