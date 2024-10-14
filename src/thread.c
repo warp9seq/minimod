@@ -2,10 +2,12 @@
  * @file thread.c
  * @brief multi-thread implementation skeleton
  * @author Hasindu Gamaarachchi (hasindu@garvan.org.au)
+ *         Suneth Samarasinghe (imsuneth@gmail.com)
 
 MIT License
 
 Copyright (c) 2019,2021  Hasindu Gamaarachchi (hasindu@unsw.edu.au)
+Copyright (c) 2024 Suneth Samarasinghe (imsuneth@gmail.com)
 
 Permission is hereby granted, free of charge, to any person obtaining a copy
 of this software and associated documentation files (the "Software"), to deal
