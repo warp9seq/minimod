@@ -96,8 +96,6 @@ int view_main(int argc, char* argv[]) {
     int longindex = 0;
     int32_t c = -1;
 
-    char *mod_codes_str = NULL;
-
     FILE *fp_help = stderr;
 
     opt_t opt;
@@ -147,7 +145,7 @@ int view_main(int argc, char* argv[]) {
         } else if (c=='h'){
             fp_help = stdout;
         } else if (c=='c') {
-            mod_codes_str = optarg;
+            opt.mod_codes_str = optarg;
         } else if(c == 0 && longindex == 8){ //debug break
             opt.debug_break = atoi(optarg);
         } else if(c == 0 && longindex == 9){ //sectional benchmark todo : warning for gpu mode
@@ -173,12 +171,12 @@ int view_main(int argc, char* argv[]) {
         }
     }
 
-    if(mod_codes_str==NULL || strlen(mod_codes_str)==0){
+    if(opt.mod_codes_str==NULL || strlen(opt.mod_codes_str)==0){
         INFO("%s", "Modification codes not provided. Using default modification code m");
-        mod_codes_str = "m";
+        opt.mod_codes_str = "m";
     }
 
-    parse_mod_codes(&opt, mod_codes_str);
+    parse_mod_codes(&opt);
     print_view_options(&opt);
 
     // No arguments given

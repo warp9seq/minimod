@@ -496,6 +496,8 @@ void init_opt(opt_t* opt) {
     opt->output_file = NULL;
     opt->bam_file = NULL;
     opt->ref_file = NULL;
+    opt->mod_codes_str = NULL;
+    opt->mod_threshes_str = NULL;
 
 #ifdef HAVE_ACC
     opt->flag |= MINIMOD_ACC;

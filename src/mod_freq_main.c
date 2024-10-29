@@ -68,8 +68,8 @@ static inline void print_help_msg(FILE *fp_help, opt_t opt){
     fprintf(fp_help,"Usage: minimod mod-freq ref.fa reads.bam\n");
     fprintf(fp_help,"\nbasic options:\n");
     fprintf(fp_help,"   -b                         output in bedMethyl format [%s]\n", (opt.bedmethyl_out?"yes":"not set"));
-    fprintf(fp_help,"   -c STR                     modification codes (ex. m , h or mh) [%s]\n", opt.req_mod_codes);
-    fprintf(fp_help,"   -m FLOAT                   min modification threshold(s). Comma separated values for each modification code given in -c [%s]\n", opt.req_threshes);
+    fprintf(fp_help,"   -c STR                     modification codes (ex. m , h or mh) [%s]\n", opt.mod_codes_str);
+    fprintf(fp_help,"   -m FLOAT                   min modification threshold(s). Comma separated values for each modification code given in -c [%s]\n", opt.mod_threshes_str);
     fprintf(fp_help,"   --insertions               enable modifications in insertions [%s]\n", (opt.insertions?"yes":"no"));
     fprintf(fp_help,"   --haplotypes               enable haplotype mode [%s]\n", (opt.haplotypes?"yes":"no"));
     fprintf(fp_help,"   -t INT                     number of processing threads [%d]\n",opt.num_thread);
@@ -99,9 +99,6 @@ int mod_freq_main(int argc, char* argv[]) {
 
     int longindex = 0;
     int32_t c = -1;
-
-    char *mod_codes_str = NULL;
-    char *mod_threshes_str = NULL;
 
     FILE *fp_help = stderr;
 
@@ -153,9 +150,9 @@ int mod_freq_main(int argc, char* argv[]) {
         } else if (c=='h'){
             fp_help = stdout;
         } else if (c=='m'){
-            mod_threshes_str = optarg;
+            opt.mod_threshes_str = optarg;
         } else if (c=='c') {
-            mod_codes_str = optarg;
+            opt.mod_codes_str = optarg;
         } else if (c=='b'){
             opt.bedmethyl_out = 1;
         }else if(c == 0 && longindex == 10){ //debug break
@@ -183,18 +180,18 @@ int mod_freq_main(int argc, char* argv[]) {
         }
     }
 
-    if(mod_codes_str==NULL || strlen(mod_codes_str)==0){
+    if(opt.mod_codes_str==NULL || strlen(opt.mod_codes_str)==0){
         INFO("%s", "Modification codes not provided. Using default modification code m");
-        mod_codes_str = "m";
+        opt.mod_codes_str = "m";
     }
     
-    if(mod_threshes_str==NULL || strlen(mod_threshes_str)==0){
+    if(opt.mod_threshes_str==NULL || strlen(opt.mod_threshes_str)==0){
         INFO("%s", "Modification threshold not provided. Using default threshold 0.8");
-        mod_threshes_str = "0.8";
+        opt.mod_threshes_str = "0.8";
     } 
     
-    parse_mod_codes(&opt, mod_codes_str);
-    parse_mod_threshes(&opt, mod_threshes_str);
+    parse_mod_codes(&opt);
+    parse_mod_threshes(&opt);
 
     // No arguments given
     if (argc - optind != 2 || fp_help == stdout) {

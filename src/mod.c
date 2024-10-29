@@ -139,7 +139,7 @@ uint8_t get_hp_tag(bam1_t *record){
         return hp;
 }
 
-void parse_mod_codes(opt_t *opt, char* mod_codes_str) {
+void parse_mod_codes(opt_t *opt) {
     
     uint8_t n_codes = 0;
     int i=0;
@@ -150,11 +150,11 @@ void parse_mod_codes(opt_t *opt, char* mod_codes_str) {
 
     i=0;
     while(1){
-        if(mod_codes_str[i] == '\0'){ // end of string
+        if(opt->mod_codes_str[i] == '\0'){ // end of string
             break;
         }
         
-        char c = mod_codes_str[i];
+        char c = opt->mod_codes_str[i];
         if(valid_mod_codes[(int)c] == 0){
             ERROR("Invalid modification code %c", c);
             exit(EXIT_FAILURE);
@@ -173,16 +173,16 @@ void parse_mod_codes(opt_t *opt, char* mod_codes_str) {
         char * context = (char *)malloc(context_cap * sizeof(char) + 1);
         MALLOC_CHK(context);
 
-        if(mod_codes_str[i] == '['){ // context given
+        if(opt->mod_codes_str[i] == '['){ // context given
             i++;
             int j = 0;
             int is_star = 0;
-            while(mod_codes_str[i] != ']' || mod_codes_str[i] == '\0'){
-                if(mod_codes_str[i] == '*'){
+            while(opt->mod_codes_str[i] != ']' || opt->mod_codes_str[i] == '\0'){
+                if(opt->mod_codes_str[i] == '*'){
                     is_star = 1;
                 }
-                if(valid_bases[(int)mod_codes_str[i]]==0 && mod_codes_str[i] != '*'){
-                    ERROR("Invalid character %c in context for modification code %c", mod_codes_str[i], c);
+                if(valid_bases[(int)opt->mod_codes_str[i]]==0 && opt->mod_codes_str[i] != '*'){
+                    ERROR("Invalid character %c in context for modification code %c", opt->mod_codes_str[i], c);
                     exit(EXIT_FAILURE);
                 }
                 if(j >= context_cap){
@@ -190,11 +190,11 @@ void parse_mod_codes(opt_t *opt, char* mod_codes_str) {
                     context = (char *)realloc(context, context_cap * sizeof(char) + 1);
                     MALLOC_CHK(context);
                 }
-                context[j] = mod_codes_str[i];
+                context[j] = opt->mod_codes_str[i];
                 i++;
                 j++;
             }
-            if(mod_codes_str[i] == '\0'){
+            if(opt->mod_codes_str[i] == '\0'){
                 ERROR("Context not closed with a ] for modification code %c", c);
                 exit(EXIT_FAILURE);
             }
@@ -205,17 +205,17 @@ void parse_mod_codes(opt_t *opt, char* mod_codes_str) {
             }
             opt->req_mod_contexts[n_codes] = context;
             i++;
-        } else if(mod_codes_str[i] == ','){ // context is *
+        } else if(opt->mod_codes_str[i] == ','){ // context is *
             INFO("Context not provided for modification code %c. Using %s", c, default_context[(int)c]);
             strcpy(context, default_context[(int)c]);
             opt->req_mod_contexts[n_codes] = context;
             i++;
-        } else if(mod_codes_str[i] == '\0'){
+        } else if(opt->mod_codes_str[i] == '\0'){
             INFO("Context not provided for modification code %c. Using %s", c, default_context[(int)c]);
             strcpy(context, default_context[(int)c]);
             opt->req_mod_contexts[n_codes] = context;
         } else {
-            ERROR("Invalid character %c after modification code %c", mod_codes_str[i], c);
+            ERROR("Invalid character %c after modification code %c", opt->mod_codes_str[i], c);
             exit(EXIT_FAILURE);
         }
         n_codes++;
@@ -224,21 +224,21 @@ void parse_mod_codes(opt_t *opt, char* mod_codes_str) {
     opt->n_mods = n_codes;
 }
 
-void parse_mod_threshes(opt_t * opt, char* mod_thresh_str) {
+void parse_mod_threshes(opt_t * opt) {
     int i=0;
     int n_thresh = 0;
     int thresh_str_cap = 1;
-    while(mod_thresh_str[i] != '\0'){
+    while(opt->mod_threshes_str[i] != '\0'){
         char * thresh_str = (char *)malloc(thresh_str_cap * sizeof(char) + 1);
         MALLOC_CHK(thresh_str);
         int j = 0;
-        while(mod_thresh_str[i] != ',' && mod_thresh_str[i] != '\0'){
+        while(opt->mod_threshes_str[i] != ',' && opt->mod_threshes_str[i] != '\0'){
             if(j >= thresh_str_cap){
                 thresh_str_cap *= 2;
                 thresh_str = (char *)realloc(thresh_str, thresh_str_cap * sizeof(char) + 1);
                 MALLOC_CHK(thresh_str);
             }
-            thresh_str[j] = mod_thresh_str[i];
+            thresh_str[j] = opt->mod_threshes_str[i];
             i++;
             j++;
         }
@@ -263,7 +263,7 @@ void parse_mod_threshes(opt_t * opt, char* mod_thresh_str) {
         
         free(thresh_str);
         n_thresh++;
-        if(mod_thresh_str[i] == '\0'){
+        if(opt->mod_threshes_str[i] == '\0'){
             break;
         }
         i++;
