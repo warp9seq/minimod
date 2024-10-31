@@ -66,14 +66,14 @@ static inline void print_help_msg(FILE *fp_help, opt_t opt){
     fprintf(fp_help,"Usage: minimod view ref.fa reads.bam\n");
     fprintf(fp_help,"\nbasic options:\n");
     fprintf(fp_help,"   -c STR                     modification code(s) (eg. m, h or mh) [%s]\n", opt.req_mod_codes);
-    fprintf(fp_help,"   --insertions               enable modifications in insertions [%s]\n", (opt.insertions?"yes":"no"));
-    fprintf(fp_help,"   --haplotypes               enable haplotype mode [%s]\n", (opt.haplotypes?"yes":"no"));
     fprintf(fp_help,"   -t INT                     number of processing threads [%d]\n",opt.num_thread);
     fprintf(fp_help,"   -K INT                     batch size (max number of reads loaded at once) [%d]\n",opt.batch_size);
-    fprintf(fp_help,"   -B FLOAT[K/M/G]            max number of bytes loaded at once [%.1fM]\n",opt.batch_size_bytes/(float)(1000*1000));
+    fprintf(fp_help,"   -B FLOAT[K/M/G]            max number of bases loaded at once [%.1fM]\n",opt.batch_size_bytes/(float)(1000*1000));
     fprintf(fp_help,"   -h                         help\n");
     fprintf(fp_help,"   -p INT                     print progress every INT seconds (0: per batch) [%d]\n", opt.progress_interval);
     fprintf(fp_help,"   -o FILE                    output file [%s]\n", opt.output_file==NULL?"stdout":opt.output_file);
+    fprintf(fp_help,"   --insertions               enable modifications in insertions [%s]\n", (opt.insertions?"yes":"no"));
+    fprintf(fp_help,"   --haplotypes               enable haplotype mode [%s]\n", (opt.haplotypes?"yes":"no"));
     fprintf(fp_help,"   --verbose INT              verbosity level [%d]\n",(int)get_log_level());
     fprintf(fp_help,"   --version                  print version\n");
 
