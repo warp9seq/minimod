@@ -6,7 +6,6 @@ Minimod reads base modification information encoded under `MM:Z` and `ML:B:C` SA
 
 **IMPORTANT: minimod is currently in early development stage. So note that the interface, thresholds and defaults may change. Watch out for bugs and open an issue if you find one. This notice will be removed when things are stable and undergo more rigorous testing**
 
-
 # Table of Contents
 - [Installation](#installation)
   - [Building from source](#building-from-source)
@@ -70,7 +69,7 @@ This writes all base modifications (default modification code "m") to a file (mo
 Usage: minimod view ref.fa reads.bam
 
 basic options:
-   -c STR                     modification code(s) (ex. m, h or mh) [m]
+   -c STR                     modification code(s) (eg. m, h or mh) [m]
    -t INT                     number of processing threads [8]
    -K INT                     batch size (max number of reads loaded at once) [512]
    -B FLOAT[K/M/G]            max number of bytes loaded at once [20.0M]
@@ -121,7 +120,7 @@ Usage: minimod mod-freq ref.fa reads.bam
 
 basic options:
    -b                         output in bedMethyl format [not set]
-   -c STR                     modification codes (ex. m, h or mh) [m]
+   -c STR                     modification codes (eg. m, h or mh) [m]
    -m FLOAT                   min modification threshold(s). Comma separated values for each modification code given in -c [0.8]
    -t INT                     number of processing threads [8]
    -K INT                     batch size (max number of reads loaded at once) [512]

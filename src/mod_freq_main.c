@@ -45,7 +45,7 @@ SOFTWARE.
 
 static struct option long_options[] = {
     {"bedmethyl", no_argument, 0, 'b'},            //0 output in bedMethyl format
-    {"mod_codes", required_argument, 0, 'c'},      //1 modification codes (ex. m , h or mh) [m]
+    {"mod_codes", required_argument, 0, 'c'},      //1 modification codes (eg. m, h or mh) [m]
     {"mod_thresh", required_argument, 0, 'm'},     //2 min modification threshold 0.0 to 1.0 [0.8]
     {"threads", required_argument, 0, 't'},        //3 number of threads [8]
     {"batchsize", required_argument, 0, 'K'},      //4 batchsize - number of reads loaded at once [512]
@@ -68,7 +68,7 @@ static inline void print_help_msg(FILE *fp_help, opt_t opt){
     fprintf(fp_help,"Usage: minimod mod-freq ref.fa reads.bam\n");
     fprintf(fp_help,"\nbasic options:\n");
     fprintf(fp_help,"   -b                         output in bedMethyl format [%s]\n", (opt.bedmethyl_out?"yes":"not set"));
-    fprintf(fp_help,"   -c STR                     modification codes (ex. m , h or mh) [%s]\n", opt.mod_codes_str);
+    fprintf(fp_help,"   -c STR                     modification codes (eg. m, h or mh) [%s]\n", opt.mod_codes_str);
     fprintf(fp_help,"   -m FLOAT                   min modification threshold(s). Comma separated values for each modification code given in -c [%s]\n", opt.mod_threshes_str);
     fprintf(fp_help,"   --insertions               enable modifications in insertions [%s]\n", (opt.insertions?"yes":"no"));
     fprintf(fp_help,"   --haplotypes               enable haplotype mode [%s]\n", (opt.haplotypes?"yes":"no"));
@@ -83,7 +83,7 @@ static inline void print_help_msg(FILE *fp_help, opt_t opt){
 
     fprintf(fp_help,"\nadvanced options:\n");
     fprintf(fp_help,"   --debug-break INT          break after processing the specified no. of batches\n");
-    fprintf(fp_help,"   --profile-cpu=yes|no       process section by section (used for profiling on CPU)\n");
+    fprintf(fp_help,"   --profile-cpu=yes|no       process section by section\n");
 #ifdef HAVE_ACC
     fprintf(fp_help,"   --accel=yes|no             Running on accelerator [%s]\n",(opt.flag&minimod_ACC?"yes":"no"));
 #endif
@@ -184,12 +184,12 @@ int mod_freq_main(int argc, char* argv[]) {
         INFO("%s", "Modification codes not provided. Using default modification code m");
         opt.mod_codes_str = "m";
     }
-    
+
     if(opt.mod_threshes_str==NULL || strlen(opt.mod_threshes_str)==0){
         INFO("%s", "Modification threshold not provided. Using default threshold 0.8");
         opt.mod_threshes_str = "0.8";
-    } 
-    
+    }
+
     parse_mod_codes(&opt);
     parse_mod_threshes(&opt);
 
