@@ -52,7 +52,7 @@ basic options:
    -c STR                     modification code(s) (ex. m , h or mh) [m]
    -t INT                     number of processing threads [8]
    -K INT                     batch size (max number of reads loaded at once) [512]
-   -B FLOAT[K/M/G]            max number of bytes loaded at once [20.0M]
+   -B FLOAT[K/M/G]            max number of bases loaded at once [20.0M]
    -h                         help
    -p INT                     print progress every INT seconds (0: per batch) [0]
    -o FILE                    output file [stdout]
