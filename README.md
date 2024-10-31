@@ -345,13 +345,14 @@ Make sure that you handle the modification tags correctly in each step in base m
    Corresponding minimap2 flags are as follows.
    | Minimap2 Flag | Description |
    |-|-|
-   |--sam-hit-only| Avoid unmapped reads.|
-   |-Y | Use soft clipping for supplementary alignments.|
+   |--sam-hit-only| Avoid unmapped reads |
+   |-Y | Use soft clipping for supplementary alignments |
+   |-y | Copy input FASTA/Q comments to output |
    |--secondary=no| Avoid secondary alignments |
 
    Example: aligning ONT reads using [minimap2](https://github.com/lh3/minimap2)
    ```
-   minimap2 -ax map-ont --sam-hit-only -Y --secondary=no ref.idx reads.fastq
+   minimap2 -ax map-ont --sam-hit-only -Y -y --secondary=no ref.idx reads.fastq
    ```
 
 # Limitations / Future Improvements
