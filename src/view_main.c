@@ -44,7 +44,7 @@ SOFTWARE.
 #include <unistd.h>
 
 static struct option long_options[] = {
-    {"mod_codes", required_argument, 0, 'c'},      //0 modification codes (ex. m , h or mh) [m]
+    {"mod_codes", required_argument, 0, 'c'},      //0 modification codes (eg. m, h or mh) [m]
     {"threads", required_argument, 0, 't'},        //1 number of threads [8]
     {"batchsize", required_argument, 0, 'K'},      //2 batchsize - number of reads loaded at once [512]
     {"max-bytes", required_argument, 0, 'B'},      //3 batchsize - number of bytes loaded at once
@@ -65,7 +65,7 @@ static struct option long_options[] = {
 static inline void print_help_msg(FILE *fp_help, opt_t opt){
     fprintf(fp_help,"Usage: minimod view ref.fa reads.bam\n");
     fprintf(fp_help,"\nbasic options:\n");
-    fprintf(fp_help,"   -c STR                     modification code(s) (ex. m , h or mh) [%s]\n", opt.req_mod_codes);
+    fprintf(fp_help,"   -c STR                     modification code(s) (eg. m, h or mh) [%s]\n", opt.req_mod_codes);
     fprintf(fp_help,"   -t INT                     number of processing threads [%d]\n",opt.num_thread);
     fprintf(fp_help,"   -K INT                     batch size (max number of reads loaded at once) [%d]\n",opt.batch_size);
     fprintf(fp_help,"   -B FLOAT[K/M/G]            max number of bases loaded at once [%.1fM]\n",opt.batch_size_bytes/(float)(1000*1000));
@@ -79,7 +79,7 @@ static inline void print_help_msg(FILE *fp_help, opt_t opt){
 
     fprintf(fp_help,"\nadvanced options:\n");
     fprintf(fp_help,"   --debug-break INT          break after processing the specified no. of batches\n");
-    fprintf(fp_help,"   --profile-cpu=yes|no       process section by section (used for profiling on CPU)\n");
+    fprintf(fp_help,"   --profile-cpu=yes|no       process section by section\n");
 #ifdef HAVE_ACC
     fprintf(fp_help,"   --accel=yes|no             Running on accelerator [%s]\n",(opt.flag&minimod_ACC?"yes":"no"));
 #endif
@@ -293,6 +293,6 @@ int view_main(int argc, char* argv[]) {
     free_core(core,opt);
 
     free_opt(&opt);
-    
+
     return 0;
 }
