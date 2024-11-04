@@ -208,6 +208,8 @@ All possible modification codes supported by minimod along with default contexts
 | - | - | - | - | - |
 | C | m | 5mC | 5-Methylcytosine | CG |
 | C | h | 5hmC | 5-Hydroxymethylcytosine | CG |
+| A | a | 6mA | 6-Methyladenine | A |
+
 <!-- | C | f | 5fC | 5-Formylcytosine | C |
 | C | c | 5caC | 5-Carboxylcytosine | C |
 | C | C |  | Ambiguity code; any C mod | C |
@@ -215,9 +217,9 @@ All possible modification codes supported by minimod along with default contexts
 | T | e | 5fU | 5-Formyluracil | T |
 | T | b | 5caU | 5-Carboxyluracil | T |
 | T | T |  | Ambiguity code; any T mod | T |
-| U | U |  | Ambiguity code; any U mod | U | -->
+| U | U |  | Ambiguity code; any U mod | U |
 | A | a | 6mA | 6-Methyladenine | A |
-<!-- | A | A |  | Ambiguity code;any A mod | A |
+| A | A |  | Ambiguity code;any A mod | A |
 | G | o | 8oxoG | 8-Oxoguanine | G |
 | G | G |  | Ambiguity code; any G mod | G |
 | N | n | Xao | Xanthosine | N |
