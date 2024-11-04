@@ -171,10 +171,10 @@ Base modification codes can be set for both view and mod-freq tool using -c opti
 
 Here is an example command to explain all possible context formats.
 ```bash
-minimod view -c a[C],h[CG],m,a[*] ref.fa reads.bam
-minimod mod-freq -c a[C],h[CG],m,a[*] ref.fa reads.bam
+minimod view -c a[A],h[CG],m,a[*] ref.fa reads.bam
+minimod mod-freq -c a[A],h[CG],m,a[*] ref.fa reads.bam
 ```
-- **a[C]** : type a modifications of all A bases
+- **a[A]** : type a modifications of all A bases
 - **h[CG]**: type h modifications in CG context (CpG sites)
 - **m**: type m modifications in default CG context
 - **a[*]**: type a modifications in all contexts
