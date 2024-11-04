@@ -15,8 +15,8 @@ Minimod reads base modification information encoded under `MM:Z` and `ML:B:C` SA
 - [minimod mod-freq](#minimod-mod-freq)
 - [Modification codes and contexts](#modification-codes-and-contexts)
 - [Modification threshold](#modification-threshold)
-- [Enable insertions](#enable-insertions)
-- [Enable haplotypes](#enable-haplotypes)
+<!-- - [Enable insertions](#enable-insertions)
+- [Enable haplotypes](#enable-haplotypes) -->
 - [Important !](#important)
   - [Base-calling](#base-calling)
   - [Aligning](#aligning)
