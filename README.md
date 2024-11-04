@@ -1,15 +1,35 @@
 # minimod
 
-A simple base modification kit. It takes a alignment BAM file and the reference FASTA as input, and outputs a base modifications (TSV) and base modification frequency (TSV or bedmethyl).
+minimod is a simple tool for handling base modifications. It takes an aligned BAM file with modifications tags and the reference FASTA as inputs, and outputs base modifications (TSV) or base modification frequencies (TSV or bedmethyl).
 
-Minimod reads base modification information encoded under MM:Z and ML:B:C SAM tags and relies on the [SAMtags](https://github.com/samtools/hts-specs/blob/master/SAMtags.pdf) specification.
+Minimod reads base modification information encoded under `MM:Z` and `ML:B:C` SAM tags specified in [SAMtags](https://github.com/samtools/hts-specs/blob/master/SAMtags.pdf) specification.
+
+**IMPORTANT: minimod is currently in early development stage. So note that the interface, thresholds and defaults may change. Watch out for bugs and open an issue if you find one. This notice will be removed when things are stable and undergo more rigorous testing**
+
+# Table of Contents
+- [Installation](#installation)
+  - [Building from source](#building-from-source)
+- [Usage](#usage)
+- [Examples](#examples)
+- [minimod view](#minimod-view)
+- [minimod mod-freq](#minimod-mod-freq)
+- [Modification codes and contexts](#modification-codes-and-contexts)
+- [Modification threshold](#modification-threshold)
+- [Enable insertions](#enable-insertions)
+- [Enable haplotypes](#enable-haplotypes)
+- [Important !](#important)
+  - [Base-calling](#base-calling)
+  - [Aligning](#aligning)
+- [Limitations / Future Improvements](#limitations--future-improvements)
+
 
 # Installation
 ## Building from source
 ```bash
+sudo apt-get install zlib1g-dev  # install zlib development libraries
 git clone https://github.com/warp9seq/minimod
 cd minimod
-./scripts/install-hts.sh
+./scripts/install-hts.sh  # download and compile the htslib
 make
 ```
 
@@ -25,13 +45,13 @@ command:
 
 # Examples
 ```bash
-# view all modifications in tsv format (default mod code: m, context:CG)
+# view all 5mC methylations at CG context in tsv format (default mod code: m, context:CG)
 minimod view ref.fa reads.bam > mods.tsv
 
-# modification frequencies in tsv format (default mod code: m and threshold: 0.8 context:CG)
+# 5mC methylation frequencies at CG context in tsv format (default mod code: m, threshold: 0.8, context:CG)
 minimod mod-freq ref.fa reads.bam > modfreqs.tsv
 
-# modification frequencies in bedmethyl format (default mod code: m and threshold: 0.8 context:CG)
+# 5mC methylation frequencies at CG context in bedmethyl format (default mod code: m, threshold: 0.8, context:CG)
 minimod mod-freq -b ref.fa reads.bam > modfreqs.bedmethyl
 
 # modification frequencies of multiple types ( m (5-methylcytosine) and h (5-hydroxymethylcytosine) in CG context with thresholds 0.8 and 0.7 respectively )
@@ -49,10 +69,10 @@ This writes all base modifications (default modification code "m") to a file (mo
 Usage: minimod view ref.fa reads.bam
 
 basic options:
-   -c STR                     modification code(s) (ex. m , h or mh) [m]
+   -c STR                     modification code(s) (eg. m, h or mh) [m]
    -t INT                     number of processing threads [8]
    -K INT                     batch size (max number of reads loaded at once) [512]
-   -B FLOAT[K/M/G]            max number of bytes loaded at once [20.0M]
+   -B FLOAT[K/M/G]            max number of bases loaded at once [20.0M]
    -h                         help
    -p INT                     print progress every INT seconds (0: per batch) [0]
    -o FILE                    output file [stdout]
@@ -100,7 +120,7 @@ Usage: minimod mod-freq ref.fa reads.bam
 
 basic options:
    -b                         output in bedMethyl format [not set]
-   -c STR                     modification codes (ex. m , h or mh) [m]
+   -c STR                     modification codes (eg. m, h or mh) [m]
    -m FLOAT                   min modification threshold(s). Comma separated values for each modification code given in -c [0.8]
    -t INT                     number of processing threads [8]
    -K INT                     batch size (max number of reads loaded at once) [512]
@@ -129,7 +149,7 @@ chr22	19971259	19971259	+	1	1	1.000000	m
 ```
 | Field    | Type | Definition    |
 |----------|-------------|-------------|
-| 1. contig | str | choromosome |
+| 1. contig | str | chromosome |
 | 2. start | int | position (0-based) of the base |
 | 3. end   | int | position (0-based) of the base |
 | 4. strand | char | strand (+/-) of the read |
@@ -142,20 +162,20 @@ chr22	19971259	19971259	+	1	1	1.000000	m
 
 **Sample modfreqs.bedmethyl output**
 ```bash
-chr22	20016337	20016338	m	5	+	20016337	20016337	255,0,0	5	0.000000
-chr22	20016594	20016595	m	2	+	20016594	20016594	255,0,0	2	0.000000
-chr22	20017045	20017046	m	1	+	20017045	20017045	255,0,0	1	0.000000
-chr22	19970705	19970706	m	1	+	19970705	19970705	255,0,0	1	0.000000
-chr22	19981716	19981717	m	1	+	19981716	19981716	255,0,0	1	1.000000
-chr22	20020909	20020910	m	3	+	20020909	20020909	255,0,0	3	0.000000
-chr22	19995719	19995720	m	4	+	19995719	19995719	255,0,0	4	0.500000
-chr22	20017060	20017061	m	1	+	20017060	20017060	255,0,0	1	0.000000
-chr22	19971259	19971260	m	1	+	19971259	19971259	255,0,0	1	1.000000
-chr22	19973437	19973438	m	1	+	19973437	19973437	255,0,0	1	1.000000
+chr22	20016387	20016388	m	4	-	20016387	20016388	255,0,0	4	0.000000
+chr22	20016820	20016821	m	1	+	20016820	20016821	255,0,0	1	0.000000
+chr22	19999255	19999256	m	7	+	19999255	19999256	255,0,0	7	0.000000
+chr22	20016426	20016427	m	1	+	20016426	20016427	255,0,0	1	100.000000
+chr22	19988365	19988366	m	1	-	19988365	19988366	255,0,0	1	100.000000
+chr22	19988168	19988169	m	1	-	19988168	19988169	255,0,0	1	100.000000
+chr22	20016904	20016905	m	1	+	20016904	20016905	255,0,0	1	0.000000
+chr22	20011898	20011899	m	8	-	20011898	20011899	255,0,0	8	25.000000
+chr22	19990123	19990124	m	3	+	19990123	19990124	255,0,0	3	0.000000
+chr22	19982787	19982788	m	1	+	19982787	19982788	255,0,0	1	0.000000
 ```
 | Field    | Type | Definition    |
 |----------|-------------|-------------|
-| 1. contig | str | choromosome |
+| 1. contig | str | chromosome |
 | 2. start | int | position (0-based) of the base |
 | 3. end   | int | position (0-based) of the base |
 | 4. mod_code | char | base modification code as in [SAMtags: 1.7 Base modifications](https://github.com/samtools/hts-specs/blob/master/SAMtags.pdf) |
@@ -201,7 +221,7 @@ All possible modification codes supported by minimod along with default contexts
 | N | n | Xao | Xanthosine | N |
 | N | N |  | Ambiguity code; any mod | N |
 
-
+Note that we have done a lot of testing on 5mc and some limited testing on 6mA and 5hmC. The others are not yet tested.
 
 # Modification threshold
 Base modification threshold can be set for mod-freq tool using -m option.
@@ -242,7 +262,7 @@ Base modification threshold can be set for mod-freq tool using -m option.
 > ```
 
 # Enable insertions
-minimod can handle insterted modified bases(where canonical base in not in reference) by specifiying --insertions flag for both mod-freq and view tools.
+minimod can handle inserted modified bases (where canonical base in not in reference) by specifying --insertions flag for both mod-freq and view tools.
 
 Specifying --insertions will add an extra ins_offset column(**only in tsv output**) which is the position of modified base within the inserted region.
 
@@ -275,7 +295,7 @@ chr22	20016700	20016700	-	4	0	0.000000	m	0
 Highlighted line corresponds to a 5mC modification within an insertion (A mC G) at position 19968083
 
 # Enable haplotypes
-minimod can output the haplotype in a separate integer column (**only in tsv output**) by specifiying --haplotypes flag for both view and mod-freq tools.
+minimod can output the haplotype in a separate integer column (**only in tsv output**) by specifying --haplotypes flag for both view and mod-freq tools.
 
 **Sample output of view with --haplotypes**
 ```bash
@@ -306,7 +326,7 @@ chr1	23096	23096	+	4	3	0.750000	m	*
 freq value of modifications with haplotype=* is calculated taking modifications from all haplotypes
 
 # Important !
-Make sure that following requirements are met for each step in base modification calling pipeline.
+Make sure that you handle the modification tags correctly in each step in base modification calling pipeline (e.g., providing both `-y` and `-Y` to minimap2). See the example pipeline that we use below.
 
 ## Base-calling
 - Use a basecalling model trained to identify modified bases.
@@ -325,13 +345,14 @@ Make sure that following requirements are met for each step in base modification
    Corresponding minimap2 flags are as follows.
    | Minimap2 Flag | Description |
    |-|-|
-   |--sam-hit-only| Avoid unmapped reads.|
-   |-Y | Use soft clipping for supplementary alignments.|
+   |--sam-hit-only| Avoid unmapped reads |
+   |-Y | Use soft clipping for supplementary alignments |
+   |-y | Copy input FASTA/Q comments to output |
    |--secondary=no| Avoid secondary alignments |
 
    Example: aligning ONT reads using [minimap2](https://github.com/lh3/minimap2)
    ```
-   minimap2 -ax map-ont --sam-hit-only -Y --secondary=no ref.idx reads.fastq
+   minimap2 -ax map-ont --sam-hit-only -Y -y --secondary=no ref.idx reads.fastq
    ```
 
 # Limitations / Future Improvements

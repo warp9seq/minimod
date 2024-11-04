@@ -70,6 +70,8 @@ typedef struct {
     char *region_str; //the region string in format chr:start-end
 
     uint8_t bedmethyl_out; //output in bedMethyl format, only for mod-freq
+    char *mod_codes_str;
+    char *mod_threshes_str;
     uint8_t req_threshes[17];      // required threshold for each mod code
     char* req_mod_contexts[17];    // required context for each mod code
     char req_mod_codes[17];        // required mod codes

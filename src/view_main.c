@@ -44,7 +44,7 @@ SOFTWARE.
 #include <unistd.h>
 
 static struct option long_options[] = {
-    {"mod_codes", required_argument, 0, 'c'},      //0 modification codes (ex. m , h or mh) [m]
+    {"mod_codes", required_argument, 0, 'c'},      //0 modification codes (eg. m, h or mh) [m]
     {"threads", required_argument, 0, 't'},        //1 number of threads [8]
     {"batchsize", required_argument, 0, 'K'},      //2 batchsize - number of reads loaded at once [512]
     {"max-bytes", required_argument, 0, 'B'},      //3 batchsize - number of bytes loaded at once
@@ -65,21 +65,21 @@ static struct option long_options[] = {
 static inline void print_help_msg(FILE *fp_help, opt_t opt){
     fprintf(fp_help,"Usage: minimod view ref.fa reads.bam\n");
     fprintf(fp_help,"\nbasic options:\n");
-    fprintf(fp_help,"   -c STR                     modification code(s) (ex. m , h or mh) [%s]\n", opt.req_mod_codes);
-    fprintf(fp_help,"   --insertions               enable modifications in insertions [%s]\n", (opt.insertions?"yes":"no"));
-    fprintf(fp_help,"   --haplotypes               enable haplotype mode [%s]\n", (opt.haplotypes?"yes":"no"));
+    fprintf(fp_help,"   -c STR                     modification code(s) (eg. m, h or mh) [%s]\n", opt.req_mod_codes);
     fprintf(fp_help,"   -t INT                     number of processing threads [%d]\n",opt.num_thread);
     fprintf(fp_help,"   -K INT                     batch size (max number of reads loaded at once) [%d]\n",opt.batch_size);
-    fprintf(fp_help,"   -B FLOAT[K/M/G]            max number of bytes loaded at once [%.1fM]\n",opt.batch_size_bytes/(float)(1000*1000));
+    fprintf(fp_help,"   -B FLOAT[K/M/G]            max number of bases loaded at once [%.1fM]\n",opt.batch_size_bytes/(float)(1000*1000));
     fprintf(fp_help,"   -h                         help\n");
     fprintf(fp_help,"   -p INT                     print progress every INT seconds (0: per batch) [%d]\n", opt.progress_interval);
     fprintf(fp_help,"   -o FILE                    output file [%s]\n", opt.output_file==NULL?"stdout":opt.output_file);
+    fprintf(fp_help,"   --insertions               enable modifications in insertions [%s]\n", (opt.insertions?"yes":"no"));
+    fprintf(fp_help,"   --haplotypes               enable haplotype mode [%s]\n", (opt.haplotypes?"yes":"no"));
     fprintf(fp_help,"   --verbose INT              verbosity level [%d]\n",(int)get_log_level());
     fprintf(fp_help,"   --version                  print version\n");
 
     fprintf(fp_help,"\nadvanced options:\n");
     fprintf(fp_help,"   --debug-break INT          break after processing the specified no. of batches\n");
-    fprintf(fp_help,"   --profile-cpu=yes|no       process section by section (used for profiling on CPU)\n");
+    fprintf(fp_help,"   --profile-cpu=yes|no       process section by section\n");
 #ifdef HAVE_ACC
     fprintf(fp_help,"   --accel=yes|no             Running on accelerator [%s]\n",(opt.flag&minimod_ACC?"yes":"no"));
 #endif
@@ -95,8 +95,6 @@ int view_main(int argc, char* argv[]) {
 
     int longindex = 0;
     int32_t c = -1;
-
-    char *mod_codes_str = NULL;
 
     FILE *fp_help = stderr;
 
@@ -147,7 +145,7 @@ int view_main(int argc, char* argv[]) {
         } else if (c=='h'){
             fp_help = stdout;
         } else if (c=='c') {
-            mod_codes_str = optarg;
+            opt.mod_codes_str = optarg;
         } else if(c == 0 && longindex == 8){ //debug break
             opt.debug_break = atoi(optarg);
         } else if(c == 0 && longindex == 9){ //sectional benchmark todo : warning for gpu mode
@@ -173,12 +171,12 @@ int view_main(int argc, char* argv[]) {
         }
     }
 
-    if(mod_codes_str==NULL || strlen(mod_codes_str)==0){
+    if(opt.mod_codes_str==NULL || strlen(opt.mod_codes_str)==0){
         INFO("%s", "Modification codes not provided. Using default modification code m");
-        mod_codes_str = "m";
+        opt.mod_codes_str = "m";
     }
 
-    parse_mod_codes(&opt, mod_codes_str);
+    parse_mod_codes(&opt);
     print_view_options(&opt);
 
     // No arguments given
@@ -295,6 +293,6 @@ int view_main(int argc, char* argv[]) {
     free_core(core,opt);
 
     free_opt(&opt);
-    
+
     return 0;
 }
