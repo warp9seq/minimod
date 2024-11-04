@@ -69,7 +69,7 @@ This writes all base modifications (default modification code "m") to a file (mo
 Usage: minimod view ref.fa reads.bam
 
 basic options:
-   -c STR                     modification code(s) (eg. m, h or mh) [m]
+   -c STR                     modification code(s) (eg. m, h) [m]
    -t INT                     number of processing threads [8]
    -K INT                     batch size (max number of reads loaded at once) [512]
    -B FLOAT[K/M/G]            max number of bases loaded at once [20.0M]
@@ -121,7 +121,7 @@ Usage: minimod mod-freq ref.fa reads.bam
 
 basic options:
    -b                         output in bedMethyl format [not set]
-   -c STR                     modification codes (eg. m, h or mh) [m]
+   -c STR                     modification codes (eg. m, h) [m]
    -m FLOAT                   min modification threshold(s). Comma separated values for each modification code given in -c [0.8]
    -t INT                     number of processing threads [8]
    -K INT                     batch size (max number of reads loaded at once) [512]
@@ -152,8 +152,8 @@ chr22	19971259	19971259	+	1	1	1.000000	m
 | Field    | Type | Definition    |
 |----------|-------------|-------------|
 | 1. contig | str | chromosome |
-| 2. start | int | position (0-based) of the base |
-| 3. end   | int | position (0-based) of the base |
+| 2. start | int | position (0-based, inclusive) of the base |
+| 3. end   | int | position (0-based, inclusive) of the base |
 | 4. strand | char | strand (+/-) of the read |
 | 5. n_called | int | number of reads called for base modification |
 | 6. n_mod | int | number of reads with base modification |
@@ -178,8 +178,8 @@ chr22	19982787	19982788	m	1	+	19982787	19982788	255,0,0	1	0.000000
 | Field    | Type | Definition    |
 |----------|-------------|-------------|
 | 1. contig | str | chromosome |
-| 2. start | int | position (0-based) of the base |
-| 3. end   | int | position (0-based) of the base |
+| 2. start | int | position (0-based, inclusive) of the base |
+| 3. end   | int | position (0-based, not inclusive) of the base |
 | 4. mod_code | char | base modification code as in [SAMtags: 1.7 Base modifications](https://github.com/samtools/hts-specs/blob/master/SAMtags.pdf) |
 | 5. n_mod | int | number of reads with base modification |
 | 6. strand | char | strand (+/-) of the read |
@@ -208,20 +208,20 @@ All possible modification codes supported by minimod along with default contexts
 | - | - | - | - | - |
 | C | m | 5mC | 5-Methylcytosine | CG |
 | C | h | 5hmC | 5-Hydroxymethylcytosine | CG |
-| C | f | 5fC | 5-Formylcytosine | C |
+<!-- | C | f | 5fC | 5-Formylcytosine | C |
 | C | c | 5caC | 5-Carboxylcytosine | C |
 | C | C |  | Ambiguity code; any C mod | C |
 | T | g | 5hmU | 5-Hydroxymethyluracil | T |
 | T | e | 5fU | 5-Formyluracil | T |
 | T | b | 5caU | 5-Carboxyluracil | T |
 | T | T |  | Ambiguity code; any T mod | T |
-| U | U |  | Ambiguity code; any U mod | U |
+| U | U |  | Ambiguity code; any U mod | U | -->
 | A | a | 6mA | 6-Methyladenine | A |
-| A | A |  | Ambiguity code;any A mod | A |
+<!-- | A | A |  | Ambiguity code;any A mod | A |
 | G | o | 8oxoG | 8-Oxoguanine | G |
 | G | G |  | Ambiguity code; any G mod | G |
 | N | n | Xao | Xanthosine | N |
-| N | N |  | Ambiguity code; any mod | N |
+| N | N |  | Ambiguity code; any mod | N | -->
 
 Note that we have done a lot of testing on 5mc and some limited testing on 6mA and 5hmC. The others are not yet tested.
 
@@ -244,7 +244,7 @@ Base modification threshold can be set for mod-freq tool using -m option.
 
 03. 5mC and 5hmC base modification(default context :CG) frequencies with thresholds 0.8, 0.7 respectively
 > ```
->   minimod mod-freq -c mh -m 0.8,0.7 ref.fa reads.bam
+>   minimod mod-freq -c m,h -m 0.8,0.7 ref.fa reads.bam
 > ```
 ![Fig](docs/figs/m_h_threshold.png)
 > ```
