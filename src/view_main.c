@@ -258,7 +258,10 @@ int view_main(int argc, char* argv[]) {
 
         //check if 90% of total reads are skipped
         if(core->skipped_reads>0.9*core->total_reads){
-            WARNING("%s","90% of the reads are skipped. Check if the BAM file is sorted, contains MM, ML tags.");
+            WARNING("%s","90% of the reads are skipped. Possible causes: unmapped bam, zero sequence lengths, or missing MM, ML tags (not performed base modification aware basecalling). Refer https://github.com/warp9seq/minimod for more information.");
+        }
+        if(core->skipped_reads == core->total_reads){
+            ERROR("%s","All reads are skipped. Quitting. Possible causes: unmapped bam, zero sequence lengths, or missing MM, ML tags (not performed base modification aware basecalling). Refer https://github.com/warp9seq/minimod for more information.");
         }
 
         if(opt.debug_break==counter){
