@@ -200,7 +200,7 @@ diff -q test/tmp/test15.exp.tsv.sorted test/tmp/test15.tsv.sorted || die "${test
 
 testname="Test 16: mod-freq ont with mod codes e and b"
 echo -e "${BLUE}${testname}${NC}"
-ex  ./minimod mod-freq -c e,b -t 8 test/tmp/genome_chr1.fa test/data/eb.bam > test/tmp/test16.tsv || die "${testname} Running the tool failed"
+ex  ./minimod mod-freq -c e,b -m 0.5 -t 8 test/tmp/genome_chr1.fa test/data/eb.bam > test/tmp/test16.tsv || die "${testname} Running the tool failed"
 sort -k1,1 -k2,2n -k4,4 test/expected/test16.tsv > test/tmp/test16.exp.tsv.sorted
 sort -k1,1 -k2,2n -k4,4 test/tmp/test16.tsv > test/tmp/test16.tsv.sorted
 diff -q test/tmp/test16.exp.tsv.sorted test/tmp/test16.tsv.sorted || die "${testname} diff failed"
