@@ -185,14 +185,26 @@ int mod_freq_main(int argc, char* argv[]) {
         opt.mod_codes_str = "m";
     }
 
+    parse_mod_codes(&opt);
+
     if(opt.mod_threshes_str==NULL || strlen(opt.mod_threshes_str)==0){
         INFO("%s", "Modification threshold not provided. Using default threshold 0.8");
-        opt.mod_threshes_str = "0.8";
+        
+        opt.mod_threshes_str = (char *)malloc(opt.n_mods * 4 * sizeof(char));
+        MALLOC_CHK(opt.mod_threshes_str);
+
+        char * thresh_str = "0.8";
+
+        for(int i=0;i<opt.n_mods;i++){
+            if(i>0){
+                strcat(opt.mod_threshes_str,",");
+            }
+            strcat(opt.mod_threshes_str,thresh_str);
+        }
     }
-
-    parse_mod_codes(&opt);
+    
     parse_mod_threshes(&opt);
-
+    
     // No arguments given
     if (argc - optind != 2 || fp_help == stdout) {
         WARNING("%s","Missing arguments");

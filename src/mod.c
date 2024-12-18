@@ -140,7 +140,7 @@ uint8_t get_hp_tag(bam1_t *record){
 }
 
 void parse_mod_codes(opt_t *opt) {
-    
+
     uint8_t n_codes = 0;
     int i=0;
 
@@ -180,8 +180,7 @@ void parse_mod_codes(opt_t *opt) {
             while(opt->mod_codes_str[i] != ']' || opt->mod_codes_str[i] == '\0'){
                 if(opt->mod_codes_str[i] == '*'){
                     is_star = 1;
-                }
-                if(valid_bases[(int)opt->mod_codes_str[i]]==0 && opt->mod_codes_str[i] != '*'){
+                } else if(valid_bases[(int)opt->mod_codes_str[i]]==0){
                     ERROR("Invalid character %c in context for modification code %c", opt->mod_codes_str[i], c);
                     exit(EXIT_FAILURE);
                 }
@@ -200,11 +199,14 @@ void parse_mod_codes(opt_t *opt) {
             }
             context[j] = '\0';
             if(is_star && j > 1){
-                ERROR("Invalid context for modification code %c. * should be the only character in the context", c);
+                ERROR("Invalid context for modification code %c. * should be the only character within [ and ]", c);
                 exit(EXIT_FAILURE);
             }
             opt->req_mod_contexts[n_codes] = context;
             i++;
+            if(opt->mod_codes_str[i] == ','){ // more modification codes
+                i++;
+            }
         } else if(opt->mod_codes_str[i] == ','){ // context is *
             INFO("Context not provided for modification code %c. Using %s", c, default_context[(int)c]);
             strcpy(context, default_context[(int)c]);
@@ -228,6 +230,8 @@ void parse_mod_threshes(opt_t * opt) {
     int i=0;
     int n_thresh = 0;
     int thresh_str_cap = 1;
+    double d = 0.0;
+
     while(opt->mod_threshes_str[i] != '\0'){
         char * thresh_str = (char *)malloc(thresh_str_cap * sizeof(char) + 1);
         MALLOC_CHK(thresh_str);
@@ -245,7 +249,7 @@ void parse_mod_threshes(opt_t * opt) {
         thresh_str[j] = '\0';
 
         errno = 0;
-        double d = atof(thresh_str);
+        d = atof(thresh_str);
 
         if(errno != 0){
             ERROR("Invalid threshold. You entered %s",thresh_str);
@@ -269,7 +273,12 @@ void parse_mod_threshes(opt_t * opt) {
         i++;
     }
 
-    if(n_thresh != opt->n_mods){
+    if(n_thresh==1){
+        for(int i=1;i<opt->n_mods;i++){
+            opt->req_threshes[i] = opt->req_threshes[0];
+            INFO("Modification code: %c, Context: %s, Threshold: %f", opt->req_mod_codes[i], opt->req_mod_contexts[i], d);
+        }
+    } else if(n_thresh != opt->n_mods){
         ERROR("Number of modification codes and thresholds do not match. Codes:%d, Thresholds:%d",opt->n_mods,n_thresh);
         exit(EXIT_FAILURE);
     }
@@ -740,25 +749,34 @@ static void get_bases(core_t * core, db_t *db, int32_t bam_i, const char *mm_str
             int idx;
             int read_pos;
 
-            if(rev) {
-                mb = base_complement_lookup[(int)modbase];
+            if (modbase == 'N') {
+                if(rev) {
+                    read_pos = seq_len - base_rank - 1;
+                } else {
+                    read_pos = base_rank;
+                }
+                
             } else {
-                mb = modbase;
-            }
+                if(rev) {
+                    mb = base_complement_lookup[(int)modbase];
+                } else {
+                    mb = modbase;
+                }
 
-            idx = base_idx_lookup[(int)mb];
+                idx = base_idx_lookup[(int)mb];
 
-            // print_array(bases_pos_lens, 5, 'i');
-            if(base_rank >= bases_pos_lens[idx]) {
-                WARNING("%d th base of %c not found in SEQ. %c base count is %d read_id:%s seq_len:%d mod.base:%c mod_codes:%s\n", base_rank, mb, mb, bases_pos_lens[idx], qname, seq_len, modbase, mod_codes);
-                continue;
-            }
-            ASSERT_MSG(base_rank < bases_pos_lens[idx], "%d th base of %c not found in SEQ. %c base count is %d read_id:%s seq_len:%d mod.base:%c mod_codes:%s\n", base_rank, mb, mb, bases_pos_lens[idx], qname, seq_len, modbase, mod_codes);
-            
-            if(rev) {
-                read_pos = seq_len - bases_pos[idx][bases_pos_lens[idx] - base_rank - 1] - 1;
-            } else {
-                read_pos = bases_pos[idx][base_rank];
+                // print_array(bases_pos_lens, 5, 'i');
+                if(base_rank >= bases_pos_lens[idx]) {
+                    WARNING("%d th base of %c not found in SEQ. %c base count is %d read_id:%s seq_len:%d mod.base:%c mod_codes:%s\n", base_rank, mb, mb, bases_pos_lens[idx], qname, seq_len, modbase, mod_codes);
+                    continue;
+                }
+                ASSERT_MSG(base_rank < bases_pos_lens[idx], "%d th base of %c not found in SEQ. %c base count is %d read_id:%s seq_len:%d mod.base:%c mod_codes:%s\n", base_rank, mb, mb, bases_pos_lens[idx], qname, seq_len, modbase, mod_codes);
+                
+                if(rev) {
+                    read_pos = seq_len - bases_pos[idx][bases_pos_lens[idx] - base_rank - 1] - 1;
+                } else {
+                    read_pos = bases_pos[idx][base_rank];
+                }
             }
 
             ASSERT_MSG(read_pos>=0 && read_pos < seq_len, "Read pos cannot exceed seq len. read_pos: %d seq_len: %d\n", read_pos, seq_len);
