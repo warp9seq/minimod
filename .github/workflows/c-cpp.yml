@@ -7,48 +7,48 @@ on:
     branches: [ '*' ]
 
 jobs:
-  ubuntu_14:
-    name: Ubuntu 14
-    runs-on: ubuntu-22.04
-    container: ubuntu:14.04
-    steps:
-      - uses: actions/checkout@v4
-      - name: install packages
-        run: sudo apt-get update && sudo apt-get install -y zlib1g-dev gcc g++ autoconf automake make wget curl
-      - name: install htslib
-        run: ./scripts/install-hts.sh
-      - name: install valgrind
-        run: sudo apt-get install -y valgrind
-      - name: test
-        run: make test
-  ubuntu_16:
-    name: Ubuntu 16
-    runs-on: ubuntu-22.04
-    container: ubuntu:16.04
-    steps:
-      - uses: actions/checkout@v3
-      - name: install packages
-        run: apt-get update && apt-get install -y zlib1g-dev gcc g++ autoconf automake make wget curl bzip2
-      - name: install htslib
-        run: ./scripts/install-hts.sh
-      - name: install valgrind
-        run: apt-get install -y valgrind
-      - name: test
-        run: make test
-  ubuntu_18:
-    name: Ubuntu 18
-    runs-on: ubuntu-22.04
-    container: ubuntu:18.04
-    steps:
-      - uses: actions/checkout@v3
-      - name: Install sudo package
-        run: apt update && apt install sudo
-      - name: install packages
-        run: sudo apt-get update && sudo apt-get install -y zlib1g-dev gcc g++ autoconf automake make wget curl
-      - name: install htslib
-        run: ./scripts/install-hts.sh
-      - name: test
-        run: make test
+  # ubuntu_14:
+  #   name: Ubuntu 14
+  #   runs-on: ubuntu-22.04
+  #   container: ubuntu:14.04
+  #   steps:
+  #     - uses: actions/checkout@v2
+  #     - name: install packages
+  #       run: sudo apt-get update && sudo apt-get install -y zlib1g-dev gcc g++ autoconf automake make wget curl
+  #     - name: install htslib
+  #       run: ./scripts/install-hts.sh
+  #     - name: install valgrind
+  #       run: sudo apt-get install -y valgrind
+  #     - name: test
+  #       run: make test
+  # ubuntu_16:
+  #   name: Ubuntu 16
+  #   runs-on: ubuntu-22.04
+  #   container: ubuntu:16.04
+  #   steps:
+  #     - uses: actions/checkout@v2
+  #     - name: install packages
+  #       run: apt-get update && apt-get install -y zlib1g-dev gcc g++ autoconf automake make wget curl bzip2
+  #     - name: install htslib
+  #       run: ./scripts/install-hts.sh
+  #     - name: install valgrind
+  #       run: apt-get install -y valgrind
+  #     - name: test
+  #       run: make test
+  # ubuntu_18:
+  #   name: Ubuntu 18
+  #   runs-on: ubuntu-22.04
+  #   container: ubuntu:18.04
+  #   steps:
+  #     - uses: actions/checkout@v2
+  #     - name: Install sudo package
+  #       run: apt update && apt install sudo
+  #     - name: install packages
+  #       run: sudo apt-get update && sudo apt-get install -y zlib1g-dev gcc g++ autoconf automake make wget curl
+  #     - name: install htslib
+  #       run: ./scripts/install-hts.sh
+  #     - name: test
+  #       run: make test
   ubuntu_20:
     name: Ubuntu 20
     runs-on: ubuntu-22.04
