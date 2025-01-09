@@ -424,6 +424,12 @@ void update_freq_map(core_t * core, db_t * db) {
                         freq_t * freq = kh_value(freq_map, k);
                         freq->n_called += is_called;
                         freq->n_mod += is_mod;
+
+                        // check if freq->n_called overflows
+                        if(freq->n_called == 0){
+                            ERROR("n_called overflowed for key %s. Please report this issue.", key);
+                            exit(EXIT_FAILURE);
+                        }
                     }
                 }
             }
@@ -527,7 +533,7 @@ static void get_aln(core_t * core, int ** aln, int ** ins, int ** ins_offset, ba
     int seq_len = record->core.l_qseq;
 
     ref_t *ref = get_ref(tname);
-    ASSERT_MSG(ref != NULL, "Contig %s not found in reference provided\n", tname);
+        ASSERT_MSG(ref != NULL, "Contig %s not found in reference provided\n", tname);
   
     int read_pos = 0;
     int ref_pos = pos;

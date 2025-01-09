@@ -62,10 +62,10 @@ core_t* init_core(opt_t opt,double realtime0) {
     core->process_db_time=0;
     core->output_time=0;
 
-    core->sum_bytes=0;
+    core->total_bytes=0;
     core->total_reads=0;
-    core->skipped_reads=0;
-    core->skipped_reads_bytes=0;
+    core->processed_reads=0;
+    core->processed_bytes=0;
 
     // load bam file
     core->bam_fp = sam_open(opt.bam_file, "r");
@@ -179,6 +179,9 @@ db_t* init_db(core_t* core) {
 
     db->cap_bam_recs = core->opt.batch_size;
     db->n_bam_recs = 0;
+    db->processed_bytes=0;
+    db->total_reads=0;
+    db->total_bytes=0;
 
     db->bam_recs = (bam1_t**)(malloc(sizeof(bam1_t*) * db->cap_bam_recs));
     MALLOC_CHK(db->bam_recs);
@@ -237,10 +240,6 @@ db_t* init_db(core_t* core) {
     db->means = (double*)calloc(db->cap_bam_recs,sizeof(double));
     MALLOC_CHK(db->means);
 
-    db->sum_bytes=0;
-    db->skipped_reads=0;
-    db->skipped_reads_bytes=0;
-
     return db;
 }
 
@@ -249,41 +248,39 @@ ret_status_t load_db(core_t* core, db_t* db) {
 
     double load_start = realtime();
 
+    // unset previous counts
     db->n_bam_recs = 0;
-    db->sum_bytes = 0;
-    db->skipped_reads = 0;
-    db->skipped_reads_bytes = 0;
+    db->processed_bytes = 0;
+    db->total_reads = 0;
+    db->total_bytes = 0;
 
     ret_status_t status = {0, 0};
     int32_t i;
     bam1_t* rec;
 
-    while (db->n_bam_recs < db->cap_bam_recs && db->sum_bytes < core->opt.batch_size_bytes) {
+    while (db->n_bam_recs < db->cap_bam_recs && db->processed_bytes < core->opt.batch_size_bytes) {
         if (sam_itr_next(core->bam_fp, core->itr, db->bam_recs[db->n_bam_recs]) < 0) {
             break;
         }
         
         i = db->n_bam_recs;
         rec = db->bam_recs[i];
+
+        db->total_reads++;
+        db->total_bytes += rec->l_data;
         
         if(rec->core.flag & BAM_FUNMAP){
-                db->skipped_reads++;
-                db->skipped_reads_bytes += rec->l_data;
                 LOG_TRACE("Skipping unmapped read %s",bam_get_qname(rec));
                 continue;
             }
 
             if(rec->core.l_qseq == 0){
-                db->skipped_reads++;
-                db->skipped_reads_bytes += rec->l_data;
                 LOG_TRACE("Skipping read with 0 length %s",bam_get_qname(rec));
                 continue;
             }
 
         const char *mm = get_mm_tag_ptr(rec);
         if (!mm) {
-            db->skipped_reads++;
-            db->skipped_reads_bytes += rec->l_data;
             LOG_TRACE("Skipping read %s with empty MM tag", bam_get_qname(rec));
             continue;
         }
@@ -291,8 +288,6 @@ ret_status_t load_db(core_t* core, db_t* db) {
         uint32_t ml_len;
         uint8_t *ml = get_ml_tag(rec, &ml_len);
         if (!ml) {
-            db->skipped_reads++;
-            db->skipped_reads_bytes += rec->l_data;
             continue;
         }
 
@@ -324,11 +319,11 @@ ret_status_t load_db(core_t* core, db_t* db) {
         db->ml[i] = ml;
 
         db->n_bam_recs++;
-        db->sum_bytes += rec->l_data;
+        db->processed_bytes += rec->l_data;
     }
 
     status.num_reads = db->n_bam_recs;
-    status.num_bytes = db->sum_bytes;
+    status.num_bytes = db->processed_bytes;
 
     core->load_db_time += realtime() - load_start;
 
@@ -403,10 +398,10 @@ void output_db(core_t* core, db_t* db) {
         update_freq_map(core, db);
     }
 
-    core->sum_bytes += db->sum_bytes;
-    core->total_reads += db->n_bam_recs + db->skipped_reads;
-    core->skipped_reads += db->skipped_reads;
-    core->skipped_reads_bytes += db->skipped_reads_bytes;
+    core->total_reads += db->total_reads;
+    core->total_bytes += db->total_bytes;
+    core->processed_reads += db->n_bam_recs;
+    core->processed_bytes += db->processed_bytes;
 
     //core->read_index = core->read_index + db->n_bam_recs;
     double output_end = realtime();
@@ -510,4 +505,5 @@ void free_opt(opt_t* opt) {
     for(int i=0;i<opt->n_mods;i++){
         free(opt->req_mod_contexts[i]);
     }
+    free(opt->mod_threshes_str);
 }

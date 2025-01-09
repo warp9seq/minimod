@@ -150,7 +150,9 @@ int mod_freq_main(int argc, char* argv[]) {
         } else if (c=='h'){
             fp_help = stdout;
         } else if (c=='m'){
-            opt.mod_threshes_str = optarg;
+            opt.mod_threshes_str = (char *)malloc(strlen(optarg)+1);
+            MALLOC_CHK(opt.mod_threshes_str);
+            strcpy(opt.mod_threshes_str,optarg);
         } else if (c=='c') {
             opt.mod_codes_str = optarg;
         } else if (c=='b'){
@@ -190,16 +192,17 @@ int mod_freq_main(int argc, char* argv[]) {
     if(opt.mod_threshes_str==NULL || strlen(opt.mod_threshes_str)==0){
         INFO("%s", "Modification threshold not provided. Using default threshold 0.8");
         
-        opt.mod_threshes_str = (char *)malloc(opt.n_mods * 4 * sizeof(char));
+        opt.mod_threshes_str = (char *)malloc(opt.n_mods * 4 * sizeof(char) + 1);
         MALLOC_CHK(opt.mod_threshes_str);
+        memset(opt.mod_threshes_str,0,opt.n_mods * 4 * sizeof(char)+1);
 
         char * thresh_str = "0.8";
 
         for(int i=0;i<opt.n_mods;i++){
-            if(i>0){
+            strcat(opt.mod_threshes_str,thresh_str);
+            if(i<opt.n_mods-1){
                 strcat(opt.mod_threshes_str,",");
             }
-            strcat(opt.mod_threshes_str,thresh_str);
         }
     }
     
@@ -274,19 +277,23 @@ int mod_freq_main(int argc, char* argv[]) {
         free_db_tmp(core, db);
 
         //print progress
+        int32_t skipped_reads = db->total_reads-db->n_bam_recs;
+        int64_t skipped_bytes = db->total_bytes-db->processed_bytes;
         if(opt.progress_interval<=0 || realtime()-realtime_prog > opt.progress_interval){
             fprintf(stderr, "[%s::%.3f*%.2f] %d Entries (%.1fM bytes) processed\t%d Entries (%.1fM bytes) skipped\n", __func__,
                     realtime() - realtime0, cputime() / (realtime() - realtime0),
-                    (db->n_bam_recs), (db->sum_bytes)/(1000.0*1000.0),
-                    db->skipped_reads,db->skipped_reads_bytes/(1000.0*1000.0));
+                    (db->n_bam_recs), (db->total_bytes)/(1000.0*1000.0),
+                    skipped_reads,skipped_bytes/(1000.0*1000.0));
             realtime_prog = realtime();
         }
 
         //check if 90% of total reads are skipped
-        if(core->skipped_reads>0.9*core->total_reads){
+        skipped_reads = core->total_reads-core->processed_reads;
+        skipped_bytes = core->total_bytes-core->processed_bytes;
+        if(skipped_reads>0.9*core->total_reads){
             WARNING("%s","90% of the reads are skipped. Possible causes: unmapped bam, zero sequence lengths, or missing MM, ML tags (not performed base modification aware basecalling). Refer https://github.com/warp9seq/minimod for more information.");
         }
-        if(core->skipped_reads == core->total_reads){
+        if(skipped_reads == core->total_reads){
             ERROR("%s","All reads are skipped. Quitting. Possible causes: unmapped bam, zero sequence lengths, or missing MM, ML tags (not performed base modification aware basecalling). Refer https://github.com/warp9seq/minimod for more information.");
         }
         
@@ -306,11 +313,11 @@ int mod_freq_main(int argc, char* argv[]) {
     free_db(core, db);
 
     fprintf(stderr, "[%s] total entries: %ld", __func__,(long)core->total_reads);
-    fprintf(stderr,"\n[%s] total bytes: %.1f M",__func__,core->sum_bytes/(float)(1000*1000));
-    fprintf(stderr,"\n[%s] total skipped entries: %ld",__func__,(long)core->skipped_reads);
-    fprintf(stderr,"\n[%s] total skipped bytes: %.1f M",__func__,core->skipped_reads_bytes/(float)(1000*1000));
-    fprintf(stderr,"\n[%s] total processed entries: %ld",__func__,(long)(core->total_reads-core->skipped_reads));
-    fprintf(stderr,"\n[%s] total processed bytes: %.1f M",__func__,(core->sum_bytes-core->skipped_reads_bytes)/(float)(1000*1000));
+    fprintf(stderr,"\n[%s] total bytes: %.1f M",__func__,core->total_bytes/(float)(1000*1000));
+    fprintf(stderr,"\n[%s] total skipped entries: %ld",__func__,(long)(core->total_reads-core->processed_reads));
+    fprintf(stderr,"\n[%s] total skipped bytes: %.1f M",__func__,(core->total_bytes-core->processed_bytes)/(float)(1000*1000));
+    fprintf(stderr,"\n[%s] total processed entries: %ld",__func__,(long)core->processed_reads);
+    fprintf(stderr,"\n[%s] total processed bytes: %.1f M",__func__,(core->processed_bytes)/(float)(1000*1000));
 
     fprintf(stderr, "\n[%s] Data loading time: %.3f sec", __func__,core->load_db_time);
     fprintf(stderr, "\n[%s] Data processing time: %.3f sec", __func__,core->process_db_time);
