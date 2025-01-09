@@ -90,8 +90,8 @@ typedef struct {
 } opt_t;
 
 typedef struct {
-    uint16_t n_called;
-    uint16_t n_mod;
+    uint32_t n_called;
+    uint32_t n_mod;
 } freq_t;
 
 KHASH_MAP_INIT_STR(freqm, freq_t *);

@@ -398,6 +398,12 @@ void update_freq_map(core_t * core, db_t * db) {
                     freq_t * freq = kh_value(freq_map, k);
                     freq->n_called += is_called;
                     freq->n_mod += is_mod;
+
+                    // check if freq->n_called overflows
+                    if(freq->n_called == 0){
+                        ERROR("n_called overflowed for key %s. Please report this issue.", key);
+                        exit(EXIT_FAILURE);
+                    }
                 }
 
                 if(core->opt.haplotypes) {
