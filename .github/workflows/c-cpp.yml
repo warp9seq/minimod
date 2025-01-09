@@ -122,9 +122,20 @@ jobs:
   #     run: make -j8
   #   - name: test
   #     run: make test
-  os_x_12:
-    name: OSX 12
-    runs-on: macos-12
+  # os_x_12: # deprecated
+  #   name: OSX 12
+  #   runs-on: macos-12
+  #   steps:
+  #   - uses: actions/checkout@v2
+  #   - name: install htslib
+  #     run: ./scripts/install-hts.sh
+  #   - name: build
+  #     run: make -j8
+  #   - name: test
+  #     run: make test
+  os_x_13:
+    name: OSX 13
+    runs-on: macos-13
     steps:
     - uses: actions/checkout@v2
     - name: install htslib
