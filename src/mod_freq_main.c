@@ -239,6 +239,12 @@ int mod_freq_main(int argc, char* argv[]) {
         exit(EXIT_FAILURE);
     }
 
+    // check if the bam file exists
+    if (access(opt.bam_file, F_OK) == -1) {
+        ERROR("BAM file %s does not exist", opt.bam_file);
+        exit(EXIT_FAILURE);
+    }
+
     //load the reference genome, get the contexts, and destroy the reference
     double realtime1 = realtime();
     fprintf(stderr, "[%s] Loading reference genome %s\n", __func__, opt.ref_file);
