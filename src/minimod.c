@@ -391,12 +391,14 @@ void process_db(core_t* core,db_t* db){
 /* write the output for a processed data batch */
 void output_db(core_t* core, db_t* db) {
 
+    if(core->opt.subtool == MOD_FREQ){
+        update_freq_map(core, db);
+    }
+
     double output_start = realtime();
     if(core->opt.subtool == VIEW){
         print_view_output(core, db);
-    } else if(core->opt.subtool == MOD_FREQ){
-        update_freq_map(core, db);
-    }
+    } 
 
     core->total_reads += db->total_reads;
     core->total_bytes += db->total_bytes;
