@@ -329,7 +329,6 @@ void decode_key(char *key, char **chrom, int *pos, uint16_t * ins_offset, char *
     *haplotype = atoi(strtok(NULL, "\t"));
 }
 
-// freq_map is used by multiple threads, so need to lock it
 void update_freq_map(core_t * core, db_t * db) {
     bam_hdr_t * hdr = core->bam_hdr;
     khash_t(freqm) *freq_map = core->freq_map;
