@@ -1,19 +1,18 @@
 ---
-    name: Release simulation
+    name: "tagged-release"
     
     on:
       push:
-        branches: [ dev ]
-      pull_request:
-        branches: [ dev ]
+        tags:
+          - "v*"
     
     env:
       ACTIONS_ALLOW_USE_UNSECURE_NODE_VERSION: true
     
     jobs:
       ubuntu_14:
-        name: Ubuntu 14
-        runs-on: ubuntu-22.04
+        name: ubuntu_14
+        runs-on: ubuntu-20.04
         container: 
           image: ubuntu:14.04
           volumes:
@@ -34,3 +33,9 @@
             run: ./scripts/install-hts.sh
           - name: build release
             run: make release
+          - uses: "marvinpinto/action-automatic-releases@latest"
+            with:
+              repo_token: "${{ secrets.GITHUB_TOKEN }}"
+              prerelease: false
+              files: |
+                *.tar.gz
