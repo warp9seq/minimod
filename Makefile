@@ -1,5 +1,8 @@
+VERSION = $(shell git describe --tags --dirty 2>/dev/null || echo "0.0.0-unknown")
+VERSION = v0.2.0
+
 CPPFLAGS += -I htslib/
-CFLAGS   += -g -Wall -O2  -std=c99
+CFLAGS   += -g -Wall -O2  -std=c99 -DMINIMOD_VERSION=\"$(VERSION)\"
 LDFLAGS  += $(LIBS) -lz -lm -lpthread
 BUILD_DIR = build
 
@@ -71,6 +74,24 @@ clean:
 distclean: clean
 	git clean -f -X
 	rm -rf $(BUILD_DIR)/*
+
+release: distclean
+# make the release
+	mkdir -p minimod-$(VERSION)
+	cp -r README.md LICENSE Makefile scripts src docs minimod-$(VERSION)
+	tar -zcf minimod-$(VERSION)-release.tar.gz minimod-$(VERSION)
+	rm -rf minimod-$(VERSION)
+# make the binaries
+	make -j8
+	mkdir -p minimod-$(VERSION)
+	mv minimod minimod-$(VERSION)/
+	cp -r README.md LICENSE scripts src minimod-$(VERSION)/
+	tar -zcf minimod-$(VERSION)-x86_64-linux-binaries.tar.gz minimod-$(VERSION)
+	rm -rf minimod-$(VERSION)
+	tar xf minimod-$(VERSION)-x86_64-linux-binaries.tar.gz
+	mv minimod-$(VERSION)/minimod minimod
+	rm -rf minimod-$(VERSION)
+	test/test.sh
 
 test: $(BINARY)
 	./test/test.sh

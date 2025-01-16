@@ -40,9 +40,9 @@ SOFTWARE.
 #include <htslib/sam.h>
 #include "khash.h"
 #include <pthread.h>
-
-#define MINIMOD_VERSION "0.1.0"
-
+#ifndef MINIMOD_VERSION
+#define MINIMOD_VERSION "dev"
+#endif
 /*******************************************************
  * flags related to the user specified options (opt_t) *
  *******************************************************/
