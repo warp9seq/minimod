@@ -16,7 +16,6 @@ jobs:
         - /node20217:/node20217:rw,rshared
         - /node20217:/__e/node20:ro,rshared
     steps:
-      - uses: actions/checkout@v2
       - name: install packages
         run: sudo apt-get update && sudo apt-get install -y zlib1g-dev gcc g++ autoconf automake make wget curl
       - name: nodejs
@@ -24,6 +23,7 @@ jobs:
           apt-get install -y wget xz-utils
           wget https://unofficial-builds.nodejs.org/download/release/v20.9.0/node-v20.9.0-linux-x64-glibc-217.tar.xz
           tar -xf node-v20.9.0-linux-x64-glibc-217.tar.xz --strip-components 1 -C /node20217
+      - uses: actions/checkout@v2
       - name: install htslib
         run: ./scripts/install-hts.sh
       - name: install valgrind
@@ -39,7 +39,6 @@ jobs:
         - /node20217:/node20217:rw,rshared
         - /node20217:/__e/node20:ro,rshared
     steps:
-      - uses: actions/checkout@v2
       - name: install packages
         run: apt-get update && apt-get install -y zlib1g-dev gcc g++ autoconf automake make wget curl bzip2
       - name: nodejs
@@ -47,6 +46,7 @@ jobs:
           apt-get install -y wget xz-utils
           wget https://unofficial-builds.nodejs.org/download/release/v20.9.0/node-v20.9.0-linux-x64-glibc-217.tar.xz
           tar -xf node-v20.9.0-linux-x64-glibc-217.tar.xz --strip-components 1 -C /node20217
+      - uses: actions/checkout@v2
       - name: install htslib
         run: ./scripts/install-hts.sh
       - name: install valgrind
@@ -62,7 +62,6 @@ jobs:
         - /node20217:/node20217:rw,rshared
         - /node20217:/__e/node20:ro,rshared
     steps:
-      - uses: actions/checkout@v2
       - name: Install sudo package
         run: apt update && apt install sudo
       - name: install packages
@@ -72,6 +71,7 @@ jobs:
           apt-get install -y wget xz-utils
           wget https://unofficial-builds.nodejs.org/download/release/v20.9.0/node-v20.9.0-linux-x64-glibc-217.tar.xz
           tar -xf node-v20.9.0-linux-x64-glibc-217.tar.xz --strip-components 1 -C /node20217
+      - uses: actions/checkout@v2
       - name: install htslib
         run: ./scripts/install-hts.sh
       - name: test
