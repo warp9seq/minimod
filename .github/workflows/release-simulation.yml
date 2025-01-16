@@ -20,15 +20,17 @@
                   - /node20217:/node20217:rw,rshared
                   - /node20217:/__e/node20:ro,rshared
             steps:
-                - name: install packages
-                  run: sudo apt-get update && sudo apt-get install -y zlib1g-dev gcc g++ autoconf automake make wget curl
-                - name: nodejs
-                  run: |
-                    apt-get install -y wget xz-utils
-                    wget https://unofficial-builds.nodejs.org/download/release/v20.9.0/node-v20.9.0-linux-x64-glibc-217.tar.xz
-                    tar -xf node-v20.9.0-linux-x64-glibc-217.tar.xz --strip-components 1 -C /node20217
-                - uses: actions/checkout@v2
-                - name: install htslib
-                  run: ./scripts/install-hts.sh
-                - name: build release
-                  run: make release
+              - name: install git
+                run: sudo apt-get install -y software-properties-common && sudo add-apt-repository ppa:git-core/ppa && sudo apt-get update -y && sudo apt-get install git -y
+              - name: install packages
+                run: sudo apt-get update && sudo apt-get install -y zlib1g-dev gcc g++ autoconf automake make wget curl
+              - name: nodejs
+                run: |
+                  apt-get install -y wget xz-utils
+                  wget https://unofficial-builds.nodejs.org/download/release/v20.9.0/node-v20.9.0-linux-x64-glibc-217.tar.xz
+                  tar -xf node-v20.9.0-linux-x64-glibc-217.tar.xz --strip-components 1 -C /node20217
+              - uses: actions/checkout@v2
+              - name: install htslib
+                run: ./scripts/install-hts.sh
+              - name: build release
+                run: make release
