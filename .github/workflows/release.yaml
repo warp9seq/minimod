@@ -1,19 +1,19 @@
 ---
     name: "tagged-release"
-    
+
     on:
       push:
         tags:
           - "v*"
-    
+
     env:
       ACTIONS_ALLOW_USE_UNSECURE_NODE_VERSION: true
-    
+
     jobs:
       ubuntu_14:
         name: ubuntu_14
         runs-on: ubuntu-20.04
-        container: 
+        container:
           image: ubuntu:14.04
           volumes:
             - /node20217:/node20217:rw,rshared
@@ -37,5 +37,6 @@
             with:
               repo_token: "${{ secrets.GITHUB_TOKEN }}"
               prerelease: false
+              title: "minimod-${{ github.ref_name  }}"
               files: |
                 *.tar.gz
