@@ -77,15 +77,15 @@ distclean: clean
 
 release: distclean
 # make the release
-	mkdir -p minimod-$(VERSION)
+	mkdir -p minimod-$(VERSION)/build
 	cp -r README.md LICENSE Makefile scripts src docs minimod-$(VERSION)
 	tar -zcf minimod-$(VERSION)-release.tar.gz minimod-$(VERSION)
 	rm -rf minimod-$(VERSION)
 # make the binaries
 	make -j8
 	mkdir -p minimod-$(VERSION)
-	mv minimod minimod-$(VERSION)/
-	cp -r README.md LICENSE scripts src minimod-$(VERSION)/
+	mv minimod minimod-$(VERSION)/build
+	cp -r README.md LICENSE minimod-$(VERSION)/
 	tar -zcf minimod-$(VERSION)-x86_64-linux-binaries.tar.gz minimod-$(VERSION)
 	rm -rf minimod-$(VERSION)
 	tar xf minimod-$(VERSION)-x86_64-linux-binaries.tar.gz
