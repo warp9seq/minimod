@@ -77,7 +77,7 @@ distclean: clean
 
 release: distclean
 # make the release
-	mkdir minimod-$(VERSION)
+	mkdir minimod-$(VERSION)/build
 	cp -r README.md LICENSE Makefile scripts src docs minimod-$(VERSION)
 	tar -zcf minimod-$(VERSION)-release.tar.gz minimod-$(VERSION)
 	rm -rf minimod-$(VERSION)
