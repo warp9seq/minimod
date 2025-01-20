@@ -8,7 +8,7 @@ Minimod reads base modification information encoded under `MM:Z` and `ML:B:C` SA
 
 # Table of Contents
 - [Installation](#installation)
-  - [Building from source](#building-from-source)
+  - [Building a release](#building-a-release)
 - [Usage](#usage)
 - [Examples](#examples)
 - [minimod view](#minimod-view)
@@ -24,12 +24,14 @@ Minimod reads base modification information encoded under `MM:Z` and `ML:B:C` SA
 
 
 # Installation
-## Building from source
+## Building a release
 ```bash
 sudo apt-get install zlib1g-dev  # install zlib development libraries
-git clone https://github.com/warp9seq/minimod
-cd minimod
-./scripts/install-hts.sh  # download and compile the htslib
+VERSION=v0.2.0
+wget https://github.com/warp9seq/minimod/releases/download/$VERSION/minimod-$VERSION-release.tar.gz
+tar xvf minimod-$VERSION-release.tar.gz 
+cd minimod-$VERSION/
+scripts/install-hts.sh  # download and compile the htslib
 make
 ```
 
