@@ -194,7 +194,7 @@ chr22	19982787	19982788	m	1	+	19982787	19982788	255,0,0	1	0.000000
 | 10. freq | float | n_mod/n_called ratio |
 
 # Modification codes and contexts
-Base modification codes can be set for both view and mod-freq tool using -c option.
+Base modification codes and contexts can be set for both view and mod-freq tool using -c option to take only specific base modifications found in a given contexts. The context should match in the reference and bases in unmatching contexts are ignored.
 
 Here is an example command to explain all possible context formats.
 ```bash
@@ -363,6 +363,9 @@ Make sure that you handle the modification tags correctly in each step in base m
    ```
    minimap2 -ax map-ont --sam-hit-only -Y -y --secondary=no ref.idx reads.fastq
    ```
+
+- If more than 90% of the reads in the BAM file are skipped due to various reasons (unmapped, 0 length, or missing MM/ML tags), minimod prints a warning message. However, if all of them are skipped minimod errors out.
+- If hard clipped non-primary alignments are found, minimod errors out. (to filter out non-primary alignments: ```samtools view -h -F 2308 reads.bam -o primary_reads.bam``` or use minimap2 with -Y to use soft clipping).
 
 # Limitations / Future Improvements
 - Does not support alignment BAM files with modification codes as numeric ChEBI codes in MM tag
