@@ -24,9 +24,12 @@ Minimod reads base modification information encoded under `MM:Z` and `ML:B:C` SA
 
 
 # Installation
-## Building a release
+## Pre-requisites
 ```bash
 sudo apt-get install zlib1g-dev  # install zlib development libraries
+```
+## Building a release
+```bash
 VERSION=v0.2.0
 wget https://github.com/warp9seq/minimod/releases/download/$VERSION/minimod-$VERSION-release.tar.gz
 tar xvf minimod-$VERSION-release.tar.gz 
