@@ -171,9 +171,9 @@ jobs:
       run: make -j8
     - name: test
       run: make test
-  os_x_latest:
-    name: OSX Latest
-    runs-on: macos-latest
+  os_x_14:
+    name: OSX 14
+    runs-on: macos-14
     steps:
     - uses: actions/checkout@v2
     - name: install htslib
