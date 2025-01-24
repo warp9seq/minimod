@@ -15,8 +15,8 @@ Minimod reads base modification information encoded under `MM:Z` and `ML:B:C` SA
 - [minimod mod-freq](#minimod-mod-freq)
 - [Modification codes and contexts](#modification-codes-and-contexts)
 - [Modification threshold](#modification-threshold)
-<!-- - [Enable insertions](#enable-insertions)
-- [Enable haplotypes](#enable-haplotypes) -->
+- [Enable insertions](#enable-insertions)
+- [Enable haplotypes](#enable-haplotypes)
 - [Important !](#important)
   - [Base-calling](#base-calling)
   - [Aligning](#aligning)
@@ -83,10 +83,9 @@ basic options:
    -o FILE                    output file [stdout]
    --verbose INT              verbosity level [4]
    --version                  print version
-```
-   <!-- --insertions               enable modifications in insertions [no]
+   --insertions               enable modifications in insertions [no]
    --haplotypes               enable haplotype mode [no]
-``` -->
+```
 
 - See [how to consider inserted modified bases?](#modified-bases-in-insertions)
 
@@ -113,8 +112,8 @@ chr22	19979948	+	m84088_230609_030819_s1/55512555/ccs	98	m	0.623529
 | 5. read_pos | int | position (0-based) of the base in read |
 | 6. mod_code | char | base modification code as in [SAMtags: 1.7 Base modifications](https://github.com/samtools/hts-specs/blob/master/SAMtags.pdf)  |
 | 7. mod_prob | float | probability (0.0-1.0) of base modification |
-<!-- | 8. ins_offset | int | offset of inserted base from ref_pos (only output when --insertions is specified) |
-| 9. haplotype | int | haplotype of the read (only output when --haplotypes is specified) | -->
+| 8. ins_offset | int | offset of inserted base from ref_pos (only output when --insertions is specified) |
+| 9. haplotype | int | haplotype of the read (only output when --haplotypes is specified) |
 
 # minimod mod-freq
 ```bash
@@ -136,10 +135,9 @@ basic options:
    -o FILE                    output file [stdout]
    --verbose INT              verbosity level [4]
    --version                  print version
-```
-   <!-- --insertions               enable modifications in insertions [no]
+   --insertions               enable modifications in insertions [no]
    --haplotypes               enable haplotype mode [no]
-``` -->
+```
 
 **Sample modfreqs.tsv output**
 ```bash
@@ -164,8 +162,8 @@ chr22	19971259	19971259	+	1	1	1.000000	m
 | 6. n_mod | int | number of reads with base modification |
 | 7. freq | float | n_mod/n_called ratio |
 | 8. mod_code | char | base modification code as in [SAMtags: 1.7 Base modifications](https://github.com/samtools/hts-specs/blob/master/SAMtags.pdf) |
-<!-- | 9. ins_offset | int | offset of inserted base from ref_pos (only output when --insertions is specified) |
-| 10. haplotype | int | haplotype of the read (only output when --haplotypes is specified) | -->
+| 9. ins_offset | int | offset of inserted base from ref_pos (only output when --insertions is specified) |
+| 10. haplotype | int | haplotype of the read (only output when --haplotypes is specified) |
 
 **Sample modfreqs.bedmethyl output**
 ```bash
@@ -269,7 +267,7 @@ Base modification threshold can be set for mod-freq tool using -m option.
 >
 > mod_freq(5hmC) = total_modified(5hmC)/total_called(5hmC)
 > ```
-<!--
+
 # Enable insertions
 minimod can handle inserted modified bases (where canonical base in not in reference) by specifying --insertions flag for both mod-freq and view tools.
 
@@ -332,7 +330,7 @@ chr1	23096	23096	+	3	3	1.000000	m	2
 chr1	23096	23096	+	4	3	0.750000	m	*
 ```
 
-freq value of modifications with haplotype=* is calculated taking modifications from all haplotypes -->
+freq value of modifications with haplotype=* is calculated taking modifications from all haplotypes
 
 # Important !
 Make sure that you handle the modification tags correctly in each step in base modification calling pipeline (e.g., providing both `-y` and `-Y` to minimap2). See the example pipeline that we use below.
