@@ -105,7 +105,7 @@ static void search_context_kmp(const char* pat, const char* txt, uint8_t* result
     int j = 0; 
   
     while ((N - i) >= (M - j)) {
-        if (pat[j] == txt[i]) {
+        if (pat[j] == toupper(txt[i])) {
             j++;
             i++;
         }
@@ -116,7 +116,7 @@ static void search_context_kmp(const char* pat, const char* txt, uint8_t* result
             (count)++;
             j = lps[j - 1];
         }
-        else if (i < N && pat[j] != txt[i]) {
+        else if (i < N && pat[j] != toupper(txt[i])) {
             if (j != 0) j = lps[j - 1];
             else i = i + 1;
         }
