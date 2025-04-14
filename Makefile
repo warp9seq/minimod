@@ -1,5 +1,5 @@
 VERSION = $(shell git describe --tags --dirty 2>/dev/null || echo "0.0.0-unknown")
-VERSION = v0.2.0
+VERSION = v0.3.0
 
 CPPFLAGS += -I htslib/
 CFLAGS   += -g -Wall -O2  -std=c99 -DMINIMOD_VERSION=\"$(VERSION)\"
