@@ -69,7 +69,7 @@ typedef struct {
 
     char *region_str; //the region string in format chr:start-end
 
-    uint8_t bedmethyl_out; //output in bedMethyl format, only for mod-freq
+    uint8_t bedmethyl_out; //output in bedMethyl format, only for freq
     char *mod_codes_str;
     char *mod_threshes_str;
     uint8_t req_threshes[17];      // required threshold for each mod code
@@ -81,7 +81,7 @@ typedef struct {
     FILE* output_fp;
     int progress_interval;
 
-    uint8_t subtool; //0:view, 1:mod-freq
+    uint8_t subtool; //0:view, 1:freq
 
     uint8_t n_mods;
     uint8_t insertions; //is insertions enabled, add ins column to the output
@@ -95,7 +95,7 @@ typedef struct {
 } freq_t;
 
 KHASH_MAP_INIT_STR(freqm, freq_t *);
-enum subtool {VIEW=0, MOD_FREQ=1};
+enum subtool {VIEW=0, FREQ=1};
 
 /* a batch of read data (dynamic data based on the reads) */
 typedef struct {

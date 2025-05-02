@@ -12,7 +12,7 @@ Minimod reads base modification information encoded under `MM:Z` and `ML:B:C` SA
 - [Usage](#usage)
 - [Examples](#examples)
 - [minimod view](#minimod-view)
-- [minimod mod-freq](#minimod-mod-freq)
+- [minimod freq](#minimod-freq)
 - [Modification codes and contexts](#modification-codes-and-contexts)
 - [Modification threshold](#modification-threshold)
 - [Enable insertions](#enable-insertions)
@@ -44,9 +44,11 @@ Usage information can be printed using ```minimod -h``` command.
 Usage: minimod <command> [options]
 
 command:
-         view          view base modifications
-         mod-freq      output base modifications frequencies
+         view         view base modifications
+         freq         output base modifications frequencies
 ```
+
+Note: <i>freq</i> was previously <i>mod-freq</i> which still works but will be deprecated soon.
 
 # Examples
 ```bash
@@ -54,13 +56,13 @@ command:
 minimod view ref.fa reads.bam > mods.tsv
 
 # 5mC methylation frequencies at CG context in tsv format (default mod code: m, threshold: 0.8, context:CG)
-minimod mod-freq ref.fa reads.bam > modfreqs.tsv
+minimod freq ref.fa reads.bam > modfreqs.tsv
 
 # 5mC methylation frequencies at CG context in bedmethyl format (default mod code: m, threshold: 0.8, context:CG)
-minimod mod-freq -b ref.fa reads.bam > modfreqs.bedmethyl
+minimod freq -b ref.fa reads.bam > modfreqs.bedmethyl
 
 # modification frequencies of multiple types ( m (5-methylcytosine) and h (5-hydroxymethylcytosine) in CG context with thresholds 0.8 and 0.7 respectively )
-minimod mod-freq -c m[CG],h[CG] -m 0.8,0.7 ref.fa reads.bam > mods.tsv
+minimod freq -c m[CG],h[CG] -m 0.8,0.7 ref.fa reads.bam > mods.tsv
 ```
 - See [how modification codes can be specified?](#modification-codes-and-contexts)
 - See [how threshold is used in minimod?](#modification-threshold)
@@ -115,13 +117,13 @@ chr22	19979948	+	m84088_230609_030819_s1/55512555/ccs	98	m	0.623529
 | 8. ins_offset | int | offset of inserted base from ref_pos (only output when --insertions is specified) |
 | 9. haplotype | int | haplotype of the read (only output when --haplotypes is specified) |
 
-# minimod mod-freq
+# minimod freq
 ```bash
-minimod mod-freq ref.fa reads.bam > modfreqs.tsv
+minimod freq ref.fa reads.bam > modfreqs.tsv
 ```
 This writes base modification frequencies (default modification code "m" in CG context with modification threshold 0.8) to a file (modfreqs.tsv) file in tsv format.
 ```bash
-Usage: minimod mod-freq ref.fa reads.bam
+Usage: minimod freq ref.fa reads.bam
 
 basic options:
    -b                         output in bedMethyl format [not set]
@@ -192,12 +194,12 @@ chr22	19982787	19982788	m	1	+	19982787	19982788	255,0,0	1	0.000000
 | 10. freq | float | n_mod/n_called ratio |
 
 # Modification codes and contexts
-Base modification codes and contexts can be set for both view and mod-freq tool using -c option to take only specific base modifications found in a given contexts. The context should match in the reference and bases in unmatching contexts are ignored.
+Base modification codes and contexts can be set for both view and freq tool using -c option to take only specific base modifications found in a given contexts. The context should match in the reference and bases in unmatching contexts are ignored.
 
 Here is an example command to explain all possible context formats.
 ```bash
 minimod view -c a[A],h[CG],m,a[*] ref.fa reads.bam
-minimod mod-freq -c a[A],h[CG],m,a[*] ref.fa reads.bam
+minimod freq -c a[A],h[CG],m,a[*] ref.fa reads.bam
 ```
 - **a[A]** : type a modifications of all A bases
 - **h[CG]**: type h modifications in CG context (CpG sites)
@@ -231,12 +233,12 @@ All possible modification codes supported by minimod along with default contexts
 Note that we have done a lot of testing on 5mc and some limited testing on 6mA and 5hmC. The others are not yet tested.
 
 # Modification threshold
-Base modification threshold can be set for mod-freq tool using -m option.
+Base modification threshold can be set for freq tool using -m option.
 
 
 01. 5mC modification(default context :CG) frequencies with threshold 0.8
 > ```
->   minimod mod-freq -c m -m 0.8 ref.fa reads.bam
+>   minimod freq -c m -m 0.8 ref.fa reads.bam
 > ```
 ![Fig](docs/figs/m_threshold.png)
 > ```
@@ -244,12 +246,12 @@ Base modification threshold can be set for mod-freq tool using -m option.
 > If p(5mC) <=  0.2 (1-threshold),     called(5mC)
 > else,                                ignored as ambiguous
 >
-> mod_freq(5mC) = total_modified(5mC)/total_called(5mC)
+> freq(5mC) = total_modified(5mC)/total_called(5mC)
 > ```
 
 03. 5mC and 5hmC base modification(default context :CG) frequencies with thresholds 0.8, 0.7 respectively
 > ```
->   minimod mod-freq -c m,h -m 0.8,0.7 ref.fa reads.bam
+>   minimod freq -c m,h -m 0.8,0.7 ref.fa reads.bam
 > ```
 ![Fig](docs/figs/m_h_threshold.png)
 > ```
@@ -257,7 +259,7 @@ Base modification threshold can be set for mod-freq tool using -m option.
 > If p(5mC)  <=  0.2 (1-threshold),    called(5mC)
 > else,                                ambiguous
 >
-> mod_freq(5mC) = total_modified(5mC)/total_called(5mC)
+> freq(5mC) = total_modified(5mC)/total_called(5mC)
 > ```
 
 > ```
@@ -265,11 +267,11 @@ Base modification threshold can be set for mod-freq tool using -m option.
 > If p(5hmC) <=  0.3 (1-threshold),    called(5hmC)
 > else,                                ignored as ambiguous
 >
-> mod_freq(5hmC) = total_modified(5hmC)/total_called(5hmC)
+> freq(5hmC) = total_modified(5hmC)/total_called(5hmC)
 > ```
 
 # Enable insertions
-minimod can handle inserted modified bases (where canonical base in not in reference) by specifying --insertions flag for both mod-freq and view tools.
+minimod can handle inserted modified bases (where canonical base in not in reference) by specifying --insertions flag for both freq and view tools.
 
 Specifying --insertions will add an extra ins_offset column(**only in tsv output**) which is the position of modified base within the inserted region.
 
@@ -287,9 +289,9 @@ chr22	19968390	+	89870c83-8790-419f-acf8-8a8e93a0f3c9	1885	m	0.960784	0
 chr22	19968435	+	89870c83-8790-419f-acf8-8a8e93a0f3c9	1930	m	0.917647	0
 ```
 
-**Sample output of mod-freq with --insertions**
+**Sample output of freq with --insertions**
 ```bash
-$ minimod mod-freq --insertions ref.fa reads.bam
+$ minimod freq --insertions ref.fa reads.bam
 
 contig	start	end	strand	n_called	n_mod	freq	mod_code	ins_offset
 chr22	19981825	19981825	-	1	1	1.000000	m	0
@@ -302,7 +304,7 @@ chr22	20016700	20016700	-	4	0	0.000000	m	0
 Highlighted line corresponds to a 5mC modification within an insertion (A mC G) at position 19968083
 
 # Enable haplotypes
-minimod can output the haplotype in a separate integer column (**only in tsv output**) by specifying --haplotypes flag for both view and mod-freq tools.
+minimod can output the haplotype in a separate integer column (**only in tsv output**) by specifying --haplotypes flag for both view and freq tools.
 
 **Sample output of view with --haplotypes**
 ```bash
@@ -316,10 +318,10 @@ chr1	25115	-	m84088_240522_013656_s1/197203096/ccs	0	m	0.290196	1
 chr1	25059	-	m84088_240522_013656_s1/197203096/ccs	56	m	0.886275	1
 chr1	24926	-	m84088_240522_013656_s1/197203096/ccs	189	m	0.988235	1
 ```
-**Sample output of mod-freq with --haplotypes**
+**Sample output of freq with --haplotypes**
 
 ```bash
-$ minimod mod-freq --haplotypes ref.fa reads.bam
+$ minimod freq --haplotypes ref.fa reads.bam
 
 contig	start	end	strand	n_called	n_mod	freq	mod_code	haplotype
 chr1	23002	23002	-	3	3	1.000000	m	1

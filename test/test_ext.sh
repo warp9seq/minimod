@@ -45,10 +45,10 @@ mkdir -p test/tmp || die "Creating the tmp directory failed"
 # ex  ./minimod view -t 32 $ref /data/suneth/tool-validation/minimod/PGXXXX230339_reads_chr22/tmp/PGXXXX230339_reads_chr22.remora.bam > test/tmp/ext.test1.tsv  || die "${testname} Running the tool failed"
 # diff -q $expected test/tmp/ext.test1.tsv || die "${testname} diff failed"
 
-testname="Ext. Test 1: mod-freq extensive test using PGXXXX230339_reads_chr22"
+testname="Ext. Test 1: freq extensive test using PGXXXX230339_reads_chr22"
 echo -e "${BLUE}${testname}${NC}"
 exp_corr=0.90
-ex  ./minimod mod-freq -c "m[CG]" -K 4092 -B 100M -b -t 32 /genome/hg38noAlt.fa /data/suneth/tool-validation/minimod/PGXXXX230339_reads_chr22/tmp/PGXXXX230339_reads_chr22.remora.bam > test/tmp/ext.test1.bedmethyl || die "${testname} Running the tool failed"
+ex  ./minimod freq -c "m[CG]" -K 4092 -B 100M -b -t 32 /genome/hg38noAlt.fa /data/suneth/tool-validation/minimod/PGXXXX230339_reads_chr22/tmp/PGXXXX230339_reads_chr22.remora.bam > test/tmp/ext.test1.bedmethyl || die "${testname} Running the tool failed"
 corr=`python3 ./test/compare.py /data/suneth/tool-validation/hg2_chr22_bi.tsv test/tmp/ext.test1.bedmethyl`
 if (( $(echo "$corr >= $exp_corr" | bc -l) )); then
     echo -e "${GREEN}Corr: $corr\tExpected: $exp_corr\tPassed${NC}\n"
@@ -57,10 +57,10 @@ elif (( $(echo "$exp_corr > $corr" | bc -l) )); then
     die "${testname} Correlation decreased"
 fi
 
-testname="Ext. Test 2: mod-freq extensive test using na12878_prom_lsk114"
+testname="Ext. Test 2: freq extensive test using na12878_prom_lsk114"
 echo -e "${BLUE}${testname}${NC}"
 exp_corr=0.90
-ex  ./minimod mod-freq -c "m[CG]" -K 4092 -B 100M -b -t 32 /genome/hg38noAlt.fa /home/hasindu/scratch/hg2_na12878_old/na12878_prom_lsk114/compare-bisulfite/remora_with_supple/remora_mapped.bam > test/tmp/ext.test2.bedmethyl || die "${testname} Running the tool failed"
+ex  ./minimod freq -c "m[CG]" -K 4092 -B 100M -b -t 32 /genome/hg38noAlt.fa /home/hasindu/scratch/hg2_na12878_old/na12878_prom_lsk114/compare-bisulfite/remora_with_supple/remora_mapped.bam > test/tmp/ext.test2.bedmethyl || die "${testname} Running the tool failed"
 corr=`python3 ./test/compare.py /data/suneth/tool-validation/bisulfite.ENCFF835NTC.bedmethyl test/tmp/ext.test2.bedmethyl`
 if (( $(echo "$corr >= $exp_corr" | bc -l) )); then
     echo -e "${GREEN}Corr: $corr\tExpected: $exp_corr\tPassed${NC}\n"

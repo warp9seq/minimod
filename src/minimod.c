@@ -127,7 +127,7 @@ core_t* init_core(opt_t opt,double realtime0) {
         }
     }
 
-    if (opt.subtool == MOD_FREQ) {
+    if (opt.subtool == FREQ) {
         core->freq_map = kh_init(freqm);
     }
 
@@ -159,7 +159,7 @@ void free_core(core_t* core,opt_t opt) {
     hts_idx_destroy(core->bam_idx);
     sam_close(core->bam_fp);
 
-    if (opt.subtool == MOD_FREQ) {
+    if (opt.subtool == FREQ) {
         destroy_freq_map(core->freq_map);
     }
 
@@ -342,7 +342,7 @@ void parse_single(core_t* core,db_t* db, int32_t i){
 
 void work_per_single_read(core_t* core,db_t* db, int32_t i){
 
-    if(core->opt.subtool==VIEW || core->opt.subtool==MOD_FREQ){
+    if(core->opt.subtool==VIEW || core->opt.subtool==FREQ){
         modbases_single(core,db,i);
     }else{
         ERROR("Unknown subtool %d", core->opt.subtool);
@@ -391,7 +391,7 @@ void process_db(core_t* core,db_t* db){
 /* write the output for a processed data batch */
 void output_db(core_t* core, db_t* db) {
 
-    if(core->opt.subtool == MOD_FREQ){
+    if(core->opt.subtool == FREQ){
         update_freq_map(core, db);
     }
 
@@ -414,7 +414,7 @@ void output_db(core_t* core, db_t* db) {
 void output_core(core_t* core) {
     double output_start = realtime();
 
-    if(core->opt.subtool == MOD_FREQ){
+    if(core->opt.subtool == FREQ){
         print_freq_output(core);
     }
 

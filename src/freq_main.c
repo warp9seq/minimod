@@ -1,6 +1,6 @@
 /**
- * @file mod_freq.c
- * @brief entry point to mod_freq
+ * @file freq.c
+ * @brief entry point to freq
  * @author Hasindu Gamaarachchi (hasindu@unsw.edu.au)
  * @author Suneth Samarasinghe (suneth@unsw.edu.au)
 
@@ -65,7 +65,7 @@ static struct option long_options[] = {
 
 
 static inline void print_help_msg(FILE *fp_help, opt_t opt){
-    fprintf(fp_help,"Usage: minimod mod-freq ref.fa reads.bam\n");
+    fprintf(fp_help,"Usage: minimod freq ref.fa reads.bam\n");
     fprintf(fp_help,"\nbasic options:\n");
     fprintf(fp_help,"   -b                         output in bedMethyl format [%s]\n", (opt.bedmethyl_out?"yes":"not set"));
     fprintf(fp_help,"   -c STR                     modification codes (eg. m, h or mh) [%s]\n", opt.mod_codes_str);
@@ -90,7 +90,7 @@ static inline void print_help_msg(FILE *fp_help, opt_t opt){
 
 }
 
-int mod_freq_main(int argc, char* argv[]) {
+int freq_main(int argc, char* argv[]) {
 
     double realtime0 = realtime();
     double realtime_prog = realtime();
@@ -104,7 +104,7 @@ int mod_freq_main(int argc, char* argv[]) {
 
     opt_t opt;
     init_opt(&opt); //initialise options to defaults
-    opt.subtool = MOD_FREQ;
+    opt.subtool = FREQ;
 
     //parse the user args
     while ((c = getopt_long(argc, argv, optstring, long_options, &longindex)) >= 0) {

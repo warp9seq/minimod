@@ -104,7 +104,7 @@ def load_bedmethyl(filename):
 def load_methylation(filename):
     if filename.find("bedmethyl") != -1:
         return load_bedmethyl(filename)
-    elif filename.find(".mm.tsv") != -1: #minimod mod_freq output
+    elif filename.find(".mm.tsv") != -1: #minimod freq output
         return load_mm_tsv(filename)
     elif filename.find("tsv") != -1:
         return load_tsv(filename)
