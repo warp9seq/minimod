@@ -76,7 +76,7 @@ This writes all base modifications (default modification code "m") to a file (mo
 Usage: minimod view ref.fa reads.bam
 
 basic options:
-   -c STR                     modification code(s) (eg. m, h) [m]
+   -c STR                     modification code(s) (eg. m, h or mh or as ChEBI) [m]
    -t INT                     number of processing threads [8]
    -K INT                     batch size (max number of reads loaded at once) [512]
    -B FLOAT[K/M/G]            max number of bases loaded at once [20.0M]
@@ -127,7 +127,7 @@ Usage: minimod freq ref.fa reads.bam
 
 basic options:
    -b                         output in bedMethyl format [not set]
-   -c STR                     modification codes (eg. m, h) [m]
+   -c STR                     modification code(s) (eg. m, h or mh or as ChEBI) [m]
    -m FLOAT                   min modification threshold(s). Comma separated values for each modification code given in -c [0.8]
    -t INT                     number of processing threads [8]
    -K INT                     batch size (max number of reads loaded at once) [512]
@@ -208,12 +208,13 @@ minimod freq -c a[A],h[CG],m,a[*] ref.fa reads.bam
 
 If the context is not specified in square brackets along with modification code, minimod will consider following default contexts.
 
-All possible modification codes supported by minimod along with default contexts if not specified ([SAMtags: 1.7 Base modifications](https://github.com/samtools/hts-specs/blob/master/SAMtags.pdf))
+All possible modification codes are supported by minimod along with default contexts if not specified ([SAMtags: 1.7 Base modifications](https://github.com/samtools/hts-specs/blob/master/SAMtags.pdf))
 | Unmodified base | Code | Abbreviation | Name | Default context |
 | - | - | - | - | - |
 | C | m | 5mC | 5-Methylcytosine | CG |
 | C | h | 5hmC | 5-Hydroxymethylcytosine | CG |
 | A | a | 6mA | 6-Methyladenine | A |
+| U | 17802 | pseU | Pseudouridine | U
 
 <!-- | C | f | 5fC | 5-Formylcytosine | C |
 | C | c | 5caC | 5-Carboxylcytosine | C |
@@ -368,5 +369,4 @@ Make sure that you handle the modification tags correctly in each step in base m
 - If hard clipped non-primary alignments are found, minimod errors out. (to filter out non-primary alignments: ```samtools view -h -F 2308 reads.bam -o primary_reads.bam``` or use minimap2 with -Y to use soft clipping).
 
 # Limitations / Future Improvements
-- Does not support alignment BAM files with modification codes as numeric ChEBI codes in MM tag
 - Status of skipped bases (encoded as . or ? in MM tag) are ignored

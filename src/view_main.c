@@ -65,7 +65,7 @@ static struct option long_options[] = {
 static inline void print_help_msg(FILE *fp_help, opt_t opt){
     fprintf(fp_help,"Usage: minimod view ref.fa reads.bam\n");
     fprintf(fp_help,"\nbasic options:\n");
-    fprintf(fp_help,"   -c STR                     modification code(s) (eg. m, h or mh) [%s]\n", opt.req_mod_codes);
+    fprintf(fp_help,"   -c STR                     modification code(s) (eg. m, h or mh or as ChEBI) [%s]\n", opt.mod_codes_str==NULL?"m":opt.mod_codes_str);
     fprintf(fp_help,"   -t INT                     number of processing threads [%d]\n",opt.num_thread);
     fprintf(fp_help,"   -K INT                     batch size (max number of reads loaded at once) [%d]\n",opt.batch_size);
     fprintf(fp_help,"   -B FLOAT[K/M/G]            max number of bases loaded at once [%.1fM]\n",opt.batch_size_bytes/(float)(1000*1000));
@@ -224,7 +224,16 @@ int view_main(int argc, char* argv[]) {
 
     double realtime2 = realtime();
     fprintf(stderr, "[%s] Loading contexts in reference\n", __func__);
-    load_ref_contexts(opt.n_mods, opt.req_mod_contexts);
+
+    char** mod_contexts = (char**)malloc(opt.n_mods * sizeof(char*));
+    MALLOC_CHK(mod_contexts);
+    for (khint_t i = kh_begin(opt.modcodes_map); i < kh_end(opt.modcodes_map); ++i) {
+        if (!kh_exist(opt.modcodes_map, i)) continue;
+        modcodem_t *mod_code_map = kh_value(opt.modcodes_map, i);
+        mod_contexts[mod_code_map->index] = mod_code_map->context;
+    }
+    load_ref_contexts(opt.n_mods, mod_contexts);
+    free(mod_contexts);
     fprintf(stderr, "[%s] Reference contexts loaded in %.3f sec\n", __func__, realtime()-realtime2);
 
     destroy_ref_forward();

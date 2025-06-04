@@ -205,4 +205,11 @@ sort -k1,1 -k2,2n -k4,4 test/expected/test16.tsv > test/tmp/test16.exp.tsv.sorte
 sort -k1,1 -k2,2n -k4,4 test/tmp/test16.tsv > test/tmp/test16.tsv.sorted
 diff -q test/tmp/test16.exp.tsv.sorted test/tmp/test16.tsv.sorted || die "${testname} diff failed"
 
+testname="Test 17: freq ChEBI mod code test with pseudouridine (ChEBI: 17802)"
+echo -e "${BLUE}${testname}${NC}"
+ex  ./minimod freq -c "17802" -t 8 test/tmp/genome_chr22.fa test/data/dRNA.bam > test/tmp/test17.tsv || die "${testname} Running the tool failed"
+sort -k1,1 -k2,2n -k4,4 test/expected/test17.tsv > test/tmp/test17.exp.tsv.sorted
+sort -k1,1 -k2,2n -k4,4 test/tmp/test17.tsv > test/tmp/test17.tsv.sorted
+diff -q test/tmp/test17.exp.tsv.sorted test/tmp/test17.tsv.sorted || die "${testname} diff failed"
+
 echo -e "${GREEN}ALL TESTS PASSED !${NC}"

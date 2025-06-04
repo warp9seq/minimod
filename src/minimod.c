@@ -496,6 +496,8 @@ void init_opt(opt_t* opt) {
     opt->mod_codes_str = NULL;
     opt->mod_threshes_str = NULL;
 
+    opt->modcodes_map = kh_init(modcodesm);
+
 #ifdef HAVE_ACC
     opt->flag |= MINIMOD_ACC;
 #endif
@@ -504,8 +506,16 @@ void init_opt(opt_t* opt) {
 
 /* free user specified options */
 void free_opt(opt_t* opt) {
-    for(int i=0;i<opt->n_mods;i++){
-        free(opt->req_mod_contexts[i]);
-    }
     free(opt->mod_threshes_str);
+    khint_t i;
+    for (i = kh_begin(opt->modcodes_map); i < kh_end(opt->modcodes_map); ++i) {
+        if (kh_exist(opt->modcodes_map, i)) {
+            modcodem_t *modcode = kh_value(opt->modcodes_map, i);
+            char * key = (char*) kh_key(opt->modcodes_map, i);
+            free(key);
+            free(modcode->context);
+            free(modcode);
+        }
+    }
+    kh_destroy(modcodesm, opt->modcodes_map);
 }

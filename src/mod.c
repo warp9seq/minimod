@@ -41,13 +41,25 @@ SOFTWARE.
 #include <stdbool.h>
 #include <pthread.h>
 
+#define IS_ALPHA(c) (c >= 'A' && c <= 'Z') || (c >= 'a' && c <= 'z')
+#define IS_DIGIT(c) (c >= '0' && c <= '9')
+
 static const int valid_bases[256] = { ['A'] = 1, ['C'] = 1, ['G'] = 1, ['T'] = 1, ['U'] = 1, ['N'] = 1, ['a'] = 1, ['c'] = 1, ['g'] = 1, ['t'] = 1, ['u'] = 1, ['n'] = 1 };
 static const int valid_strands[256] = { ['+'] = 1, ['-'] = 1 };
 static const int base_idx_lookup[256] = { ['A'] = 0, ['C'] = 1, ['G'] = 2, ['T'] = 3, ['U'] = 4, ['N'] = 5, ['a'] = 0, ['c'] = 1, ['g'] = 2, ['t'] = 3, ['u'] = 4, ['n'] = 5 };
 static const char base_complement_lookup[256] = { ['A'] = 'T', ['C'] = 'G', ['G'] = 'C', ['T'] = 'A', ['U'] = 'A', ['N'] = 'N', ['a'] = 't', ['c'] = 'g', ['g'] = 'c', ['t'] = 'a', ['u'] = 'a', ['n'] = 'n' };
-static const uint8_t valid_mod_codes[256] = { ['a'] = 1, ['b'] = 1, ['c'] = 1, ['e'] = 1, ['f'] = 1, ['g'] = 1, ['h'] = 1, ['m'] = 1, ['n'] = 1, ['o'] = 1,  ['A'] = 1, ['C'] = 1, ['G'] = 1, ['T'] = 1, ['U'] = 1, ['N'] = 1 };
-static int mod_code_idx[256]; // address by mod code to get the index
 static const char* default_context[256] = { ['m'] = "CG", ['h'] = "CG", ['f'] = "C", ['c'] = "C", ['C'] = "C", ['g'] = "T", ['e'] = "T", ['b'] = "T", ['T'] = "T", ['U'] = "U", ['a'] = "A", ['A'] = "A", ['o'] = "G", ['G'] = "G", ['n'] = "N", ['N'] = "N" };
+
+static inline char* get_default_context(char* mod_code) {
+    if(strlen(mod_code) == 1) {
+        char c = mod_code[0];
+        if (default_context[(int)c] != NULL) {
+            return (char*)default_context[(int)c];
+        }
+    }
+
+    return "CG"; // default context for unknown modification codes
+}
 
 static inline int die(const char *format, ...) {
     va_list args;
@@ -144,32 +156,47 @@ void parse_mod_codes(opt_t *opt) {
     uint8_t n_codes = 0;
     int i=0;
 
-    for(i=0;i<256;i++){ // reset the mod_code_idx array to -1 (not requested)
-        mod_code_idx[i] = -1;
-    }
-
     i=0;
     while(1){
         if(opt->mod_codes_str[i] == '\0'){ // end of string
             break;
         }
-        
-        char c = opt->mod_codes_str[i];
-        if(valid_mod_codes[(int)c] == 0){
-            ERROR("Invalid modification code %c", c);
-            exit(EXIT_FAILURE);
-        }
-        if(mod_code_idx[(int)c] != -1){ // already set
-            ERROR("Duplicate modification code %c", c);
-            exit(EXIT_FAILURE);
-        }
-        
-        mod_code_idx[(int)c] = n_codes;
-        opt->req_mod_codes[n_codes] = c;
-        
-        i++;
+        int has_nums = 0;
+        int has_alpha = 0;
 
-        int context_cap = 2;
+        int mod_code_cap = 2;
+        char * mod_code = (char *)malloc(sizeof(char) * mod_code_cap);
+        MALLOC_CHK(mod_code);
+        
+        int j = 0;
+        while(opt->mod_codes_str[i] != ',' && opt->mod_codes_str[i] != '[' && opt->mod_codes_str[i] != '\0'){
+            if(IS_ALPHA(opt->mod_codes_str[i])){
+                has_alpha = 1;
+            } else if (IS_DIGIT(opt->mod_codes_str[i])){
+                has_nums = 1;
+            } else {
+                ERROR("Invalid character %c in modification code string", opt->mod_codes_str[i]);
+                exit(EXIT_FAILURE);
+            }
+
+            if(j >= mod_code_cap){
+                mod_code_cap *= 2;
+                mod_code = (char *)realloc(mod_code, sizeof(char) * mod_code_cap);
+                MALLOC_CHK(mod_code);
+            }
+
+            mod_code[j] = opt->mod_codes_str[i];
+            j++;
+            i++;
+        }
+        mod_code[j] = '\0';
+
+        if(has_alpha && has_nums){
+            ERROR("Modification code %s cannot contain both letters and numbers", mod_code);
+            exit(EXIT_FAILURE);
+        }
+        
+        int context_cap = 3;
         char * context = (char *)malloc(context_cap * sizeof(char) + 1);
         MALLOC_CHK(context);
 
@@ -181,7 +208,7 @@ void parse_mod_codes(opt_t *opt) {
                 if(opt->mod_codes_str[i] == '*'){
                     is_star = 1;
                 } else if(valid_bases[(int)opt->mod_codes_str[i]]==0){
-                    ERROR("Invalid character %c in context for modification code %c", opt->mod_codes_str[i], c);
+                    ERROR("Invalid character %c in context for modification code %s", opt->mod_codes_str[i], mod_code);
                     exit(EXIT_FAILURE);
                 }
                 if(j >= context_cap){
@@ -194,32 +221,47 @@ void parse_mod_codes(opt_t *opt) {
                 j++;
             }
             if(opt->mod_codes_str[i] == '\0'){
-                ERROR("Context not closed with a ] for modification code %c", c);
+                ERROR("Context not closed with a ] for modification code %s", mod_code);
                 exit(EXIT_FAILURE);
             }
             context[j] = '\0';
             if(is_star && j > 1){
-                ERROR("Invalid context for modification code %c. * should be the only character within [ and ]", c);
+                ERROR("Invalid context for modification code %s. * should be the only character within [ and ]", mod_code);
                 exit(EXIT_FAILURE);
             }
-            opt->req_mod_contexts[n_codes] = context;
+
             i++;
             if(opt->mod_codes_str[i] == ','){ // more modification codes
                 i++;
             }
         } else if(opt->mod_codes_str[i] == ','){ // context is *
-            INFO("Context not provided for modification code %c. Using %s", c, default_context[(int)c]);
-            strcpy(context, default_context[(int)c]);
-            opt->req_mod_contexts[n_codes] = context;
+            char * default_ctx = get_default_context(mod_code);
+            strcpy(context, default_ctx);
+            INFO("Context not provided for modification code %s. Using %s", mod_code, context);
+            
             i++;
         } else if(opt->mod_codes_str[i] == '\0'){
-            INFO("Context not provided for modification code %c. Using %s", c, default_context[(int)c]);
-            strcpy(context, default_context[(int)c]);
-            opt->req_mod_contexts[n_codes] = context;
+            char * default_ctx = get_default_context(mod_code);
+            strcpy(context, default_ctx);
+            INFO("Context not provided for modification code %s. Using %s", mod_code, context);
         } else {
-            ERROR("Invalid character %c after modification code %c", opt->mod_codes_str[i], c);
+            ERROR("Invalid character %c after modification code %s", opt->mod_codes_str[i], mod_code);
             exit(EXIT_FAILURE);
         }
+
+        modcodem_t * map_entry = (modcodem_t *)malloc(sizeof(modcodem_t));
+        MALLOC_CHK(map_entry);
+        map_entry->context = context;
+        map_entry->index = n_codes;
+
+        int ret;
+        khint_t k = kh_put(modcodesm, opt->modcodes_map, mod_code, &ret);
+        if (ret == -1) {
+            ERROR("Failed to insert modification code %s into map", mod_code);
+            exit(EXIT_FAILURE);
+        }
+        kh_value(opt->modcodes_map, k) = map_entry;
+
         n_codes++;
     }
 
@@ -261,10 +303,20 @@ void parse_mod_threshes(opt_t * opt) {
             exit(EXIT_FAILURE);
         }
 
-        INFO("Modification code: %c, Context: %s, Threshold: %f", opt->req_mod_codes[n_thresh], opt->req_mod_contexts[n_thresh], d);
-
-        opt->req_threshes[n_thresh] = d*255;
+        khint_t m;
         
+        for(m = kh_begin(opt->modcodes_map); m < kh_end(opt->modcodes_map); ++m) {
+            if (kh_exist(opt->modcodes_map, m)) {
+                char * key = (char *) kh_key(opt->modcodes_map, m);
+                modcodem_t *mod_code_entry = kh_value(opt->modcodes_map, m);
+                if(mod_code_entry->index != n_thresh){
+                    continue; // skip if the index does not match
+                }
+                INFO("Modification code: %s, Context: %s, Threshold: %f", key, mod_code_entry->context, d);
+                mod_code_entry->thresh = (uint8_t)(d * 255); // convert to 0-255 range
+            }
+        }
+
         free(thresh_str);
         n_thresh++;
         if(opt->mod_threshes_str[i] == '\0'){
@@ -274,9 +326,13 @@ void parse_mod_threshes(opt_t * opt) {
     }
 
     if(n_thresh==1){
-        for(int i=1;i<opt->n_mods;i++){
-            opt->req_threshes[i] = opt->req_threshes[0];
-            INFO("Modification code: %c, Context: %s, Threshold: %f", opt->req_mod_codes[i], opt->req_mod_contexts[i], d);
+        khint_t i;
+        for(i=kh_begin(opt->modcodes_map); i < kh_end(opt->modcodes_map); ++i) {
+            if (!kh_exist(opt->modcodes_map, i)) continue;
+            modcodem_t *mod_code_map = kh_value(opt->modcodes_map, i);
+            char * mod_code = (char *) kh_key(opt->modcodes_map, i);
+            mod_code_map->thresh = (uint8_t)(d * 255); // set the same threshold for all codes
+            INFO("Modification code: %s, Context: %s, Threshold: %f", mod_code, mod_code_map->context, d);
         }
     } else if(n_thresh != opt->n_mods){
         ERROR("Number of modification codes and thresholds do not match. Codes:%d, Thresholds:%d",opt->n_mods,n_thresh);
@@ -286,9 +342,12 @@ void parse_mod_threshes(opt_t * opt) {
 
 
 void print_view_options(opt_t *opt) {
-    int i;
-    for(i=0; i < opt->n_mods; i++){
-        INFO("Modification code: %c, Context: %s", opt->req_mod_codes[i], opt->req_mod_contexts[i]);
+    khint_t i;
+    for(i=kh_begin(opt->modcodes_map); i < kh_end(opt->modcodes_map); ++i) {
+        if (!kh_exist(opt->modcodes_map, i)) continue;
+        modcodem_t *mod_code_map = kh_value(opt->modcodes_map, i);
+        char * mod_code = (char *) kh_key(opt->modcodes_map, i);
+        INFO("Modification code: %s, Context: %s", mod_code, mod_code_map->context);
     }
 }
 
@@ -305,26 +364,32 @@ void destroy_freq_map(khash_t(freqm)* freq_map){
     kh_destroy(freqm, freq_map);
 }
 
-char* make_key(const char *chrom, int pos, uint16_t ins_offset, char mod_code, char strand, int haplotype){
+char* make_key(const char *chrom, int pos, uint16_t ins_offset, char * mod_code, char strand, int haplotype){
     int start_strlen = snprintf(NULL, 0, "%d", pos);
     int offset_strlen = snprintf(NULL, 0, "%d", ins_offset);
+    int mod_code_strlen = strlen(mod_code);
     int haplotype_strlen = snprintf(NULL, 0, "%d", haplotype);
-    int key_strlen = strlen(chrom) + start_strlen  + offset_strlen + haplotype_strlen + 8;
-    
+    int key_strlen = strlen(chrom) + start_strlen  + offset_strlen + mod_code_strlen + haplotype_strlen + 7;
+
     char* key = (char *)malloc(key_strlen * sizeof(char));
     MALLOC_CHK(key);
-    snprintf(key, key_strlen, "%s\t%d\t%u\t%c\t%c\t%d", chrom, pos, ins_offset, mod_code, strand, haplotype);
+    snprintf(key, key_strlen, "%s\t%d\t%u\t%s\t%c\t%d", chrom, pos, ins_offset, mod_code, strand, haplotype);
     return key;
 }
 
-void decode_key(char *key, char **chrom, int *pos, uint16_t * ins_offset, char *mod_code, char *strand, int *haplotype){
+void decode_key(char *key, char **chrom, int *pos, uint16_t * ins_offset, char **mod_code, char *strand, int *haplotype){
     char* token = strtok(key, "\t");
     *chrom = calloc(strlen(token)+1, sizeof(char));
     MALLOC_CHK(*chrom);
     strcpy(*chrom, token);
     *pos = atoi(strtok(NULL, "\t"));
     *ins_offset = strtoul(strtok(NULL, "\t"), NULL, 10);
-    *mod_code = strtok(NULL, "\t")[0];
+    
+    token = strtok(NULL, "\t");
+    *mod_code = calloc(strlen(token)+1, sizeof(char));
+    MALLOC_CHK(*mod_code);
+    strcpy(*mod_code, token);
+
     *strand = strtok(NULL, "\t")[0];
     *haplotype = atoi(strtok(NULL, "\t"));
 }
@@ -342,8 +407,11 @@ void update_freq_map(core_t * core, db_t * db) {
         uint32_t seq_len = record->core.l_qseq;
         char strand = rev ? '-' : '+';
 
-        for(int j=0;j<core->opt.n_mods;j++){
-            char mod_code = core->opt.req_mod_codes[j];
+        for(khint_t m=kh_begin(core->opt.modcodes_map); m < kh_end(core->opt.modcodes_map); ++m) {
+            if (!kh_exist(core->opt.modcodes_map, m)) continue;
+            modcodem_t *mod_code_map = kh_value(core->opt.modcodes_map, m);
+            int j = mod_code_map->index;
+            char* mod_code = (char *) kh_key(core->opt.modcodes_map, m);
             for(int seq_i=0;seq_i<seq_len;seq_i++){
                 
                 if(db->mod_prob[i][j][seq_i] == -1){ // not called
@@ -359,7 +427,7 @@ void update_freq_map(core_t * core, db_t * db) {
                 int ref_pos = db->aln[i][seq_i] == -1 ? db->ins[i][seq_i] : db->aln[i][seq_i];
                 
                 uint8_t is_mod = 0, is_called = 0;
-                uint8_t thresh = core->opt.req_threshes[j];
+                uint8_t thresh = mod_code_map->thresh;
                 int mod_prob = db->mod_prob[i][j][seq_i];
                 
                 if(mod_prob >= thresh){ // modified with mod_code
@@ -465,14 +533,15 @@ void print_freq_output(core_t * core) {
                 char *contig = NULL;
                 int ref_pos;
                 uint16_t ins_offset;
-                char mod_code;
+                char *mod_code;
                 char strand;
                 int haplotype;
                 char * key = (char *) kh_key(freq_map, k);
                 decode_key(key, &contig, &ref_pos, &ins_offset, &mod_code, &strand, &haplotype);
                 int end = ref_pos+1;
-                fprintf(core->opt.output_fp, "%s\t%d\t%d\t%c\t%d\t%c\t%d\t%d\t255,0,0\t%d\t%f\n", contig, ref_pos, end, mod_code, freq->n_called, strand, ref_pos, end, freq->n_called, freq_value);
+                fprintf(core->opt.output_fp, "%s\t%d\t%d\t%s\t%d\t%c\t%d\t%d\t255,0,0\t%d\t%f\n", contig, ref_pos, end, mod_code, freq->n_called, strand, ref_pos, end, freq->n_called, freq_value);
                 free(contig);
+                free(mod_code);
             }
         }
         
@@ -486,13 +555,13 @@ void print_freq_output(core_t * core) {
                 char * contig = NULL;
                 int ref_pos;
                 uint16_t ins_offset;
-                char mod_code;
+                char * mod_code;
                 char strand;
                 int haplotype;
                 char * key = (char *) kh_key(freq_map, k);
                 decode_key(key, &contig, &ref_pos, &ins_offset, &mod_code, &strand, &haplotype);
 
-                fprintf(core->opt.output_fp, "%s\t%d\t%d\t%c\t%d\t%d\t%f\t%c", contig, ref_pos, ref_pos, strand, freq->n_called, freq->n_mod, freq_value, mod_code);
+                fprintf(core->opt.output_fp, "%s\t%d\t%d\t%c\t%d\t%d\t%f\t%s", contig, ref_pos, ref_pos, strand, freq->n_called, freq->n_mod, freq_value, mod_code);
 
                 if(core->opt.insertions){
                     fprintf(core->opt.output_fp, "\t%d", ins_offset);
@@ -506,6 +575,7 @@ void print_freq_output(core_t * core) {
                 }
                 fprintf(core->opt.output_fp, "\n");
                 free(contig);
+                free(mod_code);
             }
         }
     }
@@ -691,9 +761,20 @@ static void get_bases(core_t * core, db_t *db, int32_t bam_i, const char *mm_str
 
         // get base modification codes. can handle multiple codes giver as chars. TO-DO: handle when given as a ChEBI id
         int j = 0;
+        int has_nums = 0;
+        int has_alpha = 0;
         while (i < mm_str_len && mm_string[i] != ',' && mm_string[i] != ';' && mm_string[i] != '?' && mm_string[i] != '.') {
 
-            ASSERT_MSG(valid_mod_codes[(int)mm_string[i]], "Invalid base modification code:%c\n", mm_string[i]);
+            // ASSERT_MSG(valid_mod_codes[(int)mm_string[i]], "Invalid base modification code:%c\n", mm_string[i]);
+
+            if(IS_DIGIT(mm_string[i])) {
+                has_nums = 1;
+            } else if(IS_ALPHA(mm_string[i])) {
+                has_alpha = 1;
+            } else {
+                ERROR("Invalid base modification code:%c. Modification codes should be either numeric or alphabetic.\n", mm_string[i]);
+                exit(EXIT_FAILURE);
+            }
 
             if(j >= db->mod_codes_cap[bam_i]) {
                 db->mod_codes_cap[bam_i] *= 2;
@@ -703,14 +784,19 @@ static void get_bases(core_t * core, db_t *db, int32_t bam_i, const char *mm_str
 
             mod_codes[j] = mm_string[i];
             j++;
-
             i++;
         }
         mod_codes[j] = '\0';
         mod_codes_len = j;
 
-        ASSERT_MSG(mod_codes_len>0 && mod_codes_len <= 16, "mod_codes_len:%d\n", mod_codes_len);
+        if(has_nums) {
+            mod_codes_len = 1; // if chebi id is given, then only one code is present
+        }
 
+        // validate mod codes
+        ASSERT_MSG(mod_codes_len>0, "Invalid modification codes:%s. Modification codes cannot be empty.\n", mod_codes);
+        ASSERT_MSG((has_nums && has_alpha) == 0, "Invalid modification codes:%s. Modification codes should be either numeric or alphabetic, not both.\n", mod_codes);
+        
         // get modification status flag
         if(i < mm_str_len && ( mm_string[i] == '?' || mm_string[i] == '.' )) {
             // status_flag = mm_string[i];
@@ -804,19 +890,23 @@ static void get_bases(core_t * core, db_t *db, int32_t bam_i, const char *mm_str
                 continue;
             }
 
-            // mod prob per each mod code. TO-DO: need to change when code is ChEBI id
-            for(int m=0; m<mod_codes_len; m++) {
-                char mod_code = mod_codes[m];
-                
+            // mod prob per each mod code.
+            for(int m=0; m<mod_codes_len; m++) {                
                 ml_idx = ml_start_idx + c*mod_codes_len + m;
 
-                if(mod_code_idx[(int)mod_code]==-1){ // mod code not required
-                    continue;
+                // if key exist in core->opt.modcodes_map, get the index
+                khint_t mod_code_map_idx = kh_get(modcodesm, core->opt.modcodes_map, mod_codes);
+                if(mod_codes_len > 1) { // not chebi id, so need to check for each mod code
+                    mod_code_map_idx = kh_get(modcodesm, core->opt.modcodes_map, &(mod_codes[m]));
                 }
+                if(mod_code_map_idx == kh_end(core->opt.modcodes_map)) continue; // mod code not required
+
+                modcodem_t *mod_code_map = kh_value(core->opt.modcodes_map, mod_code_map_idx);
+                char * mod_code = (char*) kh_key(core->opt.modcodes_map, mod_code_map_idx);
 
                 if(core->opt.insertions) { // no need to check context for insertions
 
-                } else if ((!rev && ref->is_context[mod_code_idx[(int)mod_code]][ref_pos] == 1) || (rev && ref->is_context[mod_code_idx[(int)mod_code]][ref_pos - 1] == 1)) { // in context
+                } else if ((!rev && ref->is_context[mod_code_map->index][ref_pos] == 1) || (rev && ref->is_context[mod_code_map->index][ref_pos - 1] == 1)) { // in context
                 } else {
                     continue;
                 }
@@ -825,14 +915,14 @@ static void get_bases(core_t * core, db_t *db, int32_t bam_i, const char *mm_str
                 uint8_t mod_prob = ml[ml_idx];
                 ASSERT_MSG(mod_prob <= 255 && mod_prob>=0, "Invalid mod_prob:%d\n", mod_prob);
 
-                if(db->mod_prob[bam_i][mod_code_idx[(int)mod_code]][read_pos] != -1) {
-                    WARNING("Multiple modification calls for the same base in read:%s ref_pos:%d mod_code:%c read_pos:%d\nKeeping the call with higher modification probability. Ignoring the other calls.\n", qname, ref_pos, mod_code, read_pos);
-                    if(mod_prob > db->mod_prob[bam_i][mod_code_idx[(int)mod_code]][read_pos]) {
-                        db->mod_prob[bam_i][mod_code_idx[(int)mod_code]][read_pos] = mod_prob;
+                if(db->mod_prob[bam_i][mod_code_map->index][read_pos] != -1) {
+                    WARNING("Multiple modification calls for the same base in read:%s ref_pos:%d mod_code:%s read_pos:%d\nKeeping the call with higher modification probability. Ignoring the other calls.\n", qname, ref_pos, mod_code, read_pos);
+                    if(mod_prob > db->mod_prob[bam_i][mod_code_map->index][read_pos]) {
+                        db->mod_prob[bam_i][mod_code_map->index][read_pos] = mod_prob;
                     }
                 } else {
-                    db->mod_prob[bam_i][mod_code_idx[(int)mod_code]][read_pos] = mod_prob;
-                }      
+                    db->mod_prob[bam_i][mod_code_map->index][read_pos] = mod_prob;
+                }
             }
 
         }
@@ -868,8 +958,11 @@ void print_view_output(core_t* core, db_t* db) {
         int8_t rev = bam_is_rev(record);
         char strand = rev ? '-' : '+';
 
-        for(int j=0;j<core->opt.n_mods;j++){
-            char mod_code = core->opt.req_mod_codes[j];
+        for(khint_t m=kh_begin(core->opt.modcodes_map); m < kh_end(core->opt.modcodes_map); ++m) {
+            if (!kh_exist(core->opt.modcodes_map, m)) continue;
+            modcodem_t *mod_code_map = kh_value(core->opt.modcodes_map, m);
+            char * mod_code = (char *) kh_key(core->opt.modcodes_map, m);
+            int j = mod_code_map->index;
             for(int seq_i=0;seq_i<seq_len;seq_i++){
                 if(db->mod_prob[i][j][seq_i] == -1){ // no modification
                     continue;
@@ -883,7 +976,7 @@ void print_view_output(core_t* core, db_t* db) {
 
                 int ref_pos = db->aln[i][seq_i] == -1 ? db->ins[i][seq_i] : db->aln[i][seq_i];
 
-                fprintf(core->opt.output_fp, "%s\t%d\t%c\t%s\t%d\t%c\t%f", tname, ref_pos, strand, qname, seq_i, mod_code, db->mod_prob[i][j][seq_i]/255.0);
+                fprintf(core->opt.output_fp, "%s\t%d\t%c\t%s\t%d\t%s\t%f", tname, ref_pos, strand, qname, seq_i, mod_code, db->mod_prob[i][j][seq_i]/255.0);
                 if(core->opt.insertions==1){
                     fprintf(core->opt.output_fp, "\t%d", db->ins_offset[i][seq_i]);
                 }
