@@ -781,6 +781,7 @@ static void get_bases(core_t * core, db_t *db, int32_t bam_i, const char *mm_str
                 db->mod_codes[bam_i] = (char *)realloc(db->mod_codes[bam_i], sizeof(char) * (db->mod_codes_cap[bam_i] + 1)); // +1 for null terminator
                 MALLOC_CHK(db->mod_codes[bam_i]);
             }
+            mod_codes = db->mod_codes[bam_i];
 
             mod_codes[j] = mm_string[i];
             j++;
@@ -895,14 +896,14 @@ static void get_bases(core_t * core, db_t *db, int32_t bam_i, const char *mm_str
                 ml_idx = ml_start_idx + c*mod_codes_len + m;
 
                 // if key exist in core->opt.modcodes_map, get the index
-                khint_t mod_code_map_idx = kh_get(modcodesm, core->opt.modcodes_map, mod_codes);
-                if(mod_codes_len > 1) { // not chebi id, so need to check for each mod code
-                    mod_code_map_idx = kh_get(modcodesm, core->opt.modcodes_map, &(mod_codes[m]));
+                khint_t mk = kh_get(modcodesm, core->opt.modcodes_map, mod_codes);
+                if(!has_nums) { // not chebi id, so need to check for each mod code
+                    mk = kh_get(modcodesm, core->opt.modcodes_map, &(mod_codes[m]));
                 }
-                if(mod_code_map_idx == kh_end(core->opt.modcodes_map)) continue; // mod code not required
+                if(mk == kh_end(core->opt.modcodes_map)) continue; // mod code not required
 
-                modcodem_t *mod_code_map = kh_value(core->opt.modcodes_map, mod_code_map_idx);
-                char * mod_code = (char*) kh_key(core->opt.modcodes_map, mod_code_map_idx);
+                modcodem_t *mod_code_map = kh_value(core->opt.modcodes_map, mk);
+                char * mod_code = (char*) kh_key(core->opt.modcodes_map, mk);
 
                 if(core->opt.insertions) { // no need to check context for insertions
 
