@@ -258,7 +258,7 @@ ret_status_t load_db(core_t* core, db_t* db) {
     int32_t i;
     bam1_t* rec;
 
-    while (db->n_bam_recs < db->cap_bam_recs && db->processed_bytes < core->opt.batch_size_bytes) {
+    while (db->n_bam_recs < db->cap_bam_recs && db->processed_bytes < core->opt.batch_size_bases) {
         if (sam_itr_next(core->bam_fp, core->itr, db->bam_recs[db->n_bam_recs]) < 0) {
             break;
         }
@@ -323,7 +323,7 @@ ret_status_t load_db(core_t* core, db_t* db) {
     }
 
     status.num_reads = db->n_bam_recs;
-    status.num_bytes = db->processed_bytes;
+    status.num_bases = db->processed_bytes;
 
     core->load_db_time += realtime() - load_start;
 
@@ -383,31 +383,38 @@ void process_db(core_t* core,db_t* db){
         work_db(core, db, work_per_single_read);
     }
 
-    double proc_end = realtime();
-    core->process_db_time += (proc_end-proc_start);
+    core->process_db_time += (realtime()-proc_start);
 }
 
 
 /* write the output for a processed data batch */
 void output_db(core_t* core, db_t* db) {
 
-    if(core->opt.subtool == FREQ){
-        update_freq_map(core, db);
-    }
-
     double output_start = realtime();
-    if(core->opt.subtool == VIEW){
-        print_view_output(core, db);
-    } 
+
+    print_view_output(core, db);
 
     core->total_reads += db->total_reads;
     core->total_bytes += db->total_bytes;
     core->processed_reads += db->n_bam_recs;
     core->processed_bytes += db->processed_bytes;
 
-    //core->read_index = core->read_index + db->n_bam_recs;
-    double output_end = realtime();
-    core->output_time += (output_end-output_start);
+    core->output_time += (realtime()-output_start);
+
+}
+
+void merge_db(core_t* core, db_t* db) {
+
+    double merge_start = realtime();
+
+    update_freq_map(core, db);
+
+    core->total_reads += db->total_reads;
+    core->total_bytes += db->total_bytes;
+    core->processed_reads += db->n_bam_recs;
+    core->processed_bytes += db->processed_bytes;
+
+    core->process_db_time += (realtime()-merge_start);
 
 }
 
@@ -483,7 +490,7 @@ void free_db(core_t* core, db_t* db) {
 void init_opt(opt_t* opt) {
     memset(opt, 0, sizeof(opt_t));
     opt->batch_size = 512;
-    opt->batch_size_bytes = 20*1000*1000;
+    opt->batch_size_bases = 20*1000*1000;
     opt->num_thread = 8;
 
     opt->debug_break=-1;

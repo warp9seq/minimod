@@ -54,6 +54,9 @@ SOFTWARE.
 #define WORK_STEAL 1 //simple work stealing enabled or not (no work stealing mean no load balancing)
 #define STEAL_THRESH 1 //stealing threshold
 
+//set if input, processing and output are not to be interleaved (serial mode) - useful for debugging
+// #define IO_PROC_NO_INTERLEAVE 1
+
 #define N_BASES 6 // A, C, G, T, N, U
 #define FREE_TRESH 0 //free big allocs if previous seq len is above this threshold
 
@@ -70,7 +73,7 @@ typedef struct {
 
     uint64_t flag;              //flags
     int32_t batch_size;         //max reads loaded at once: K
-    int64_t batch_size_bytes;   //max bytes loaded at once: B
+    int64_t batch_size_bases;   //max bytes loaded at once: B
 
     int32_t num_thread; //t
     int32_t debug_break;
@@ -195,10 +198,20 @@ typedef struct {
 #endif
 } pthread_arg_t;
 
+/* argument wrapper for multithreaded framework used for input/processing/output interleaving */
+typedef struct {
+    core_t* core;
+    db_t* db;
+    //conditional variable for notifying the processing to the output threads
+    pthread_cond_t cond;
+    pthread_mutex_t mutex;
+    int8_t finished;
+} pthread_arg2_t;
+
 /* return status by the load_db - used for termination when all the data is processed */
 typedef struct {
     int32_t num_reads;
-    int64_t num_bytes;
+    int64_t num_bases;
 } ret_status_t;
 
 /******************************************
@@ -229,6 +242,9 @@ void process_single(core_t* core, db_t* db, int32_t i);
 
 /* write the output for a processed data batch */
 void output_db(core_t* core, db_t* db);
+
+/* merge db data into the core map */
+void merge_db(core_t* core, db_t* db);
 
 /* write the output for a all processed data batches */
 void output_core(core_t* core);
