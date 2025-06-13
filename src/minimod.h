@@ -57,6 +57,14 @@ SOFTWARE.
 #define N_BASES 6 // A, C, G, T, N, U
 #define FREE_TRESH 0 //free big allocs if previous seq len is above this threshold
 
+typedef struct {
+    int index;
+    char * context; //context string
+    uint8_t thresh; //threshold value (0-255)
+} modcodem_t;
+
+KHASH_MAP_INIT_STR(modcodesm, modcodem_t *);
+
 /* user specified options */
 typedef struct {
 
@@ -72,9 +80,7 @@ typedef struct {
     uint8_t bedmethyl_out; //output in bedMethyl format, only for freq
     char *mod_codes_str;
     char *mod_threshes_str;
-    uint8_t req_threshes[17];      // required threshold for each mod code
-    char* req_mod_contexts[17];    // required context for each mod code
-    char req_mod_codes[17];        // required mod codes
+    khash_t(modcodesm) *modcodes_map;
     char * bam_file;
     char * ref_file;
     char* output_file;
