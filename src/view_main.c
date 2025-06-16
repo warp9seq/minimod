@@ -68,7 +68,7 @@ static inline void print_help_msg(FILE *fp_help, opt_t opt){
     fprintf(fp_help,"   -c STR                     modification code(s) (eg. m, h or mh or as ChEBI) [%s]\n", opt.mod_codes_str==NULL?"m":opt.mod_codes_str);
     fprintf(fp_help,"   -t INT                     number of processing threads [%d]\n",opt.num_thread);
     fprintf(fp_help,"   -K INT                     batch size (max number of reads loaded at once) [%d]\n",opt.batch_size);
-    fprintf(fp_help,"   -B FLOAT[K/M/G]            max number of bases loaded at once [%.1fM]\n",opt.batch_size_bytes/(float)(1000*1000));
+    fprintf(fp_help,"   -B FLOAT[K/M/G]            max number of bases loaded at once [%.1fM]\n",opt.batch_size_bases/(float)(1000*1000));
     fprintf(fp_help,"   -h                         help\n");
     fprintf(fp_help,"   -p INT                     print progress every INT seconds (0: per batch) [%d]\n", opt.progress_interval);
     fprintf(fp_help,"   -o FILE                    output file [%s]\n", opt.output_file==NULL?"stdout":opt.output_file);
@@ -105,9 +105,9 @@ int view_main(int argc, char* argv[]) {
     while ((c = getopt_long(argc, argv, optstring, long_options, &longindex)) >= 0) {
 
         if (c == 'B') {
-            opt.batch_size_bytes = mm_parse_num(optarg);
-            if(opt.batch_size_bytes<=0){
-                ERROR("%s","Maximum number of bytes should be larger than 0.");
+            opt.batch_size_bases = mm_parse_num(optarg);
+            if(opt.batch_size_bases<=0){
+                ERROR("%s","Maximum number of bases should be larger than 0.");
                 exit(EXIT_FAILURE);
             }
         } else if (c == 'K') {
@@ -248,8 +248,8 @@ int view_main(int argc, char* argv[]) {
 
     print_view_header(core);
 
-    ret_status_t status = {core->opt.batch_size,core->opt.batch_size_bytes};
-    while (status.num_reads >= core->opt.batch_size || status.num_bytes>=core->opt.batch_size_bytes) {
+    ret_status_t status = {core->opt.batch_size,core->opt.batch_size_bases};
+    while (status.num_reads >= core->opt.batch_size || status.num_bases>=core->opt.batch_size_bases) {
 
         //load a databatch
         status = load_db(core, db);
