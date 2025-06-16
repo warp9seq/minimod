@@ -506,6 +506,7 @@ int freq_main(int argc, char* argv[]) {
             fprintf(stderr, "\n[%s]     - Parse time: %.3f sec",__func__, core->parse_time);
             fprintf(stderr, "\n[%s]     - Calc time: %.3f sec",__func__, core->calc_time);
     }
+    fprintf(stderr, "\n[%s] Data merging time: %.3f sec", __func__,core->merge_db_time);
     fprintf(stderr, "\n[%s] Data output time: %.3f sec", __func__,core->output_time);
 
     fprintf(stderr,"\n");

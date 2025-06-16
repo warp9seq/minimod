@@ -55,7 +55,7 @@ SOFTWARE.
 #define STEAL_THRESH 1 //stealing threshold
 
 //set if input, processing and output are not to be interleaved (serial mode) - useful for debugging
-// #define IO_PROC_NO_INTERLEAVE 1
+#define IO_PROC_NO_INTERLEAVE 1
 
 #define N_BASES 6 // A, C, G, T, N, U
 #define FREE_TRESH 0 //free big allocs if previous seq len is above this threshold
@@ -166,6 +166,7 @@ typedef struct {
 
     double load_db_time;
     double process_db_time;
+    double merge_db_time;
     double parse_time;
     double calc_time;
     double output_time;

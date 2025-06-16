@@ -61,6 +61,7 @@ core_t* init_core(opt_t opt,double realtime0) {
     core->load_db_time=0;
     core->process_db_time=0;
     core->output_time=0;
+    core->merge_db_time=0;
 
     core->total_bytes=0;
     core->total_reads=0;
@@ -414,7 +415,7 @@ void merge_db(core_t* core, db_t* db) {
     core->processed_reads += db->n_bam_recs;
     core->processed_bytes += db->processed_bytes;
 
-    core->process_db_time += (realtime()-merge_start);
+    core->merge_db_time += (realtime()-merge_start);
 
 }
 
@@ -425,8 +426,7 @@ void output_core(core_t* core) {
         print_freq_output(core);
     }
 
-    double output_end = realtime();
-    core->output_time += (output_end-output_start);
+    core->output_time += (realtime()-output_start);
 }
 
 /* partially free a data batch - only the read dependent allocations are freed */
