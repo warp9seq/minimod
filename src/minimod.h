@@ -47,10 +47,6 @@ SOFTWARE.
  * flags related to the user specified options (opt_t) *
  *******************************************************/
 
-#define MINIMOD_PRF 0x001 //cpu-profile mode
-#define MINIMOD_ACC 0x002 //accelerator enable
-#define MINIMOD_EXP 0x004 //extended view
-
 #define WORK_STEAL 1 //simple work stealing enabled or not (no work stealing mean no load balancing)
 #define STEAL_THRESH 1 //stealing threshold
 
@@ -58,20 +54,31 @@ SOFTWARE.
 #define IO_PROC_NO_INTERLEAVE 1
 
 #define N_BASES 6 // A, C, G, T, N, U
-#define FREE_TRESH 0 //free big allocs if previous seq len is above this threshold
 
+/* input modification code structure */
 typedef struct {
     int index;
     char * context; //context string
     uint8_t thresh; //threshold value (0-255)
 } modcodem_t;
 
+/* map of required modification codes to their contexts and thresholds */
 KHASH_MAP_INIT_STR(modcodesm, modcodem_t *);
+
+/* frequency map entry */
+typedef struct {
+    uint32_t n_called;
+    uint32_t n_mod;
+} freq_t;
+
+/* frequency map */
+KHASH_MAP_INIT_STR(freqm, freq_t *);
+
+enum subtool {VIEW=0, FREQ=1};
 
 /* user specified options */
 typedef struct {
 
-    uint64_t flag;              //flags
     int32_t batch_size;         //max reads loaded at once: K
     int64_t batch_size_bases;   //max bytes loaded at once: B
 
@@ -98,13 +105,6 @@ typedef struct {
 
 } opt_t;
 
-typedef struct {
-    uint32_t n_called;
-    uint32_t n_mod;
-} freq_t;
-
-KHASH_MAP_INIT_STR(freqm, freq_t *);
-enum subtool {VIEW=0, FREQ=1};
 
 /* a batch of read data (dynamic data based on the reads) */
 typedef struct {
@@ -139,7 +139,6 @@ typedef struct {
 } db_t;
 
 
-
 /* core data structure (mostly static data throughout the program lifetime) */
 typedef struct {
 
@@ -167,8 +166,6 @@ typedef struct {
     double load_db_time;
     double process_db_time;
     double merge_db_time;
-    double parse_time;
-    double calc_time;
     double output_time;
 
     //stats //set by output_db
@@ -192,10 +189,6 @@ typedef struct {
     int32_t thread_index;
 #ifdef WORK_STEAL
     void *all_pthread_args;
-#endif
-#ifdef HAVE_CUDA
-    int32_t *ultra_long_reads; //reads that are assigned to the CPU due to the unsuitability to process on the GPU
-    double ret1;    //return value
 #endif
 } pthread_arg_t;
 
@@ -231,15 +224,14 @@ db_t* init_db(core_t* core);
 /* load a data batch from disk */
 ret_status_t load_db(core_t* dg, db_t* db);
 
+/* process a single read in the given batch db */
 void work_per_single_read(core_t* core,db_t* db, int32_t i);
+
 /* process all reads in the given batch db */
 void work_db(core_t* core, db_t* db, void (*func)(core_t*,db_t*,int));
 
 /* process a data batch */
 void process_db(core_t* core, db_t* db);
-
-/* align a single read specified by index i*/
-void process_single(core_t* core, db_t* db, int32_t i);
 
 /* write the output for a processed data batch */
 void output_db(core_t* core, db_t* db);

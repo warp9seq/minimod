@@ -53,12 +53,9 @@ static struct option long_options[] = {
     {"version", no_argument, 0, 'V'},              //6
     {"prog-interval",required_argument, 0, 'p'},   //7 progress interval
     {"debug-break",required_argument, 0, 0},       //8 break after processing the first batch (used for debugging)
-    {"profile-cpu",required_argument, 0, 0},       //9 perform section by section (used for profiling - for CPU only)
-    {"accel",required_argument, 0, 0},             //10 accelerator
-    {"expand",no_argument, 0, 0},                  //11 expand view
-    {"output",required_argument, 0, 'o'},          //12 output file
-    {"insertions",no_argument, 0, 0},              //13 enable modifications in insertions
-    {"haplotypes",no_argument, 0, 0},              //14 enable haplotype mode
+    {"output",required_argument, 0, 'o'},          //9 output file
+    {"insertions",no_argument, 0, 0},              //10 enable modifications in insertions
+    {"haplotypes",no_argument, 0, 0},              //11 enable haplotype mode
     {0, 0, 0, 0}};
 
 
@@ -80,10 +77,6 @@ static inline void print_help_msg(FILE *fp_help, opt_t opt){
     fprintf(fp_help,"\nadvanced options:\n");
     fprintf(fp_help,"   --debug-break INT          break after processing the specified no. of batches\n");
     fprintf(fp_help,"   --profile-cpu=yes|no       process section by section\n");
-#ifdef HAVE_ACC
-    fprintf(fp_help,"   --accel=yes|no             Running on accelerator [%s]\n",(opt.flag&minimod_ACC?"yes":"no"));
-#endif
-
 }
 
 int view_main(int argc, char* argv[]) {
@@ -148,19 +141,17 @@ int view_main(int argc, char* argv[]) {
             opt.mod_codes_str = optarg;
         } else if(c == 0 && longindex == 8){ //debug break
             opt.debug_break = atoi(optarg);
-        } else if(c == 0 && longindex == 9){ //sectional benchmark todo : warning for gpu mode
-            yes_or_no(&opt.flag, MINIMOD_PRF, long_options[longindex].name, optarg, 1);
-        } else if(c == 0 && longindex == 10){ //accel
-        #ifdef HAVE_ACC
-            yes_or_no(&opt.flag, minimod_ACC, long_options[longindex].name, optarg, 1);
-        #else
-            WARNING("%s", "--accel has no effect when compiled for the CPU");
-        #endif
-        } else if(c == 0 && longindex == 11){ //expand output
-            yes_or_no(&opt.flag, MINIMOD_EXP, long_options[longindex].name, "yes", 1);
-        } else if(c == 0 && longindex == 13){ //insertions
+        } else if(c == 0 && longindex == 9){ //output file
+            FILE *fp = fopen(optarg, "w");
+            if (fp == NULL) {
+                ERROR("Cannot open file %s for writing", optarg);
+                exit(EXIT_FAILURE);
+            }
+            opt.output_file = optarg;
+            opt.output_fp = fp;
+        } else if(c == 0 && longindex == 10){ //insertions
             opt.insertions = 1;
-        } else if(c == 0 && longindex == 14){ //haplotypes
+        } else if(c == 0 && longindex == 11){ //haplotypes
             opt.haplotypes = 1;
         } else {
             print_help_msg(fp_help, opt);
@@ -303,10 +294,6 @@ int view_main(int argc, char* argv[]) {
 
     fprintf(stderr, "\n[%s] Data loading time: %.3f sec", __func__,core->load_db_time);
     fprintf(stderr, "\n[%s] Data processing time: %.3f sec", __func__,core->process_db_time);
-    if((core->opt.flag&MINIMOD_PRF)|| core->opt.flag & MINIMOD_ACC){
-            fprintf(stderr, "\n[%s]     - Parse time: %.3f sec",__func__, core->parse_time);
-            fprintf(stderr, "\n[%s]     - Calc time: %.3f sec",__func__, core->calc_time);
-    }
     fprintf(stderr, "\n[%s] Data output time: %.3f sec", __func__,core->output_time);
 
     fprintf(stderr,"\n");

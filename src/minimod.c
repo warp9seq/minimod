@@ -131,14 +131,6 @@ core_t* init_core(opt_t opt,double realtime0) {
     if (opt.subtool == FREQ) {
         core->freq_map = kh_init(freqm);
     }
-
-
-#ifdef HAVE_ACC
-    if (core->opt.flag & MINIMOD_ACC) {
-        VERBOSE("%s","Initialising accelator");
-    }
-#endif
-
     
     return core;
 }
@@ -163,12 +155,6 @@ void free_core(core_t* core,opt_t opt) {
     if (opt.subtool == FREQ) {
         destroy_freq_map(core->freq_map);
     }
-
-#ifdef HAVE_ACC
-    if (core->opt.flag & MINIMOD_ACC) {
-        VERBOSE("%s","Freeing accelator");
-    }
-#endif
 
     free(core);
 }
@@ -331,58 +317,14 @@ ret_status_t load_db(core_t* core, db_t* db) {
     return status;
 }
 
-
-void parse_single(core_t* core,db_t* db, int32_t i){
-
-
-
-}
-
-#define TO_PICOAMPS(RAW_VAL,DIGITISATION,OFFSET,RANGE) (((RAW_VAL)+(OFFSET))*((RANGE)/(DIGITISATION)))
-
-
 void work_per_single_read(core_t* core,db_t* db, int32_t i){
-
-    if(core->opt.subtool==VIEW || core->opt.subtool==FREQ){
-        modbases_single(core,db,i);
-    }else{
-        ERROR("Unknown subtool %d", core->opt.subtool);
-    }
-
+    modbases_single(core, db, i);
 }
-
-void mean_db(core_t* core, db_t* db) {
-#ifdef HAVE_ACC
-    if (core->opt.flag & MINIMOD_ACC) {
-        VERBOSE("%s","Aligning reads with accel");
-        work_db(core,db,mean_single);
-    }
-#endif
-
-    if (!(core->opt.flag & MINIMOD_ACC)) {
-        //fprintf(stderr, "cpu\n");
-        // work_db(core,db,mean_single);
-    }
-}
-
 
 void process_db(core_t* core,db_t* db){
     double proc_start = realtime();
 
-    if(core->opt.flag & MINIMOD_PRF || core->opt.flag & MINIMOD_ACC){
-        double a = realtime();
-        work_db(core,db,parse_single);
-        double b = realtime();
-        core->parse_time += (b-a);
-
-        a = realtime();
-        mean_db(core,db);
-        b = realtime();
-        core->calc_time += (b-a);
-
-    } else {
-        work_db(core, db, work_per_single_read);
-    }
+    work_db(core, db, work_per_single_read);
 
     core->process_db_time += (realtime()-proc_start);
 }
