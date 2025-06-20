@@ -79,10 +79,85 @@ static inline void print_help_msg(FILE *fp_help, opt_t opt){
     fprintf(fp_help,"   --profile-cpu=yes|no       process section by section\n");
 }
 
+
+//function that processes a databatch - for pthreads when I/O and processing are interleaved
+void* pthread_processor_view(void* voidargs) {
+    pthread_arg2_t* args = (pthread_arg2_t*)voidargs;
+    db_t* db = args->db;
+    core_t* core = args->core;
+    double realtime0=core->realtime0;
+
+    double realtime_prog = realtime();
+
+    //process
+    process_db(core, db);
+
+    //print progress
+    int32_t skipped_reads = db->total_reads-db->n_bam_recs;
+    int64_t skipped_bytes = db->total_bytes-db->processed_bytes;
+    if(core->opt.progress_interval<=0 || realtime()-realtime_prog > core->opt.progress_interval){
+        fprintf(stderr, "[%s::%.3f*%.2f] %d Entries (%.1fM bytes) processed\t%d Entries (%.1fM bytes) skipped\n", __func__,
+                realtime() - realtime0, cputime() / (realtime() - realtime0),
+                (db->n_bam_recs), (db->total_bytes)/(1000.0*1000.0),
+                skipped_reads,skipped_bytes/(1000.0*1000.0));
+        realtime_prog = realtime();
+    }
+
+    //need to inform the output thread that we completed the processing
+    pthread_mutex_lock(&args->mutex);
+    pthread_cond_signal(&args->cond);
+    args->finished=1;
+    pthread_mutex_unlock(&args->mutex);
+
+    if(get_log_level() > LOG_VERB){
+        fprintf(stderr, "[%s::%.3f*%.2f] Signal sent by processor thread!\n", __func__,
+                realtime() - realtime0, cputime() / (realtime() - realtime0));
+    }
+
+    pthread_exit(0);
+}
+
+//function that prints the output and free - for pthreads when I/O and processing are interleaved
+void* pthread_post_processor_view(void* voidargs){
+    pthread_arg2_t* args = (pthread_arg2_t*)voidargs;
+    db_t* db = args->db;
+    core_t* core = args->core;
+    double realtime0=core->realtime0;
+
+    //wait until the processing thread has informed us
+    pthread_mutex_lock(&args->mutex);
+    while(args->finished==0){
+        pthread_cond_wait(&args->cond, &args->mutex);
+    }
+    pthread_mutex_unlock(&args->mutex);
+
+    if(get_log_level() > LOG_VERB){
+        fprintf(stderr, "[%s::%.3f*%.2f] Signal got by post-processor thread!\n", __func__,
+                realtime() - realtime0, cputime() / (realtime() - realtime0));
+    }
+
+    //output and free
+    output_db(core, db);
+
+    //check if 90% of total reads are skipped
+    int32_t skipped_reads = core->total_reads-core->processed_reads;
+    if(skipped_reads>0.9*core->total_reads){
+        WARNING("%s","90% of the reads are skipped. Possible causes: unmapped bam, zero sequence lengths, or missing MM, ML tags (not performed base modification aware basecalling). Refer https://github.com/warp9seq/minimod for more information.");
+    }
+    if(skipped_reads == core->total_reads){
+        ERROR("%s","All reads are skipped. Quitting. Possible causes: unmapped bam, zero sequence lengths, or missing MM, ML tags (not performed base modification aware basecalling). Refer https://github.com/warp9seq/minimod for more information.");
+    }
+
+    free_db_tmp(core, db);
+    free_db(core, db);
+    free(args);
+    pthread_exit(0);
+}
+
+
 int view_main(int argc, char* argv[]) {
 
     double realtime0 = realtime();
-    double realtime_prog = realtime();
 
     const char* optstring = "c:t:B:K:v:p:o:hV";
 
@@ -234,10 +309,13 @@ int view_main(int argc, char* argv[]) {
 
     int32_t counter=0;
 
+    print_view_header(core);
+
+#ifdef IO_PROC_NO_INTERLEAVE
+    double realtime_prog = realtime();
+
     //initialise a databatch
     db_t* db = init_db(core);
-
-    print_view_header(core);
 
     ret_status_t status = {core->opt.batch_size,core->opt.batch_size_bases};
     while (status.num_reads >= core->opt.batch_size || status.num_bases>=core->opt.batch_size_bases) {
@@ -280,10 +358,103 @@ int view_main(int argc, char* argv[]) {
         counter++;
     }
 
-    destroy_ref(opt.n_mods);
-
-    // free the databatch
     free_db(core, db);
+
+#else //IO_PROC_INTERLEAVE
+
+    ret_status_t status = {core->opt.batch_size,core->opt.batch_size_bases};
+    int8_t first_flag_p=0;
+    int8_t first_flag_pp=0;
+    pthread_t tid_p; //process thread
+    pthread_t tid_pp; //post-process thread
+
+    while (status.num_reads >= core->opt.batch_size || status.num_bases>=core->opt.batch_size_bases) {
+
+        //init and load a databatch
+        db_t* db = init_db(core);
+        status = load_db(core, db);
+
+        fprintf(stderr, "[%s::%.3f*%.2f] %d Entries (%.1fM bases) loaded\n", __func__,
+                realtime() - realtime0, cputime() / (realtime() - realtime0),
+                status.num_reads,status.num_bases/(1000.0*1000.0));
+
+        if(first_flag_p){ //if not the first time of the "process" wait for the previous "process"
+            int ret = pthread_join(tid_p, NULL);
+            NEG_CHK(ret);
+            if(get_log_level() > LOG_VERB){
+                fprintf(stderr, "[%s::%.3f*%.2f] Joined to processor thread %ld\n", __func__,
+                realtime() - realtime0, cputime() / (realtime() - realtime0),
+                (long)tid_p);
+            }
+        }
+        first_flag_p=1;
+
+        //set up args
+        pthread_arg2_t *pt_arg = (pthread_arg2_t*)malloc(sizeof(pthread_arg2_t));
+        pt_arg->core=core;
+        pt_arg->db=db;
+        pthread_cond_init(&pt_arg->cond, NULL);
+        pthread_mutex_init(&pt_arg->mutex, NULL);
+        pt_arg->finished = 0;
+
+        //process thread launch
+        int ret = pthread_create(&tid_p, NULL, pthread_processor_view,
+                                (void*)(pt_arg));
+        NEG_CHK(ret);
+        if(get_log_level() > LOG_VERB){
+            fprintf(stderr, "[%s::%.3f*%.2f] Spawned processor thread %ld\n", __func__,
+                realtime() - realtime0, cputime() / (realtime() - realtime0),
+                (long)tid_p);
+        }
+
+        if(first_flag_pp){ //if not the first time of the post-process wait for the previous post-process
+            int ret = pthread_join(tid_pp, NULL);
+            NEG_CHK(ret);
+            if(get_log_level() > LOG_VERB){
+                fprintf(stderr, "[%s::%.3f*%.2f] Joined to post-processor thread %ld\n", __func__,
+                realtime() - realtime0, cputime() / (realtime() - realtime0),
+                (long)tid_pp);
+            }
+        }
+        first_flag_pp=1;
+
+        //post-process thread launch (output and freeing thread)
+        ret = pthread_create(&tid_pp, NULL, pthread_post_processor_view,
+                                (void*)(pt_arg));
+        NEG_CHK(ret);
+        if(get_log_level() > LOG_VERB){
+            fprintf(stderr, "[%s::%.3f*%.2f] Spawned post-processor thread %ld\n", __func__,
+                realtime() - realtime0, cputime() / (realtime() - realtime0),
+                (long)tid_pp);
+        }
+
+        if(opt.debug_break==counter){
+            break;
+        }
+        counter++;
+    }
+
+    //final round
+    int ret = pthread_join(tid_p, NULL);
+    NEG_CHK(ret);
+    if(get_log_level() > LOG_VERB){
+        fprintf(stderr, "[%s::%.3f*%.2f] Joined to last processor thread %ld\n", __func__,
+                realtime() - realtime0, cputime() / (realtime() - realtime0),
+                (long)tid_p);
+    }
+    ret = pthread_join(tid_pp, NULL);
+    NEG_CHK(ret);
+    if(get_log_level() > LOG_VERB){
+    fprintf(stderr, "[%s::%.3f*%.2f] Joined to last post-processor thread %ld\n", __func__,
+                realtime() - realtime0, cputime() / (realtime() - realtime0),
+                (long)tid_pp);
+    }
+
+#endif
+
+
+
+    destroy_ref(opt.n_mods);
 
     fprintf(stderr, "[%s] total entries: %ld", __func__,(long)core->total_reads);
     fprintf(stderr,"\n[%s] total bytes: %.1f M",__func__,core->total_bytes/(float)(1000*1000));

@@ -112,7 +112,7 @@ void* pthread_processor(void* voidargs) {
     args->finished=1;
     pthread_mutex_unlock(&args->mutex);
 
-    if(get_log_level() > 1){
+    if(get_log_level() > LOG_VERB){
         fprintf(stderr, "[%s::%.3f*%.2f] Signal sent by processor thread!\n", __func__,
                 realtime() - realtime0, cputime() / (realtime() - realtime0));
     }
@@ -134,7 +134,7 @@ void* pthread_post_processor(void* voidargs){
     }
     pthread_mutex_unlock(&args->mutex);
 
-    if(get_log_level() > 1){
+    if(get_log_level() > LOG_VERB){
         fprintf(stderr, "[%s::%.3f*%.2f] Signal got by post-processor thread!\n", __func__,
                 realtime() - realtime0, cputime() / (realtime() - realtime0));
     }
@@ -336,7 +336,7 @@ int freq_main(int argc, char* argv[]) {
 
     int32_t counter=0;
 
-    print_freq_tsv_header(core);
+    print_freq_header(core);
 
 #ifdef IO_PROC_NO_INTERLEAVE
 
@@ -409,7 +409,7 @@ int freq_main(int argc, char* argv[]) {
         if(first_flag_p){ //if not the first time of the "process" wait for the previous "process"
             int ret = pthread_join(tid_p, NULL);
             NEG_CHK(ret);
-            if(get_log_level()>1){
+            if(get_log_level() > LOG_VERB){
                 fprintf(stderr, "[%s::%.3f*%.2f] Joined to processor thread %ld\n", __func__,
                 realtime() - realtime0, cputime() / (realtime() - realtime0),
                 (long)tid_p);
@@ -429,7 +429,7 @@ int freq_main(int argc, char* argv[]) {
         int ret = pthread_create(&tid_p, NULL, pthread_processor,
                                 (void*)(pt_arg));
         NEG_CHK(ret);
-        if(get_log_level()>1){
+        if(get_log_level() > LOG_VERB){
             fprintf(stderr, "[%s::%.3f*%.2f] Spawned processor thread %ld\n", __func__,
                 realtime() - realtime0, cputime() / (realtime() - realtime0),
                 (long)tid_p);
@@ -438,7 +438,7 @@ int freq_main(int argc, char* argv[]) {
         if(first_flag_pp){ //if not the first time of the post-process wait for the previous post-process
             int ret = pthread_join(tid_pp, NULL);
             NEG_CHK(ret);
-            if(get_log_level()>1){
+            if(get_log_level() > LOG_VERB){
                 fprintf(stderr, "[%s::%.3f*%.2f] Joined to post-processor thread %ld\n", __func__,
                 realtime() - realtime0, cputime() / (realtime() - realtime0),
                 (long)tid_pp);
@@ -450,7 +450,7 @@ int freq_main(int argc, char* argv[]) {
         ret = pthread_create(&tid_pp, NULL, pthread_post_processor,
                                 (void*)(pt_arg));
         NEG_CHK(ret);
-        if(get_log_level()>1){
+        if(get_log_level() > LOG_VERB){
             fprintf(stderr, "[%s::%.3f*%.2f] Spawned post-processor thread %ld\n", __func__,
                 realtime() - realtime0, cputime() / (realtime() - realtime0),
                 (long)tid_pp);
@@ -465,14 +465,14 @@ int freq_main(int argc, char* argv[]) {
     //final round
     int ret = pthread_join(tid_p, NULL);
     NEG_CHK(ret);
-    if(get_log_level()>1){
+    if(get_log_level() > LOG_VERB){
         fprintf(stderr, "[%s::%.3f*%.2f] Joined to last processor thread %ld\n", __func__,
                 realtime() - realtime0, cputime() / (realtime() - realtime0),
                 (long)tid_p);
     }
     ret = pthread_join(tid_pp, NULL);
     NEG_CHK(ret);
-    if(get_log_level()>1){
+    if(get_log_level() > LOG_VERB){
     fprintf(stderr, "[%s::%.3f*%.2f] Joined to last post-processor thread %ld\n", __func__,
                 realtime() - realtime0, cputime() / (realtime() - realtime0),
                 (long)tid_pp);
