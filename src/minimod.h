@@ -51,7 +51,7 @@ SOFTWARE.
 #define STEAL_THRESH 1 //stealing threshold
 
 //set if input, processing and output are not to be interleaved (serial mode) - useful for debugging
-#define IO_PROC_NO_INTERLEAVE 1
+// #define IO_PROC_NO_INTERLEAVE 1
 
 #define N_BASES 6 // A, C, G, T, N, U
 
@@ -71,8 +71,16 @@ typedef struct {
     uint32_t n_mod;
 } freq_t;
 
+typedef struct {
+    uint8_t mod_prob; //modification probability (0-255)
+    int read_pos; //read position of the base
+} view_t;
+
 /* frequency map */
 KHASH_MAP_INIT_STR(freqm, freq_t *);
+
+/* view map */
+KHASH_MAP_INIT_STR(viewm, view_t *);
 
 enum subtool {VIEW=0, FREQ=1};
 
@@ -122,8 +130,6 @@ typedef struct {
     int ** aln; // aln[rec_i][read_pos] = ref_pos
     int ** ins; // ins[rec_i][read_pos] = ins_pos
     int ** ins_offset; // ins_offset[rec_i][read_pos] = ins_offset
-    int * haplotypes; // haplotypes[rec_i] = haplotype
-    int *** mod_prob; // mod_prob[rec_i][mod_i][read_pos] = mod_prob
     int *** bases_pos; // bases_pos[rec_i][base_i] = read_pos
     int ** skip_counts; // skip_counts[rec_i][read_pos] = skip_count
     char ** mod_codes; // mod_codes[rec_i][mod_i] = mod_code
@@ -135,6 +141,9 @@ typedef struct {
     int32_t total_reads; //number of reads in the bam file
     int64_t total_bytes; //number of bytes in the bam file
     int64_t processed_bytes; //number of bytes processed
+
+    khash_t(freqm)** freq_maps; // frequency map per record, only for FREQ subtool
+    khash_t(viewm)** view_maps; // view map per record, only for VIEW subtool
 
 } db_t;
 

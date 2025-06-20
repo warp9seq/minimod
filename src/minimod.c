@@ -188,11 +188,6 @@ db_t* init_db(core_t* core) {
         db->ins_offset = (int**)(malloc(sizeof(int*) * db->cap_bam_recs));
         MALLOC_CHK(db->ins_offset);
     }
-
-    if(core->opt.haplotypes){
-        db->haplotypes = (int*)(malloc(sizeof(int) * db->cap_bam_recs));
-        MALLOC_CHK(db->haplotypes);
-    }
     
     db->bases_pos = (int***)(malloc(sizeof(int**) * db->cap_bam_recs));
     MALLOC_CHK(db->bases_pos);
@@ -202,10 +197,15 @@ db_t* init_db(core_t* core) {
     MALLOC_CHK(db->mod_codes);
     db->mod_codes_cap = (uint8_t*)(malloc(sizeof(uint8_t) * db->cap_bam_recs));
     MALLOC_CHK(db->mod_codes_cap);
-    db->mod_prob = (int***)(malloc(sizeof(int**) * db->cap_bam_recs));
-    MALLOC_CHK(db->mod_prob);
+    
 
-
+    if(core->opt.subtool == FREQ) {
+        db->freq_maps = (khash_t(freqm)**)(malloc(sizeof(khash_t(freqm)*) * db->cap_bam_recs));
+        MALLOC_CHK(db->freq_maps);
+    } else if (core->opt.subtool == VIEW) {
+        db->view_maps = (khash_t(viewm)**)(malloc(sizeof(khash_t(viewm)*) * db->cap_bam_recs));
+        MALLOC_CHK(db->view_maps);
+    }
 
     int32_t i = 0;
     for (i = 0; i < db->cap_bam_recs; ++i) {
@@ -219,9 +219,6 @@ db_t* init_db(core_t* core) {
         MALLOC_CHK(db->mod_codes[i]);
 
         db->mod_codes_cap[i] = core->opt.n_mods;
-
-        db->mod_prob[i] = (int**)malloc(sizeof(int*)*core->opt.n_mods);
-        MALLOC_CHK(db->mod_prob[i]);
     }
 
     db->means = (double*)calloc(db->cap_bam_recs,sizeof(double));
@@ -287,11 +284,7 @@ ret_status_t load_db(core_t* core, db_t* db) {
             db->ins_offset[i] = (int*)malloc(sizeof(int)*rec->core.l_qseq);
             MALLOC_CHK(db->ins_offset[i]);
         }
-
-        for(int j=0;j<core->opt.n_mods;j++){
-            db->mod_prob[i][j] = (int*)malloc(sizeof(int)*rec->core.l_qseq);
-            MALLOC_CHK(db->mod_prob[i][j]);
-        }
+        
 
         for(int j=0;j<N_BASES;j++){
             db->bases_pos[i][j] = (int*)malloc(sizeof(int)*rec->core.l_qseq);
@@ -304,6 +297,12 @@ ret_status_t load_db(core_t* core, db_t* db) {
         db->mm[i] = mm;
         db->ml_lens[i] = ml_len;
         db->ml[i] = ml;
+
+        if(core->opt.subtool == FREQ) {
+            db->freq_maps[i] = kh_init(freqm);
+        } else if (core->opt.subtool == VIEW) {
+            db->view_maps[i] = kh_init(viewm);
+        }
 
         db->n_bam_recs++;
         db->processed_bytes += rec->l_data;
@@ -318,7 +317,7 @@ ret_status_t load_db(core_t* core, db_t* db) {
 }
 
 void work_per_single_read(core_t* core,db_t* db, int32_t i){
-    modbases_single(core, db, i);
+    freq_view_single(core, db, i);
 }
 
 void process_db(core_t* core,db_t* db){
@@ -334,7 +333,7 @@ void process_db(core_t* core,db_t* db){
 void output_db(core_t* core, db_t* db) {
 
     double output_start = realtime();
-
+    
     print_view_output(core, db);
 
     core->total_reads += db->total_reads;
@@ -350,7 +349,7 @@ void merge_db(core_t* core, db_t* db) {
 
     double merge_start = realtime();
 
-    update_freq_map(core, db);
+    merge_freq_maps(core, db);
 
     core->total_reads += db->total_reads;
     core->total_bytes += db->total_bytes;
@@ -381,12 +380,30 @@ void free_db_tmp(core_t* core, db_t* db) {
             free(db->ins[i]);
             free(db->ins_offset[i]);
         }
-        for(int j=0;j<core->opt.n_mods;j++){
-            free(db->mod_prob[i][j]);
-        }
 
         for(int b=0;b<N_BASES;b++){
             free(db->bases_pos[i][b]);
+        }
+
+        // destroy freq map except key
+        if(core->opt.subtool == FREQ) {
+            for (khiter_t k = kh_begin(db->freq_map[i]); k != kh_end(db->freq_maps[i]); ++k) {
+                if (kh_exist(db->freq_maps[i], k)) {
+                    freq_t *freq = kh_value(db->freq_maps[i], k);
+                    free(freq);
+                }
+            }
+            kh_destroy(freqm, db->freq_maps[i]);
+        } else if (core->opt.subtool == VIEW) {
+            for (khiter_t k = kh_begin(db->view_map[i]); k != kh_end(db->view_maps[i]); ++k) {
+                if (kh_exist(db->view_maps[i], k)) {
+                    view_t *view = kh_value(db->view_maps[i], k);
+                    char * key = (char*) kh_key(db->view_maps[i], k);
+                    free(key);
+                    free(view);
+                }
+            }
+            kh_destroy(viewm, db->view_maps[i]);
         }
 
         free(db->skip_counts[i]);
@@ -401,16 +418,20 @@ void free_db(core_t* core, db_t* db) {
     
     // free the rest of the records
     for (i = 0; i < db->cap_bam_recs; i++) {
-        free(db->mod_prob[i]);
         free(db->mod_codes[i]);
         free(db->bases_pos[i]);
         bam_destroy1(db->bam_recs[i]);
     }
 
+    if(core->opt.subtool == FREQ) {
+        free(db->freq_maps);
+    } else if (core->opt.subtool == VIEW) {
+        free(db->view_maps);
+    }
+
     free(db->skip_counts);
     free(db->mod_codes);
     free(db->mod_codes_cap);
-    free(db->mod_prob);
     free(db->bases_pos);
     free(db->ml_lens);
     free(db->mm);
@@ -419,9 +440,6 @@ void free_db(core_t* core, db_t* db) {
     if(core->opt.insertions) {
         free(db->ins);
         free(db->ins_offset);
-    }
-    if(core->opt.haplotypes){
-        free(db->haplotypes);
     }
     free(db->bam_recs);
     free(db->means);
