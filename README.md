@@ -348,14 +348,12 @@ Make sure that you handle the modification tags correctly in each step in base m
    ```
 
 ## Aligning
-- Avoid unmapped reads
 - Avoid secondary alignments
 - Use soft clipping for supplementary alignments
 
    Corresponding minimap2 flags are as follows.
    | Minimap2 Flag | Description |
    |-|-|
-   |--sam-hit-only| Avoid unmapped reads |
    |-Y | Use soft clipping for supplementary alignments |
    |-y | Copy input FASTA/Q comments to output |
    |--secondary=no| Avoid secondary alignments |
