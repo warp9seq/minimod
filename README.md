@@ -30,7 +30,7 @@ sudo apt-get install zlib1g-dev  # install zlib development libraries
 ```
 ## Building a release
 ```bash
-VERSION=v0.3.0
+VERSION=v0.4.0
 wget https://github.com/warp9seq/minimod/releases/download/$VERSION/minimod-$VERSION-release.tar.gz
 tar xvf minimod-$VERSION-release.tar.gz 
 cd minimod-$VERSION/
