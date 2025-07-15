@@ -30,7 +30,7 @@ Minimod reads base modification information encoded under `MM:Z` and `ML:B:C` SA
 If you are a Linux user and want to quickly try out download the compiled binaries from the [latest release](https://github.com/warp9seq/minimod/releases). For example:
 ```sh
 VERSION=v0.4.0
-wget "https://github.com/warp9seq/minimod/releases/download/$VERSION/minimod-$VERSION-binaries.tar.gz" && tar xvf minimod-$VERSION-binaries.tar.gz && cd minimod-$VERSION/
+wget "https://github.com/warp9seq/minimod/releases/download/$VERSION/minimod-$VERSION-x86_64-linux-binaries.tar.gz" && tar xvf minimod-$VERSION-x86_64-linux-binaries.tar.gz && cd minimod-$VERSION/
 ./minimod
 ```
 Binaries should work on most Linux distributions as the only dependency is `zlib` which is available by default on most distributions. For compiled binaries to work, your operating system must have GLIBC 2.17 or higher (Linux distributions from 2014 onwards typically have this).
