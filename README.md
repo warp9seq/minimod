@@ -1,12 +1,15 @@
 # minimod
 
-minimod is a simple tool for handling base modifications. It takes an aligned BAM file with modifications tags and the reference FASTA as inputs, and outputs base modifications (TSV) or base modification frequencies (TSV or bedmethyl).
+Minimod is a simple tool for handling base modifications. It takes an aligned BAM file with modifications tags and the reference FASTA as inputs, and outputs base modifications (TSV) or base modification frequencies (TSV or bedmethyl).
 
 Minimod reads base modification information encoded under `MM:Z` and `ML:B:C` SAM tags specified in [SAMtags](https://github.com/samtools/hts-specs/blob/master/SAMtags.pdf) specification.
 
-**IMPORTANT: minimod is currently in early development stage. So note that the interface, thresholds and defaults may change. Watch out for bugs and open an issue if you find one. This notice will be removed when things are stable and undergo more rigorous testing**
+**IMPORTANT: minimod is currently in active development. Open an issue if you find a problem or have a suggestion.**
+
+[![GitHub Downloads](https://img.shields.io/github/downloads/warp9seq/minimod/total?logo=GitHub)](https://github.com/warp9seq/minimod/releases)
 
 # Table of Contents
+- [Quick start](#quick-start)
 - [Installation](#installation)
   - [Building a release](#building-a-release)
 - [Usage](#usage)
@@ -22,6 +25,15 @@ Minimod reads base modification information encoded under `MM:Z` and `ML:B:C` SA
   - [Aligning](#aligning)
 - [Limitations / Future Improvements](#limitations--future-improvements)
 
+# Quick start
+
+If you are a Linux user and want to quickly try out download the compiled binaries from the [latest release](https://github.com/warp9seq/minimod/releases). For example:
+```sh
+VERSION=v0.4.0
+wget "https://github.com/warp9seq/minimod/releases/download/$VERSION/minimod-$VERSION-binaries.tar.gz" && tar xvf minimod-$VERSION-binaries.tar.gz && cd minimod-$VERSION/
+./minimod
+```
+Binaries should work on most Linux distributions as the only dependency is `zlib` which is available by default on most distributions. For compiled binaries to work, your operating system must have GLIBC 2.17 or higher (Linux distributions from 2014 onwards typically have this).
 
 # Installation
 ## Pre-requisites
@@ -32,7 +44,7 @@ sudo apt-get install zlib1g-dev  # install zlib development libraries
 ```bash
 VERSION=v0.4.0
 wget https://github.com/warp9seq/minimod/releases/download/$VERSION/minimod-$VERSION-release.tar.gz
-tar xvf minimod-$VERSION-release.tar.gz 
+tar xvf minimod-$VERSION-release.tar.gz
 cd minimod-$VERSION/
 scripts/install-hts.sh  # download and compile the htslib
 make
@@ -142,6 +154,7 @@ basic options:
 ```
 
 **Sample modfreqs.tsv output**
+
 ```bash
 contig	start	end	strand	n_called	n_mod	freq	mod_code
 chr22	20016337	20016337	+	5	0	0.000000	m
@@ -154,6 +167,7 @@ chr22	19995719	19995719	+	4	2	0.500000	m
 chr22	20017060	20017060	+	1	0	0.000000	m
 chr22	19971259	19971259	+	1	1	1.000000	m
 ```
+
 | Field    | Type | Definition    |
 |----------|-------------|-------------|
 | 1. contig | str | chromosome |
@@ -168,6 +182,7 @@ chr22	19971259	19971259	+	1	1	1.000000	m
 | 10. haplotype | int | haplotype of the read (only output when --haplotypes is specified) |
 
 **Sample modfreqs.bedmethyl output**
+
 ```bash
 chr22	20016387	20016388	m	4	-	20016387	20016388	255,0,0	4	0.000000
 chr22	20016820	20016821	m	1	+	20016820	20016821	255,0,0	1	0.000000
@@ -180,6 +195,7 @@ chr22	20011898	20011899	m	8	-	20011898	20011899	255,0,0	8	25.000000
 chr22	19990123	19990124	m	3	+	19990123	19990124	255,0,0	3	0.000000
 chr22	19982787	19982788	m	1	+	19982787	19982788	255,0,0	1	0.000000
 ```
+
 | Field    | Type | Definition    |
 |----------|-------------|-------------|
 | 1. contig | str | chromosome |
@@ -209,6 +225,7 @@ minimod freq -c a[A],h[CG],m,a[*] ref.fa reads.bam
 If the context is not specified in square brackets along with modification code, minimod will consider following default contexts.
 
 All possible modification codes are supported by minimod along with default contexts if not specified ([SAMtags: 1.7 Base modifications](https://github.com/samtools/hts-specs/blob/master/SAMtags.pdf))
+
 | Unmodified base | Code | Abbreviation | Name | Default context |
 | - | - | - | - | - |
 | C | m | 5mC | 5-Methylcytosine | CG |
@@ -360,7 +377,7 @@ Make sure that you handle the modification tags correctly in each step in base m
 
    Example: aligning ONT reads using [minimap2](https://github.com/lh3/minimap2)
    ```
-   minimap2 -ax map-ont --sam-hit-only -Y -y --secondary=no ref.idx reads.fastq
+   minimap2 -ax map-ont -Y -y --secondary=no ref.idx reads.fastq
    ```
 
 - If more than 90% of the reads in the BAM file are skipped due to various reasons (unmapped, 0 length, or missing MM/ML tags), minimod prints a warning message. However, if all of them are skipped minimod errors out.
