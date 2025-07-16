@@ -4,7 +4,7 @@ Minimod is a simple tool for handling base modifications. It takes an aligned BA
 
 Minimod reads base modification information encoded under `MM:Z` and `ML:B:C` SAM tags specified in [SAMtags](https://github.com/samtools/hts-specs/blob/master/SAMtags.pdf) specification.
 
-**IMPORTANT: minimod is currently in active development. Open an issue if you find a problem or have a suggestion.**
+**IMPORTANT: minimod is currently in active development. Open an [issue](https://github.com/warp9seq/minimod) if you find a problem or have a suggestion.**
 
 [![GitHub Downloads](https://img.shields.io/github/downloads/warp9seq/minimod/total?logo=GitHub)](https://github.com/warp9seq/minimod/releases)
 
@@ -24,6 +24,8 @@ Minimod reads base modification information encoded under `MM:Z` and `ML:B:C` SA
   - [Base-calling](#base-calling)
   - [Aligning](#aligning)
 - [Limitations / Future Improvements](#limitations--future-improvements)
+- [Acknowledgement](#acknowledgement)
+
 
 # Quick start
 
@@ -385,3 +387,7 @@ Make sure that you handle the modification tags correctly in each step in base m
 
 # Limitations / Future Improvements
 - Status of skipped bases (encoded as . or ? in MM tag) are ignored
+
+# Acknowledgement
+
+Minimod uses [klib](https://github.com/attractivechaos/klib). Some code snippets have been taken from [Minimap2](https://github.com/lh3/minimap2) and [Samtools](http://samtools.sourceforge.net/).
