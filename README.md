@@ -7,6 +7,7 @@ Minimod reads base modification information encoded under `MM:Z` and `ML:B:C` SA
 **IMPORTANT: minimod is currently in active development. Open an [issue](https://github.com/warp9seq/minimod) if you find a problem or have a suggestion.**
 
 [![GitHub Downloads](https://img.shields.io/github/downloads/warp9seq/minimod/total?logo=GitHub)](https://github.com/warp9seq/minimod/releases)
+[![BioConda Install](https://img.shields.io/conda/dn/bioconda/minimod?label=BioConda)](https://anaconda.org/bioconda/minimod)
 
 # Table of Contents
 - [Quick start](#quick-start)
@@ -36,6 +37,8 @@ wget "https://github.com/warp9seq/minimod/releases/download/$VERSION/minimod-$VE
 ./minimod
 ```
 Binaries should work on most Linux distributions as the only dependency is `zlib` which is available by default on most distributions. For compiled binaries to work, your operating system must have GLIBC 2.17 or higher (Linux distributions from 2014 onwards typically have this).
+
+You can also use conda to install *minimod* as `conda install minimod -c bioconda -c conda-forge`.
 
 # Installation
 ## Pre-requisites
