@@ -276,7 +276,7 @@ Base modification threshold can be set for freq tool using -m option.
 > ```
 >   minimod freq -c m,h -m 0.8,0.7 ref.fa reads.bam
 > ```
-![Fig](docs/figs/m_h_threshold.png)
+
 > ```
 > If p(5mC)  >=  0.8 (threshold),      called(5mC) and modified(5mC)
 > If p(5mC)  <=  0.2 (1-threshold),    called(5mC)
