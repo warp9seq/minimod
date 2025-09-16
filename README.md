@@ -327,7 +327,7 @@ chr22	20016700	20016700	-	4	0	0.000000	m	0
 Highlighted line corresponds to a 5mC modification within an insertion (A mC G) at position 19968083
 
 # Enable haplotypes
-minimod can output the haplotype in a separate integer column (**only in tsv output**) by specifying --haplotypes flag for both view and freq tools.
+minimod can output the haplotype in a separate integer column (**only in tsv output**) by specifying --haplotypes flag for both view and freq tools. minimod does **not** compute or infer haplotypes. Instead, it uses haplotype assignments already present in the input BAM, if the BAM is phased and contains the [`HP` (Haplotype)](https://samtools.github.io/hts-specs/SAMtags.pdf) tag.
 
 **Sample output of view with --haplotypes**
 ```bash
