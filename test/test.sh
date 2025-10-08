@@ -87,6 +87,14 @@ sort -k1,1 -k2,2n -k3,3 -k6,6 test/expected/test2c.tsv > test/tmp/test2c.exp.tsv
 sort -k1,1 -k2,2n -k3,3 -k6,6 test/tmp/test2c.tsv > test/tmp/test2c.tsv.sorted
 diff -q test/tmp/test2c.exp.tsv.sorted test/tmp/test2c.tsv.sorted || die "${testname} diff failed"
 
+testname="Test 2d: view ont with U in reference and t in required context"
+echo -e "${BLUE}${testname}${NC}"
+sed 's/T/U/g' test/tmp/genome_chr22.fa > test/tmp/genome_chr22_U.fa # replace all T with U in chr22 reference
+ex  ./minimod view -t 8 -c m[Ct] test/tmp/genome_chr22_U.fa test/data/example-ont.bam > test/tmp/test2d_U.tsv || die "${testname} Running the tool failed"
+sort -k1,1 -k2,2n -k3,3 -k6,6 test/expected/test2d_U.tsv > test/tmp/test2d_U.tsv.sorted
+sort -k1,1 -k2,2n -k3,3 -k6,6 test/tmp/test2d_U.tsv > test/tmp/test2d_U.tsv.sorted
+diff -q test/tmp/test2d_U.tsv.sorted test/tmp/test2d_U.tsv.sorted || die "${testname} diff failed"
+
 testname="Test 3: freq hifi"
 echo -e "${BLUE}${testname}${NC}"
 ex  ./minimod freq -t 8 test/tmp/genome_chr22.fa test/data/example-hifi.bam > test/tmp/test3.tsv  || die "${testname} Running the tool failed"
