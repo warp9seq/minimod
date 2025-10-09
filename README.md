@@ -217,15 +217,22 @@ chr22	19982787	19982788	m	1	+	19982787	19982788	255,0,0	1	0.000000
 # Modification codes and contexts
 Base modification codes and contexts can be set for both view and freq tool using -c option to take only specific base modifications found in a given contexts. The context should match in the reference and bases in unmatching contexts are ignored.
 
-Here is an example command to explain all possible context formats.
+Here are the possible context formats.
+- **a[A]** : type a modifications of all A bases
+- **h[CG]** : type h modifications in CG context (CpG sites)
+- **m** : type m modifications in default CG context
+- **a[*]** : type a modifications in all contexts
+- **\*[CG]** : all types of modifications in CG context
+-  **\*** : all types of modifications in all contexts
+
+Here are some example commands.
 ```bash
 minimod view -c a[A],h[CG],m,a[*] ref.fa reads.bam
 minimod freq -c a[A],h[CG],m,a[*] ref.fa reads.bam
+minimod freq -c "*[CG]" ref.fa reads.bam
+minimod freq -c "*" ref.fa reads.bam
+minimof freq -c "17802[T]" ref.fa reads.bam
 ```
-- **a[A]** : type a modifications of all A bases
-- **h[CG]**: type h modifications in CG context (CpG sites)
-- **m**: type m modifications in default CG context
-- **a[*]**: type a modifications in all contexts
 
 If the context is not specified in square brackets along with modification code, minimod will consider following default contexts.
 
