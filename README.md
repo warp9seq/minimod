@@ -223,7 +223,8 @@ Here are the possible context formats.
 - **m** : type m modifications in default CG context
 - **a[*]** : type a modifications in all contexts
 - **\*[CG]** : all types of modifications in CG context
--  **\*** : all types of modifications in all contexts
+- **\*** : all types of modifications in all contexts
+- **17802[T]** : pseU modifications in T context (modification code is given as ChEBI code)
 
 Here are some example commands.
 ```bash
