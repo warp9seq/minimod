@@ -48,7 +48,7 @@ static const int valid_bases[256] = { ['A'] = 1, ['C'] = 1, ['G'] = 1, ['T'] = 1
 static const int valid_strands[256] = { ['+'] = 1, ['-'] = 1 };
 static const int base_idx_lookup[256] = { ['A'] = 0, ['C'] = 1, ['G'] = 2, ['T'] = 3, ['U'] = 4, ['N'] = 5, ['a'] = 0, ['c'] = 1, ['g'] = 2, ['t'] = 3, ['u'] = 4, ['n'] = 5 };
 static const char base_complement_lookup[256] = { ['A'] = 'T', ['C'] = 'G', ['G'] = 'C', ['T'] = 'A', ['U'] = 'A', ['N'] = 'N', ['a'] = 't', ['c'] = 'g', ['g'] = 'c', ['t'] = 'a', ['u'] = 'a', ['n'] = 'n' };
-static const char* default_context[256] = { ['m'] = "CG", ['h'] = "CG", ['f'] = "C", ['c'] = "C", ['C'] = "C", ['g'] = "T", ['e'] = "T", ['b'] = "T", ['T'] = "T", ['U'] = "U", ['a'] = "A", ['A'] = "A", ['o'] = "G", ['G'] = "G", ['n'] = "N", ['N'] = "N" };
+static const char* default_context[256] = { ['*'] = "*", ['m'] = "CG", ['h'] = "CG", ['f'] = "C", ['c'] = "C", ['C'] = "C", ['g'] = "T", ['e'] = "T", ['b'] = "T", ['T'] = "T", ['U'] = "U", ['a'] = "A", ['A'] = "A", ['o'] = "G", ['G'] = "G", ['n'] = "N", ['N'] = "N" };
 
 static inline char* get_default_context(char* mod_code) {
     if(strlen(mod_code) == 1) {
@@ -170,12 +170,12 @@ void parse_mod_codes(opt_t *opt) {
         
         int j = 0;
         while(opt->mod_codes_str[i] != ',' && opt->mod_codes_str[i] != '[' && opt->mod_codes_str[i] != '\0'){
-            if(IS_ALPHA(opt->mod_codes_str[i])){
+            if(IS_ALPHA(opt->mod_codes_str[i]) || opt->mod_codes_str[i] == '*'){
                 has_alpha = 1;
             } else if (IS_DIGIT(opt->mod_codes_str[i])){
                 has_nums = 1;
             } else {
-                ERROR("Invalid character %c in modification code string", opt->mod_codes_str[i]);
+                ERROR("Invalid character %c in modification code in -c argument", opt->mod_codes_str[i]);
                 exit(EXIT_FAILURE);
             }
 
@@ -192,7 +192,7 @@ void parse_mod_codes(opt_t *opt) {
         mod_code[j] = '\0';
 
         if(has_alpha && has_nums){
-            ERROR("Modification code %s cannot contain both letters and numbers", mod_code);
+            ERROR("Modification code %s cannot contain both letters and numbers in -c argument", mod_code);
             exit(EXIT_FAILURE);
         }
         
@@ -208,7 +208,7 @@ void parse_mod_codes(opt_t *opt) {
                 if(opt->mod_codes_str[i] == '*'){
                     is_star = 1;
                 } else if(valid_bases[(int)opt->mod_codes_str[i]]==0){
-                    ERROR("Invalid character %c in context for modification code %s", opt->mod_codes_str[i], mod_code);
+                    ERROR("Invalid character %c in context for modification code %s in -c argument", opt->mod_codes_str[i], mod_code);
                     exit(EXIT_FAILURE);
                 }
                 if(j >= context_cap){
@@ -221,12 +221,12 @@ void parse_mod_codes(opt_t *opt) {
                 j++;
             }
             if(opt->mod_codes_str[i] == '\0'){
-                ERROR("Context not closed with a ] for modification code %s", mod_code);
+                ERROR("Context not closed with a ] for modification code %s in -c argument", mod_code);
                 exit(EXIT_FAILURE);
             }
             context[j] = '\0';
             if(is_star && j > 1){
-                ERROR("Invalid context for modification code %s. * should be the only character within [ and ]", mod_code);
+                ERROR("Invalid context for modification code %s. * should be the only character within [ and ] in -c argument", mod_code);
                 exit(EXIT_FAILURE);
             }
 
@@ -237,15 +237,15 @@ void parse_mod_codes(opt_t *opt) {
         } else if(opt->mod_codes_str[i] == ','){ // context is *
             char * default_ctx = get_default_context(mod_code);
             strcpy(context, default_ctx);
-            INFO("Context not provided for modification code %s. Using %s", mod_code, context);
+            INFO("Context not provided for modification code %s. Using %s in -c argument", mod_code, context);
             
             i++;
         } else if(opt->mod_codes_str[i] == '\0'){
             char * default_ctx = get_default_context(mod_code);
             strcpy(context, default_ctx);
-            INFO("Context not provided for modification code %s. Using %s", mod_code, context);
+            INFO("Context not provided for modification code %s in -c argument. Using %s", mod_code, context);
         } else {
-            ERROR("Invalid character %c after modification code %s", opt->mod_codes_str[i], mod_code);
+            ERROR("Invalid character %c after modification code %s in -c argument", opt->mod_codes_str[i], mod_code);
             exit(EXIT_FAILURE);
         }
 
@@ -258,6 +258,10 @@ void parse_mod_codes(opt_t *opt) {
         khint_t k = kh_put(modcodesm, opt->modcodes_map, mod_code, &ret);
         if (ret == -1) {
             ERROR("Failed to insert modification code %s into map", mod_code);
+            exit(EXIT_FAILURE);
+        }
+        if (ret == 0) {
+            ERROR("Duplicate modification code %s found in -c argument", mod_code);
             exit(EXIT_FAILURE);
         }
         kh_value(opt->modcodes_map, k) = map_entry;
@@ -941,15 +945,24 @@ void freq_view_single(core_t * core, db_t *db, int32_t bam_i) {
             for(int m=0; m<mod_codes_len; m++) {                
                 ml_idx = ml_start_idx + c*mod_codes_len + m;
 
-                // if key exist in core->opt.modcodes_map, get the index
-                khint_t mk = kh_get(modcodesm, core->opt.modcodes_map, mod_codes);
-                if(!has_nums) { // not chebi id, so need to check for each mod code
-                    mk = kh_get(modcodesm, core->opt.modcodes_map, &(mod_codes[m]));
+                // check required mod codes
+                khint_t mk;
+
+                mk = kh_get(modcodesm, core->opt.modcodes_map, "*"); // check for wildcard first
+                char * mod_code = NULL;
+                if (has_nums) { // chebi id
+                    mod_code = mod_codes;
+                } else { // not chebi id, need to check for each mod code
+                    mod_code = &(mod_codes[m]);
                 }
-                if(mk == kh_end(core->opt.modcodes_map)) continue; // mod code not required
+                if (mk != kh_end(core->opt.modcodes_map)) { // wildcard present, all mod codes are required
+                    // do nothing, just proceed
+                } else {
+                    mk = kh_get(modcodesm, core->opt.modcodes_map, mod_code);
+                    if(mk == kh_end(core->opt.modcodes_map)) continue; // mod code not required
+                }
 
                 modcodem_t *req_mod = kh_value(core->opt.modcodes_map, mk);
-                char * mod_code = (char*) kh_key(core->opt.modcodes_map, mk);
 
                 if(core->opt.insertions) { // no need to check context for insertions
 

@@ -80,6 +80,13 @@ sort -k1,1 -k2,2n -k3,3 -k6,6 test/expected/test2b.tsv > test/tmp/test2b.exp.tsv
 sort -k1,1 -k2,2n -k3,3 -k6,6 test/tmp/test2b.tsv > test/tmp/test2b.tsv.sorted
 diff -q test/tmp/test2b.exp.tsv.sorted test/tmp/test2b.tsv.sorted || die "${testname} diff failed"
 
+testname="Test 2c: view ont all mod codes with wildcard"
+echo -e "${BLUE}${testname}${NC}"
+ex  ./minimod view -t 8 -c "*" test/tmp/genome_chr22.fa test/data/example-ont.bam > test/tmp/test2c_wild.tsv || die "${testname} Running the tool failed"
+sort -k1,1 -k2,2n -k3,3 -k6,6 test/expected/test2c_wild.tsv > test/tmp/test2c_wild.exp.tsv.sorted
+sort -k1,1 -k2,2n -k3,3 -k6,6 test/tmp/test2c_wild.tsv > test/tmp/test2c_wild.tsv.sorted
+diff -q test/tmp/test2c_wild.exp.tsv.sorted test/tmp/test2c_wild.tsv.sorted || die "${testname} diff failed"
+
 testname="Test 2c: view ont with haplotypes"
 echo -e "${BLUE}${testname}${NC}"
 ex  ./minimod view -t 8 -c m[CG] --haplotypes test/tmp/genome_chr1.fa test/data/hap.bam > test/tmp/test2c.tsv || die "${testname} Running the tool failed"
