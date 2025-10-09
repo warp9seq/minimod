@@ -216,7 +216,7 @@ void parse_mod_codes(opt_t *opt) {
                     context = (char *)realloc(context, context_cap * sizeof(char) + 1);
                     MALLOC_CHK(context);
                 }
-                context[j] = opt->mod_codes_str[i];
+                context[j] = toupper(opt->mod_codes_str[i]);
                 i++;
                 j++;
             }

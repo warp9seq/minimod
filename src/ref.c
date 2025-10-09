@@ -76,6 +76,14 @@ void load_ref(const char * genome) {
 
 }
 
+static int compare_bases(char a, char b) {
+    char A = toupper(a);
+    char B = toupper(b);
+
+    if(A == B || (A == 'U' && B == 'T') || (A == 'T' && B == 'U')) return 1;
+    else return 0;
+}
+
 static void search_context_kmp(const char* pat, const char* txt, uint8_t* result) {
     int M = strlen(pat);
     int N = strlen(txt);
@@ -105,7 +113,8 @@ static void search_context_kmp(const char* pat, const char* txt, uint8_t* result
     int j = 0; 
   
     while ((N - i) >= (M - j)) {
-        if (pat[j] == toupper(txt[i])) {
+        int matched = compare_bases(pat[j], txt[i]);
+        if (matched) {
             j++;
             i++;
         }
@@ -116,7 +125,7 @@ static void search_context_kmp(const char* pat, const char* txt, uint8_t* result
             (count)++;
             j = lps[j - 1];
         }
-        else if (i < N && pat[j] != toupper(txt[i])) {
+        else if (i < N && !matched) {
             if (j != 0) j = lps[j - 1];
             else i = i + 1;
         }
