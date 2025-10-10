@@ -109,6 +109,7 @@ basic options:
 - See [how to consider inserted modified bases?](#modified-bases-in-insertions)
 
 **Sample mods.tsv output**
+The output is ordered in the same as reads appear in the input BAM file, and for each read, entries are sorted by reference contig, reference position, strand, and modification code.
 ```bash
 ref_contig	ref_pos	strand	read_id	read_pos	mod_code	mod_prob
 chr22	19979864	+	m84088_230609_030819_s1/55512555/ccs	14	m	0.709804
@@ -159,7 +160,7 @@ basic options:
 ```
 
 **Sample modfreqs.tsv output**
-
+The output entries are sorted by reference contig, reference position, strand, and modification code.
 ```bash
 contig	start	end	strand	n_called	n_mod	freq	mod_code
 chr22	20016337	20016337	+	5	0	0.000000	m
@@ -217,15 +218,23 @@ chr22	19982787	19982788	m	1	+	19982787	19982788	255,0,0	1	0.000000
 # Modification codes and contexts
 Base modification codes and contexts can be set for both view and freq tool using -c option to take only specific base modifications found in a given contexts. The context should match in the reference and bases in unmatching contexts are ignored.
 
-Here is an example command to explain all possible context formats.
+Here are the possible context formats.
+- **a[A]** : type a modifications of all A bases
+- **h[CG]** : type h modifications in CG context (CpG sites)
+- **m** : type m modifications in default CG context
+- **a[*]** : type a modifications in all contexts
+- **\*[CG]** : all types of modifications in CG context
+- **\*** : all types of modifications in all contexts
+- **17802[T]** : pseU modifications in T context (modification code is given as ChEBI code)
+
+Here are some example commands.
 ```bash
 minimod view -c a[A],h[CG],m,a[*] ref.fa reads.bam
 minimod freq -c a[A],h[CG],m,a[*] ref.fa reads.bam
+minimod freq -c "*[CG]" ref.fa reads.bam
+minimod freq -c "*" ref.fa reads.bam
+minimof freq -c "17802[T]" ref.fa reads.bam
 ```
-- **a[A]** : type a modifications of all A bases
-- **h[CG]**: type h modifications in CG context (CpG sites)
-- **m**: type m modifications in default CG context
-- **a[*]**: type a modifications in all contexts
 
 If the context is not specified in square brackets along with modification code, minimod will consider following default contexts.
 
