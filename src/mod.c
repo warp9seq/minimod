@@ -44,6 +44,8 @@ SOFTWARE.
 #define IS_ALPHA(c) (c >= 'A' && c <= 'Z') || (c >= 'a' && c <= 'z')
 #define IS_DIGIT(c) (c >= '0' && c <= '9')
 
+#define KEY_SIZE 3
+
 static const int valid_bases[256] = { ['A'] = 1, ['C'] = 1, ['G'] = 1, ['T'] = 1, ['U'] = 1, ['N'] = 1, ['a'] = 1, ['c'] = 1, ['g'] = 1, ['t'] = 1, ['u'] = 1, ['n'] = 1 };
 static const int valid_strands[256] = { ['+'] = 1, ['-'] = 1 };
 static const int base_idx_lookup[256] = { ['A'] = 0, ['C'] = 1, ['G'] = 2, ['T'] = 3, ['U'] = 4, ['N'] = 5, ['a'] = 0, ['c'] = 1, ['g'] = 2, ['t'] = 3, ['u'] = 4, ['n'] = 5 };
@@ -353,7 +355,7 @@ char* make_key(const char *chrom, int pos, uint16_t ins_offset, char * mod_code,
 
     char* key = (char *)malloc(key_strlen * sizeof(char));
     MALLOC_CHK(key);
-    snprintf(key, key_strlen, "%s\t%d\t%u\t%s\t%c\t%d", chrom, pos, ins_offset, mod_code, strand, haplotype);
+    snprintf(key, key_strlen, "%s\t%d\t%c\t%s\t%u\t%d", chrom, pos, strand, mod_code, ins_offset, haplotype);
     return key;
 }
 
@@ -362,15 +364,16 @@ void decode_key(char *key, char **chrom, int *pos, uint16_t * ins_offset, char *
     *chrom = calloc(strlen(token)+1, sizeof(char));
     MALLOC_CHK(*chrom);
     strcpy(*chrom, token);
+
     *pos = atoi(strtok(NULL, "\t"));
-    *ins_offset = strtoul(strtok(NULL, "\t"), NULL, 10);
+    *strand = strtok(NULL, "\t")[0];
     
     token = strtok(NULL, "\t");
     *mod_code = calloc(strlen(token)+1, sizeof(char));
     MALLOC_CHK(*mod_code);
     strcpy(*mod_code, token);
 
-    *strand = strtok(NULL, "\t")[0];
+    *ins_offset = strtoul(strtok(NULL, "\t"), NULL, 10);
     *haplotype = atoi(strtok(NULL, "\t"));
 }
 
@@ -456,13 +459,96 @@ void print_freq_header(core_t * core) {
     }
 }
 
+/* Split tab-delimited keys for sorting*/
+char** split_key(char* key, int size) {
+    char** tok = (char**)malloc(sizeof(char*) * size);
+    MALLOC_CHK(tok);
+    char* cpy = (char*)malloc((strlen(key) + 1) * sizeof(char));
+    MALLOC_CHK(cpy);
+    strcpy(cpy, key);
+    char* cpy_start = cpy;
+
+    char* t = strtok(cpy, "\t");
+    if (t) {
+        char * tmp = (char *)malloc((strlen(t) + 1) * sizeof(char));
+        MALLOC_CHK(tmp);
+        strcpy(tmp, t);
+        tok[0] = tmp;
+    }
+
+    for (int i = 1; i < size; i++) {
+        char* t = strtok(NULL, "\t");
+        if (t) {
+            char * tmp = (char *)malloc((strlen(t) + 1) * sizeof(char));
+            MALLOC_CHK(tmp);
+            strcpy(tmp, t);
+            tok[i] = tmp;
+        }
+    }
+
+    free(cpy_start);
+
+    return tok;
+}
+
+/* Compare two keys for sorting*/
+int cmp_key(const void* a, const void* b) {
+    char* key_a = *(char**)a;
+    char* key_b = *(char**)b;
+
+    char** toks_a = split_key(key_a, KEY_SIZE);
+    char** toks_b = split_key(key_b, KEY_SIZE);
+
+    int chromosome_neq = strcmp(toks_a[0], toks_b[0]);
+
+    if (chromosome_neq) {
+        for (int i = 0; i < KEY_SIZE; i++) {
+            free(toks_a[i]);
+            free(toks_b[i]);
+        }
+        free(toks_a);
+        free(toks_b);
+        return chromosome_neq;
+    }
+
+    int start_a = atoi(toks_a[1]);
+    int start_b = atoi(toks_b[1]);
+    int end_a = atoi(toks_a[2]);
+    int end_b = atoi(toks_b[2]);
+
+    for (int i = 0; i < KEY_SIZE; i++) {
+        free(toks_a[i]);
+        free(toks_b[i]);
+    }
+    free(toks_a);
+    free(toks_b);
+
+    if (start_a == start_b) {
+        return end_a - end_b;
+    }
+
+    return start_a - start_b;
+}
+
 void print_freq_output(core_t * core) {
     khash_t(freqm) *freq_map = core->freq_map;
+
+    // sort the keys
+    char ** sorted_keys = (char **)malloc(sizeof(char*) * kh_size(freq_map));
+    MALLOC_CHK(sorted_keys);
+    int size = 0;
+    for (khint_t k = kh_begin(freq_map); k != kh_end(freq_map); ++k) {
+        if (kh_exist(freq_map, k)) {
+            sorted_keys[size++] = (char *)kh_key(freq_map, k);
+        }
+    }
+    qsort(sorted_keys, size, sizeof(char*), cmp_key);
 
     if(core->opt.bedmethyl_out) {
         // chrom, start, end, mod_code, n_called, strand, start, end, "255,0,0",  n_called, freq
         khint_t k;
-        for (k = kh_begin(freq_map); k != kh_end(freq_map); ++k) {
+        for (int i = 0; i < size; i++) {
+            k = kh_get(freqm, freq_map, sorted_keys[i]);
             if (kh_exist(freq_map, k)) {
                 freq_t* freq = kh_value(freq_map, k);
                 double freq_value = (double)freq->n_mod*100/freq->n_called;
@@ -484,7 +570,8 @@ void print_freq_output(core_t * core) {
     } else {
         // contig, start, end, strand, n_called, n_mod, freq, mod_code
         khint_t k;
-        for (k = kh_begin(freq_map); k != kh_end(freq_map); ++k) {
+        for (int i = 0; i < size; i++) {
+            k = kh_get(freqm, freq_map, sorted_keys[i]);
             if (kh_exist(freq_map, k)) {
                 freq_t* freq = kh_value(freq_map, k);
                 double freq_value = (double)freq->n_mod/freq->n_called;
@@ -519,6 +606,7 @@ void print_freq_output(core_t * core) {
     if(core->opt.output_fp != stdout){
         fclose(core->opt.output_fp);
     }
+    free(sorted_keys);
 }
 
 void destroy_freq_map(khash_t(freqm)* freq_map){
