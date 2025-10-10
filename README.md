@@ -109,6 +109,7 @@ basic options:
 - See [how to consider inserted modified bases?](#modified-bases-in-insertions)
 
 **Sample mods.tsv output**
+The output is ordered in the same as reads appear in the input BAM file, and for each read, entries are sorted by reference contig, reference position, strand, and modification code.
 ```bash
 ref_contig	ref_pos	strand	read_id	read_pos	mod_code	mod_prob
 chr22	19979864	+	m84088_230609_030819_s1/55512555/ccs	14	m	0.709804
@@ -159,7 +160,7 @@ basic options:
 ```
 
 **Sample modfreqs.tsv output**
-
+The output entries are sorted by reference contig, reference position, strand, and modification code.
 ```bash
 contig	start	end	strand	n_called	n_mod	freq	mod_code
 chr22	20016337	20016337	+	5	0	0.000000	m
