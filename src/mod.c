@@ -606,6 +606,7 @@ void print_freq_output(core_t * core) {
     if(core->opt.output_fp != stdout){
         fclose(core->opt.output_fp);
     }
+    free(sorted_keys);
 }
 
 void destroy_freq_map(khash_t(freqm)* freq_map){
