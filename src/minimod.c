@@ -218,10 +218,10 @@ db_t* init_db(core_t* core) {
         db->bases_pos[i] = (int**)malloc(sizeof(int*)*N_BASES);
         MALLOC_CHK(db->bases_pos[i]);
 
-        db->mod_codes[i] = (char*)malloc(sizeof(char)*(core->opt.n_mods+1)); //+1 for null terminator
+        db->mod_codes[i] = (char*)malloc(sizeof(char)*(MOD_CODE_LEN));
         MALLOC_CHK(db->mod_codes[i]);
 
-        db->mod_codes_cap[i] = core->opt.n_mods;
+        db->mod_codes_cap[i] = MOD_CODE_LEN;
     }
 
     db->means = (double*)calloc(db->cap_bam_recs,sizeof(double));

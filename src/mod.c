@@ -1161,7 +1161,7 @@ void summary_single(core_t * core, db_t *db, int32_t bam_i) {
     // so that, nth base of A is at base_pos[0][n] and so on.
     int **bases_pos = db->bases_pos[bam_i];
     int bases_pos_lens[N_BASES] = {0};
-    memset(db->mod_codes[bam_i], 0, core->opt.n_mods);
+    memset(db->mod_codes[bam_i], 0, MOD_CODE_LEN);
 
     int i;
     for(i=0;i<seq_len;i++){
