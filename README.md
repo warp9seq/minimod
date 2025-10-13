@@ -17,6 +17,7 @@ Minimod reads base modification information encoded under `MM:Z` and `ML:B:C` SA
 - [Examples](#examples)
 - [minimod view](#minimod-view)
 - [minimod freq](#minimod-freq)
+- [minimod summary](#minimod-summary)
 - [Modification codes and contexts](#modification-codes-and-contexts)
 - [Modification threshold](#modification-threshold)
 - [Enable insertions](#enable-insertions)
@@ -61,8 +62,9 @@ Usage information can be printed using ```minimod -h``` command.
 Usage: minimod <command> [options]
 
 command:
-         view         view base modifications
-         freq         output base modifications frequencies
+         view       view base modifications
+         freq       output base modifications frequencies
+         summary    output summary
 ```
 
 Note: <i>freq</i> was previously <i>mod-freq</i> which still works but will be deprecated soon.
@@ -80,6 +82,9 @@ minimod freq -b ref.fa reads.bam > modfreqs.bedmethyl
 
 # modification frequencies of multiple types ( m (5-methylcytosine) and h (5-hydroxymethylcytosine) in CG context with thresholds 0.8 and 0.7 respectively )
 minimod freq -c m[CG],h[CG] -m 0.8,0.7 ref.fa reads.bam > mods.tsv
+
+# summary of available modifications and counts
+minimod summary reads.bam > summary.tsv
 ```
 - See [how modification codes can be specified?](#modification-codes-and-contexts)
 - See [how threshold is used in minimod?](#modification-threshold)
@@ -214,6 +219,53 @@ chr22	19982787	19982788	m	1	+	19982787	19982788	255,0,0	1	0.000000
 | 8. end   | int | = field 3 |
 | 9. n_mod | int | = field 5 |
 | 10. freq | float | n_mod/n_called ratio |
+
+# minimod summary
+
+```bash
+minimod summary reads.bam > summary.tsv
+```
+This writes all base modifications available to a file (summary.tsv) in tsv format. Sample output is given below.
+```bash
+Usage: minimod summary reads.bam
+
+basic options:
+   -t INT                     number of processing threads [8]
+   -K INT                     batch size (max number of reads loaded at once) [512]
+   -B FLOAT[K/M/G]            max number of bases loaded at once [20.0M]
+   -h                         help
+   -p INT                     print progress every INT seconds (0: per batch) [0]
+   -o FILE                    output file [stdout]
+   --verbose INT              verbosity level [4]
+   --version                  print version
+
+advanced options:
+   --debug-break INT          break after processing the specified no. of batches
+   --profile-cpu=yes|no       process section by section
+```
+
+**Sample mods.tsv output**
+```bash
+read_id	space separated modifications <canonical_base><strand +/-><mod_code><status_flag ./?>:<count>
+491fb526-314e-4c18-9690-eb6930d780ea	T+19227.:1 G+19229.:1 T+17802.:1 A+69426.:1 C+19228.:1 A+a.:1 C+m.:1 A+17596.:1 
+52b66d0d-a21e-4334-be1b-f72486d9f9bf	T+19227.:1 G+19229.:1 T+17802.:1 A+69426.:1 C+19228.:1 A+a.:1 C+m.:1 A+17596.:1 
+cb481f14-7651-448c-945b-b4f5b2e8b70c	T-19227.:1 G-19229.:1 T-17802.:1 A-69426.:1 C-19228.:1 A-a.:1 C-m.:1 A-17596.:1 
+2cab7053-9008-47eb-8e57-c33fda56c2ec	T+19227.:1 G+19229.:1 T+17802.:1 A+69426.:1 C+19228.:1 A+a.:1 C+m.:1 A+17596.:1 
+37bf1305-8d8b-4973-9a0b-930303067306	T-19227.:1 G-19229.:1 T-17802.:1 A-69426.:1 C-19228.:1 A-a.:1 C-m.:1 A-17596.:1 
+164e336f-568d-44d5-882d-7669bbe67654	T-19227.:1 G-19229.:1 T-17802.:1 A-69426.:1 C-19228.:1 A-a.:1 C-m.:1 A-17596.:1 
+229bbbb9-abf9-4825-af30-a583a19864eb	T-19227.:1 G-19229.:1 T-17802.:1 A-69426.:1 C-19228.:1 A-a.:1 C-m.:1 A-17596.:1 
+adbaba61-604d-4897-99cc-f9a934f3e2c8	T-19227.:1 G-19229.:1 T-17802.:1 A-69426.:1 C-19228.:1 A-a.:1 C-m.:1 A-17596.:1 
+093bc2c6-2ae5-437d-a17c-be2755c3c689	T+19227.:1 G+19229.:1 T+17802.:1 A+69426.:1 C+19228.:1 A+a.:1 C+m.:1 A+17596.:1 
+92fc0cc5-b2d8-4cb1-bf25-8f8b88088f23	T-19227.:1 G-19229.:1 T-17802.:1 A-69426.:1 C-19228.:1 A-a.:1 C-m.:1 A-17596.:1 
+```
+The output is ordered in the same as reads appear in the input BAM file. First column of the output is the read_id and the second column contains all available modifications in that read as space separated entries. Each entry has the following format.
+```
+<canonical_base: character such as ACGTUN><strand:+/-><mod_code: character or ChEBI number><status_flag:./?>:<count: number>
+```
+
+Status flag describes how skipped bases (not included in the output of view or freq subtools) should be interpreted by downstream tools.
+- **.** : skipped bases should be assumed to have low probability of modifications.
+- **?** : there is no information about the modification status of skipped bases
 
 # Modification codes and contexts
 Base modification codes and contexts can be set for both view and freq tool using -c option to take only specific base modifications found in a given contexts. The context should match in the reference and bases in unmatching contexts are ignored.

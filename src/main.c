@@ -41,13 +41,15 @@ SOFTWARE.
 
 int view_main(int argc, char* argv[]);
 int freq_main(int argc, char* argv[]);
+int summary_main(int argc, char* argv[]);
 
 int print_usage(FILE *fp_help){
 
     fprintf(fp_help,"Usage: minimod <command> [options]\n\n");
     fprintf(fp_help,"command:\n");
-    fprintf(fp_help,"         view          view base modifications\n");
-    fprintf(fp_help,"         freq      output base modification frequencies\n");
+    fprintf(fp_help,"         view       view base modifications\n");
+    fprintf(fp_help,"         freq       output base modification frequencies\n");
+    fprintf(fp_help,"         summary    output summary\n");
 
     if(fp_help==stderr){
         return(EXIT_FAILURE);
@@ -74,6 +76,8 @@ int main(int argc, char* argv[]){
         ret=freq_main(argc-1, argv+1);
     } else if (strcmp(argv[1],"freq")==0){
         ret=freq_main(argc-1, argv+1);
+    } else if (strcmp(argv[1],"summary")==0){
+        ret=summary_main(argc-1, argv+1);
     } else if(strcmp(argv[1],"--version")==0 || strcmp(argv[1],"-V")==0){
         fprintf(stdout,"minimod %s\n",MINIMOD_VERSION);
         exit(EXIT_SUCCESS);

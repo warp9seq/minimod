@@ -205,6 +205,9 @@ db_t* init_db(core_t* core) {
     } else if (core->opt.subtool == VIEW) {
         db->view_maps = (khash_t(viewm)**)(malloc(sizeof(khash_t(viewm)*) * db->cap_bam_recs));
         MALLOC_CHK(db->view_maps);
+    } else if (core->opt.subtool == SUMMARY) {
+        db->summary_maps = (khash_t(summarym)**)(malloc(sizeof(khash_t(summarym)*) * db->cap_bam_recs));
+        MALLOC_CHK(db->summary_maps);
     }
 
     int32_t i = 0;
@@ -302,6 +305,8 @@ ret_status_t load_db(core_t* core, db_t* db) {
             db->freq_maps[i] = kh_init(freqm);
         } else if (core->opt.subtool == VIEW) {
             db->view_maps[i] = kh_init(viewm);
+        } else if (core->opt.subtool == SUMMARY) {
+            db->summary_maps[i] = kh_init(summarym);
         }
 
         db->n_bam_recs++;
@@ -317,7 +322,12 @@ ret_status_t load_db(core_t* core, db_t* db) {
 }
 
 void work_per_single_read(core_t* core,db_t* db, int32_t i){
-    freq_view_single(core, db, i);
+    if(core->opt.subtool == VIEW || core->opt.subtool == FREQ) {
+        freq_view_single(core, db, i);
+    } else if (core->opt.subtool == SUMMARY) {
+        summary_single(core, db, i);
+    }
+    
 }
 
 void process_db(core_t* core,db_t* db){
@@ -334,7 +344,11 @@ void output_db(core_t* core, db_t* db) {
 
     double output_start = realtime();
     
-    print_view_output(core, db);
+    if (core->opt.subtool == VIEW) {
+        print_view_output(core, db);
+    } else if (core->opt.subtool == SUMMARY) {
+        print_summary_output(core, db);
+    }
 
     core->total_reads += db->total_reads;
     core->total_bytes += db->total_bytes;
@@ -404,6 +418,14 @@ void free_db_tmp(core_t* core, db_t* db) {
                 }
             }
             kh_destroy(viewm, db->view_maps[i]);
+        } else if (core->opt.subtool == SUMMARY) {
+            for (khiter_t k = kh_begin(db->summary_map[i]); k != kh_end(db->summary_maps[i]); ++k) {
+                if (kh_exist(db->summary_maps[i], k)) {
+                    char * key = (char*) kh_key(db->summary_maps[i], k);
+                    free(key);
+                }
+            }
+            kh_destroy(summarym, db->summary_maps[i]);
         }
 
         free(db->skip_counts[i]);
@@ -427,6 +449,8 @@ void free_db(core_t* core, db_t* db) {
         free(db->freq_maps);
     } else if (core->opt.subtool == VIEW) {
         free(db->view_maps);
+    } else if (core->opt.subtool == SUMMARY) {
+        free(db->summary_maps);
     }
 
     free(db->skip_counts);
