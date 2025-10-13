@@ -51,8 +51,9 @@ SOFTWARE.
 #define STEAL_THRESH 1 //stealing threshold
 
 //set if input, processing and output are not to be interleaved (serial mode) - useful for debugging
-// #define IO_PROC_NO_INTERLEAVE 1
+#define IO_PROC_NO_INTERLEAVE 1
 
+#define  MOD_CODE_LEN 10 // maximum length of modification codes string
 #define N_BASES 6 // A, C, G, T, N, U
 
 /* input modification code structure */
@@ -82,7 +83,10 @@ KHASH_MAP_INIT_STR(freqm, freq_t *);
 /* view map */
 KHASH_MAP_INIT_STR(viewm, view_t *);
 
-enum subtool {VIEW=0, FREQ=1};
+/* summary map */
+KHASH_MAP_INIT_STR(summarym, int);
+
+enum subtool {VIEW=0, FREQ=1, SUMMARY=2};
 
 /* user specified options */
 typedef struct {
@@ -105,7 +109,7 @@ typedef struct {
     FILE* output_fp;
     int progress_interval;
 
-    uint8_t subtool; //0:view, 1:freq
+    uint8_t subtool; //0:view, 1:freq, 2:summary
 
     uint8_t n_mods;
     uint8_t insertions; //is insertions enabled, add ins column to the output
@@ -144,6 +148,7 @@ typedef struct {
 
     khash_t(freqm)** freq_maps; // frequency map per record, only for FREQ subtool
     khash_t(viewm)** view_maps; // view map per record, only for VIEW subtool
+    khash_t(summarym)** summary_maps; // summary map per record, only for SUMMARY subtool
 
 } db_t;
 

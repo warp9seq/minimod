@@ -227,4 +227,9 @@ sort -k1,1 -k2,2n -k4,4 test/expected/test17.tsv > test/tmp/test17.exp.tsv.sorte
 sort -k1,1 -k2,2n -k4,4 test/tmp/test17.tsv > test/tmp/test17.tsv.sorted
 diff -q test/tmp/test17.exp.tsv.sorted test/tmp/test17.tsv.sorted || die "${testname} diff failed"
 
+testname="Test 18: summary dRNA"
+echo -e "${BLUE}${testname}${NC}"
+ex  ./minimod summary -t 8 test/data/dRNA.bam > test/tmp/test18.tsv || die "${testname} Running the tool failed"
+diff -q test/expected/test18.tsv test/tmp/test18.tsv || die "${testname} diff failed"
+
 echo -e "${GREEN}ALL TESTS PASSED !${NC}"

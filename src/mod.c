@@ -1088,3 +1088,191 @@ void freq_view_single(core_t * core, db_t *db, int32_t bam_i) {
 
     }
 }
+
+void print_summary_header(core_t* core) {
+    fprintf(core->opt.output_fp, "read_id\tspace separated modifications <canonical_base><strand +/-><mod_code><status_flag ./?>:<count>\n");
+}
+
+void print_summary_output(core_t* core, db_t* db) {
+    
+    for(int i =0; i < db->n_bam_recs; i++) {
+        bam1_t *record = db->bam_recs[i];
+        const char *qname = bam_get_qname(record);
+        khash_t(summarym) *summary_map = db->summary_maps[i];
+
+        fprintf(core->opt.output_fp, "%s\t", qname);
+
+        khint_t k;
+        for (k = kh_begin(summary_map); k != kh_end(summary_map); k++) {
+            if (kh_exist(summary_map, k)) {
+                char * key = (char *) kh_key(summary_map, k);
+                int count = kh_value(summary_map, k);
+                fprintf(core->opt.output_fp, "%s:%d ", key, count);
+            }
+
+        }
+
+        fprintf(core->opt.output_fp, "\n");
+    }
+
+    if(core->opt.output_fp != stdout){
+        fclose(core->opt.output_fp);
+    }
+}
+
+char* make_key_summary(char mod_base, char * mod_code, char strand, char status_flag) {
+    int mod_code_strlen = strlen(mod_code);
+    int key_strlen = mod_code_strlen + 4; // 4 for mod_base, strand, status_flag, and null terminator
+
+    char* key = (char *)malloc(key_strlen * sizeof(char));
+    MALLOC_CHK(key);
+    snprintf(key, key_strlen, "%c%c%s%c", mod_base, strand, mod_code, status_flag);
+    return key;
+}
+
+static void add_summary_entry(khash_t(summarym) *summary_map, char mod_base, char * mod_code, char strand, char status_flag) {
+
+    char *key = make_key_summary(mod_base, mod_code, strand, status_flag);
+    khiter_t k = kh_get(summarym, summary_map, key);
+    if (k == kh_end(summary_map)) { // not found, add
+        int ret;
+        k = kh_put(summarym, summary_map, key, &ret);
+        kh_value(summary_map, k) = 1; // value is not used
+    } else { // found, update
+        free(key);
+        kh_value(summary_map, k) += 1;
+    }
+    
+}
+
+void summary_single(core_t * core, db_t *db, int32_t bam_i) {
+    bam1_t *record = db->bam_recs[bam_i];
+    int8_t rev = bam_is_rev(record);
+    bam_hdr_t *hdr = core->bam_hdr;
+    int32_t tid = record->core.tid;
+    assert(tid < hdr->n_targets);
+    uint8_t *seq = bam_get_seq(record);
+    uint32_t seq_len = record->core.l_qseq;
+    char strand = rev ? '-' : '+';
+    const char *mm_string = db->mm[bam_i];
+    
+    // 5 int arrays to keep base pos of A, C, G, T, N bases.
+    // A: 0, C: 1, G: 2, T: 3, U:4, N: 5
+    // so that, nth base of A is at base_pos[0][n] and so on.
+    int **bases_pos = db->bases_pos[bam_i];
+    int bases_pos_lens[N_BASES] = {0};
+    memset(db->mod_codes[bam_i], 0, MOD_CODE_LEN);
+
+    int i;
+    for(i=0;i<seq_len;i++){
+        int base_char = seq_nt16_str[bam_seqi(seq, i)];
+        int idx = base_idx_lookup[(int)base_char];
+        bases_pos[idx][bases_pos_lens[idx]++] = i;
+    }
+
+    int mm_str_len = strlen(mm_string);
+    i = 0;
+
+    char modbase;
+    // char mod_strand;  // commented for now. might need to revisit
+    char * mod_codes = db->mod_codes[bam_i];
+    int mod_codes_len;
+    int skip_counts_len;
+    char status_flag;
+
+    while (i < mm_str_len) {
+        // reset skip counts and mod codes
+        skip_counts_len = 0;
+        mod_codes_len = 0;
+
+        // set default status flag to '.' (when not present or '.' in the MM string)
+        status_flag = '.';
+
+        // get base
+        if(i < mm_str_len) {
+            ASSERT_MSG(valid_bases[(int)mm_string[i]], "Invalid base:%c\n", mm_string[i]);
+            modbase = mm_string[i];
+            i++;
+        }
+
+        // get strand
+        if(i < mm_str_len) {
+            ASSERT_MSG(valid_strands[(int)mm_string[i]], "Invalid strand:%c\n", mm_string[i]);
+            // mod_strand = mm_string[i];
+            i++;
+        }
+
+        // get base modification codes. can handle multiple codes giver as chars. TO-DO: handle when given as a ChEBI id
+        int j = 0;
+        int has_nums = 0;
+        int has_alpha = 0;
+        while (i < mm_str_len && mm_string[i] != ',' && mm_string[i] != ';' && mm_string[i] != '?' && mm_string[i] != '.') {
+
+            if(IS_DIGIT(mm_string[i])) {
+                has_nums = 1;
+            } else if(IS_ALPHA(mm_string[i])) {
+                has_alpha = 1;
+            } else {
+                ERROR("Invalid base modification code:%c. Modification codes should be either numeric or alphabetic.\n", mm_string[i]);
+                exit(EXIT_FAILURE);
+            }
+
+            if(j >= db->mod_codes_cap[bam_i]) {
+                db->mod_codes_cap[bam_i] *= 2;
+                db->mod_codes[bam_i] = (char *)realloc(db->mod_codes[bam_i], sizeof(char) * (db->mod_codes_cap[bam_i] + 1)); // +1 for null terminator
+                MALLOC_CHK(db->mod_codes[bam_i]);
+            }
+            mod_codes = db->mod_codes[bam_i];
+
+            mod_codes[j] = mm_string[i];
+            j++;
+            i++;
+        }
+        mod_codes[j] = '\0';
+        mod_codes_len = j;
+
+        if(has_nums) {
+            mod_codes_len = 1; // if chebi id is given, then only one code is present
+        }
+
+        // validate mod codes
+        ASSERT_MSG(mod_codes_len>0, "Invalid modification codes:%s. Modification codes cannot be empty.\n", mod_codes);
+        ASSERT_MSG((has_nums && has_alpha) == 0, "Invalid modification codes:%s. Modification codes should be either numeric or alphabetic, not both.\n", mod_codes);
+        
+        // get modification status flag
+        if(i < mm_str_len && ( mm_string[i] == '?' || mm_string[i] == '.' )) {
+            status_flag = mm_string[i];
+            i++;
+        } else { // if not present, set to '.'
+            status_flag = '.';
+        }
+
+        // get skip counts
+        int k = 0;
+        while (i < mm_str_len && mm_string[i] != ';') {
+
+            // skip if a comma
+            if(i < mm_str_len && mm_string[i] == ',') {
+                i++;
+                continue;
+            }
+
+            int l = 0;
+            while (i < mm_str_len && mm_string[i] != ',' && mm_string[i] != ';') {
+                i++;
+                l++;
+                assert(l < 10); // if this fails, use dynamic allocation for skip_count_str
+            }
+            
+            k++;
+        }
+        skip_counts_len = k;
+        i++;
+
+        if(skip_counts_len == 0) { // no skip counts, no modification
+            continue;
+        }
+
+        add_summary_entry(db->summary_maps[bam_i], modbase, mod_codes, strand, status_flag);
+    }
+}
