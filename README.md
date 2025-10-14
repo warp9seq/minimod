@@ -246,19 +246,19 @@ advanced options:
 
 **Sample mods.tsv output**
 ```bash
-read_id	strand	 modifications
-491fb526-314e-4c18-9690-eb6930d780ea	+	A|17596|. C|m|. A|a|. C|19228|. T|19227|. A|69426|. G|19229|. T|17802|. 
-52b66d0d-a21e-4334-be1b-f72486d9f9bf	+	A|17596|. C|m|. A|a|. C|19228|. T|19227|. A|69426|. G|19229|. T|17802|. 
-cb481f14-7651-448c-945b-b4f5b2e8b70c	-	A|17596|. C|m|. A|a|. C|19228|. T|19227|. A|69426|. G|19229|. T|17802|. 
-2cab7053-9008-47eb-8e57-c33fda56c2ec	+	A|17596|. C|m|. A|a|. C|19228|. T|19227|. A|69426|. G|19229|. T|17802|. 
-37bf1305-8d8b-4973-9a0b-930303067306	-	A|17596|. C|m|. A|a|. C|19228|. T|19227|. A|69426|. G|19229|. T|17802|. 
-164e336f-568d-44d5-882d-7669bbe67654	-	A|17596|. C|m|. A|a|. C|19228|. T|19227|. A|69426|. G|19229|. T|17802|. 
-229bbbb9-abf9-4825-af30-a583a19864eb	-	A|17596|. C|m|. A|a|. C|19228|. T|19227|. A|69426|. G|19229|. T|17802|. 
-adbaba61-604d-4897-99cc-f9a934f3e2c8	-	A|17596|. C|m|. A|a|. C|19228|. T|19227|. A|69426|. G|19229|. T|17802|. 
-093bc2c6-2ae5-437d-a17c-be2755c3c689	+	A|17596|. C|m|. A|a|. C|19228|. T|19227|. A|69426|. G|19229|. T|17802|. 
-92fc0cc5-b2d8-4cb1-bf25-8f8b88088f23	-	A|17596|. C|m|. A|a|. C|19228|. T|19227|. A|69426|. G|19229|. T|17802|. 
+read_id	 modifications
+491fb526-314e-4c18-9690-eb6930d780ea	A|17596|. C|m|. A|a|. C|19228|. T|19227|. A|69426|. G|19229|. T|17802|. 
+52b66d0d-a21e-4334-be1b-f72486d9f9bf	A|17596|. C|m|. A|a|. C|19228|. T|19227|. A|69426|. G|19229|. T|17802|. 
+cb481f14-7651-448c-945b-b4f5b2e8b70c	A|17596|. C|m|. A|a|. C|19228|. T|19227|. A|69426|. G|19229|. T|17802|. 
+2cab7053-9008-47eb-8e57-c33fda56c2ec	A|17596|. C|m|. A|a|. C|19228|. T|19227|. A|69426|. G|19229|. T|17802|. 
+37bf1305-8d8b-4973-9a0b-930303067306	A|17596|. C|m|. A|a|. C|19228|. T|19227|. A|69426|. G|19229|. T|17802|. 
+164e336f-568d-44d5-882d-7669bbe67654	A|17596|. C|m|. A|a|. C|19228|. T|19227|. A|69426|. G|19229|. T|17802|. 
+229bbbb9-abf9-4825-af30-a583a19864eb	A|17596|. C|m|. A|a|. C|19228|. T|19227|. A|69426|. G|19229|. T|17802|. 
+adbaba61-604d-4897-99cc-f9a934f3e2c8	A|17596|. C|m|. A|a|. C|19228|. T|19227|. A|69426|. G|19229|. T|17802|. 
+093bc2c6-2ae5-437d-a17c-be2755c3c689	A|17596|. C|m|. A|a|. C|19228|. T|19227|. A|69426|. G|19229|. T|17802|. 
+92fc0cc5-b2d8-4cb1-bf25-8f8b88088f23	A|17596|. C|m|. A|a|. C|19228|. T|19227|. A|69426|. G|19229|. T|17802|. 
 ```
-The output is ordered in the same as reads appear in the input BAM file. First two columns of the output are the read_id and the strand. The third column contains all available modifications in that read as space separated entries. Each entry has the following format.
+The output is ordered in the same as reads appear in the input BAM file. First column of the output are the read_id the second column contains all available modifications in that read as space separated entries. Each entry has the following format.
 ```
 canonical_base(character such as ACGTN)|mod_code(character or ChEBI number)|status_flag(. or ?)
 ```

@@ -1090,7 +1090,7 @@ void freq_view_single(core_t * core, db_t *db, int32_t bam_i) {
 }
 
 void print_summary_header(core_t* core) {
-    fprintf(core->opt.output_fp, "read_id\tstrand\t modifications\n");
+    fprintf(core->opt.output_fp, "read_id\t modifications\n");
 }
 
 void print_summary_output(core_t* core, db_t* db) {
@@ -1098,11 +1098,9 @@ void print_summary_output(core_t* core, db_t* db) {
     for(int i =0; i < db->n_bam_recs; i++) {
         bam1_t *record = db->bam_recs[i];
         const char *qname = bam_get_qname(record);
-        int8_t rev = bam_is_rev(record);
-        char strand = rev ? '-' : '+';
         khash_t(summarym) *summary_map = db->summary_maps[i];
 
-        fprintf(core->opt.output_fp, "%s\t%c\t", qname, strand);
+        fprintf(core->opt.output_fp, "%s\t", qname);
 
         khint_t k;
         for (k = kh_begin(summary_map); k != kh_end(summary_map); k++) {
