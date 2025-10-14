@@ -246,21 +246,21 @@ advanced options:
 
 **Sample mods.tsv output**
 ```bash
-read_id	space separated modifications <canonical_base><strand +/-><mod_code><status_flag ./?>:<count>
-491fb526-314e-4c18-9690-eb6930d780ea	T+19227.:1 G+19229.:1 T+17802.:1 A+69426.:1 C+19228.:1 A+a.:1 C+m.:1 A+17596.:1 
-52b66d0d-a21e-4334-be1b-f72486d9f9bf	T+19227.:1 G+19229.:1 T+17802.:1 A+69426.:1 C+19228.:1 A+a.:1 C+m.:1 A+17596.:1 
-cb481f14-7651-448c-945b-b4f5b2e8b70c	T-19227.:1 G-19229.:1 T-17802.:1 A-69426.:1 C-19228.:1 A-a.:1 C-m.:1 A-17596.:1 
-2cab7053-9008-47eb-8e57-c33fda56c2ec	T+19227.:1 G+19229.:1 T+17802.:1 A+69426.:1 C+19228.:1 A+a.:1 C+m.:1 A+17596.:1 
-37bf1305-8d8b-4973-9a0b-930303067306	T-19227.:1 G-19229.:1 T-17802.:1 A-69426.:1 C-19228.:1 A-a.:1 C-m.:1 A-17596.:1 
-164e336f-568d-44d5-882d-7669bbe67654	T-19227.:1 G-19229.:1 T-17802.:1 A-69426.:1 C-19228.:1 A-a.:1 C-m.:1 A-17596.:1 
-229bbbb9-abf9-4825-af30-a583a19864eb	T-19227.:1 G-19229.:1 T-17802.:1 A-69426.:1 C-19228.:1 A-a.:1 C-m.:1 A-17596.:1 
-adbaba61-604d-4897-99cc-f9a934f3e2c8	T-19227.:1 G-19229.:1 T-17802.:1 A-69426.:1 C-19228.:1 A-a.:1 C-m.:1 A-17596.:1 
-093bc2c6-2ae5-437d-a17c-be2755c3c689	T+19227.:1 G+19229.:1 T+17802.:1 A+69426.:1 C+19228.:1 A+a.:1 C+m.:1 A+17596.:1 
-92fc0cc5-b2d8-4cb1-bf25-8f8b88088f23	T-19227.:1 G-19229.:1 T-17802.:1 A-69426.:1 C-19228.:1 A-a.:1 C-m.:1 A-17596.:1 
+read_id	strand	 modifications
+491fb526-314e-4c18-9690-eb6930d780ea	+	A|17596|. C|m|. A|a|. C|19228|. T|19227|. A|69426|. G|19229|. T|17802|. 
+52b66d0d-a21e-4334-be1b-f72486d9f9bf	+	A|17596|. C|m|. A|a|. C|19228|. T|19227|. A|69426|. G|19229|. T|17802|. 
+cb481f14-7651-448c-945b-b4f5b2e8b70c	-	A|17596|. C|m|. A|a|. C|19228|. T|19227|. A|69426|. G|19229|. T|17802|. 
+2cab7053-9008-47eb-8e57-c33fda56c2ec	+	A|17596|. C|m|. A|a|. C|19228|. T|19227|. A|69426|. G|19229|. T|17802|. 
+37bf1305-8d8b-4973-9a0b-930303067306	-	A|17596|. C|m|. A|a|. C|19228|. T|19227|. A|69426|. G|19229|. T|17802|. 
+164e336f-568d-44d5-882d-7669bbe67654	-	A|17596|. C|m|. A|a|. C|19228|. T|19227|. A|69426|. G|19229|. T|17802|. 
+229bbbb9-abf9-4825-af30-a583a19864eb	-	A|17596|. C|m|. A|a|. C|19228|. T|19227|. A|69426|. G|19229|. T|17802|. 
+adbaba61-604d-4897-99cc-f9a934f3e2c8	-	A|17596|. C|m|. A|a|. C|19228|. T|19227|. A|69426|. G|19229|. T|17802|. 
+093bc2c6-2ae5-437d-a17c-be2755c3c689	+	A|17596|. C|m|. A|a|. C|19228|. T|19227|. A|69426|. G|19229|. T|17802|. 
+92fc0cc5-b2d8-4cb1-bf25-8f8b88088f23	-	A|17596|. C|m|. A|a|. C|19228|. T|19227|. A|69426|. G|19229|. T|17802|. 
 ```
-The output is ordered in the same as reads appear in the input BAM file. First column of the output is the read_id and the second column contains all available modifications in that read as space separated entries. Each entry has the following format.
+The output is ordered in the same as reads appear in the input BAM file. First two columns of the output are the read_id and the strand. The third column contains all available modifications in that read as space separated entries. Each entry has the following format.
 ```
-<canonical_base: character such as ACGTUN><strand:+/-><mod_code: character or ChEBI number><status_flag:./?>:<count: number>
+canonical_base(character such as ACGTN)|mod_code(character or ChEBI number)|status_flag(. or ?)
 ```
 
 Status flag describes how skipped bases (not included in the output of view or freq subtools) should be interpreted by downstream tools.

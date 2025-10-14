@@ -1090,7 +1090,7 @@ void freq_view_single(core_t * core, db_t *db, int32_t bam_i) {
 }
 
 void print_summary_header(core_t* core) {
-    fprintf(core->opt.output_fp, "read_id\tspace separated modifications <canonical_base><strand +/-><mod_code><status_flag ./?>:<count>\n");
+    fprintf(core->opt.output_fp, "read_id\tstrand\t modifications\n");
 }
 
 void print_summary_output(core_t* core, db_t* db) {
@@ -1098,16 +1098,17 @@ void print_summary_output(core_t* core, db_t* db) {
     for(int i =0; i < db->n_bam_recs; i++) {
         bam1_t *record = db->bam_recs[i];
         const char *qname = bam_get_qname(record);
+        int8_t rev = bam_is_rev(record);
+        char strand = rev ? '-' : '+';
         khash_t(summarym) *summary_map = db->summary_maps[i];
 
-        fprintf(core->opt.output_fp, "%s\t", qname);
+        fprintf(core->opt.output_fp, "%s\t%c\t", qname, strand);
 
         khint_t k;
         for (k = kh_begin(summary_map); k != kh_end(summary_map); k++) {
             if (kh_exist(summary_map, k)) {
                 char * key = (char *) kh_key(summary_map, k);
-                int count = kh_value(summary_map, k);
-                fprintf(core->opt.output_fp, "%s:%d ", key, count);
+                fprintf(core->opt.output_fp, "%s ", key);
             }
 
         }
@@ -1120,19 +1121,19 @@ void print_summary_output(core_t* core, db_t* db) {
     }
 }
 
-char* make_key_summary(char mod_base, char * mod_code, char strand, char status_flag) {
+char* make_key_summary(char mod_base, char * mod_code, char status_flag) {
     int mod_code_strlen = strlen(mod_code);
-    int key_strlen = mod_code_strlen + 4; // 4 for mod_base, strand, status_flag, and null terminator
+    int key_strlen = mod_code_strlen + 5;
 
     char* key = (char *)malloc(key_strlen * sizeof(char));
     MALLOC_CHK(key);
-    snprintf(key, key_strlen, "%c%c%s%c", mod_base, strand, mod_code, status_flag);
+    snprintf(key, key_strlen, "%c|%s|%c", mod_base, mod_code, status_flag);
     return key;
 }
 
-static void add_summary_entry(khash_t(summarym) *summary_map, char mod_base, char * mod_code, char strand, char status_flag) {
+static void add_summary_entry(khash_t(summarym) *summary_map, char mod_base, char * mod_code, char status_flag) {
 
-    char *key = make_key_summary(mod_base, mod_code, strand, status_flag);
+    char *key = make_key_summary(mod_base, mod_code, status_flag);
     khiter_t k = kh_get(summarym, summary_map, key);
     if (k == kh_end(summary_map)) { // not found, add
         int ret;
@@ -1140,20 +1141,19 @@ static void add_summary_entry(khash_t(summarym) *summary_map, char mod_base, cha
         kh_value(summary_map, k) = 1; // value is not used
     } else { // found, update
         free(key);
-        kh_value(summary_map, k) += 1;
     }
     
 }
 
 void summary_single(core_t * core, db_t *db, int32_t bam_i) {
     bam1_t *record = db->bam_recs[bam_i];
-    int8_t rev = bam_is_rev(record);
+    // int8_t rev = bam_is_rev(record);
     bam_hdr_t *hdr = core->bam_hdr;
     int32_t tid = record->core.tid;
     assert(tid < hdr->n_targets);
     uint8_t *seq = bam_get_seq(record);
     uint32_t seq_len = record->core.l_qseq;
-    char strand = rev ? '-' : '+';
+    // char strand = rev ? '-' : '+';
     const char *mm_string = db->mm[bam_i];
     
     // 5 int arrays to keep base pos of A, C, G, T, N bases.
@@ -1273,6 +1273,6 @@ void summary_single(core_t * core, db_t *db, int32_t bam_i) {
             continue;
         }
 
-        add_summary_entry(db->summary_maps[bam_i], modbase, mod_codes, strand, status_flag);
+        add_summary_entry(db->summary_maps[bam_i], modbase, mod_codes, status_flag);
     }
 }
