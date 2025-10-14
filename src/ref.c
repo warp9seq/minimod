@@ -65,6 +65,14 @@ void load_ref(const char * genome) {
         MALLOC_CHK(ref->forward);
         strcpy(ref->forward, seq->seq.s);
 
+        // toupper and U to T
+        for (int i = 0; i < ref->ref_seq_length; i++) {
+            ref->forward[i] = toupper(ref->forward[i]);
+            if (ref->forward[i] == 'U') {
+                ref->forward[i] = 'T';
+            }
+        }
+
         int ret;
         khiter_t k = kh_put(refm, ref_map, ref_name, &ret);
         kh_value(ref_map, k) = ref;
@@ -74,14 +82,6 @@ void load_ref(const char * genome) {
     kseq_destroy(seq);
     gzclose(fp);
 
-}
-
-static int compare_bases(char a, char b) {
-    char A = toupper(a);
-    char B = toupper(b);
-
-    if(A == B || (A == 'U' && B == 'T') || (A == 'T' && B == 'U')) return 1;
-    else return 0;
 }
 
 static void search_context_kmp(const char* pat, const char* txt, uint8_t* result) {
@@ -113,7 +113,7 @@ static void search_context_kmp(const char* pat, const char* txt, uint8_t* result
     int j = 0; 
   
     while ((N - i) >= (M - j)) {
-        int matched = compare_bases(pat[j], txt[i]);
+        int matched = pat[j] == txt[i];
         if (matched) {
             j++;
             i++;
