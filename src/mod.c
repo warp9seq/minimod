@@ -377,88 +377,6 @@ void decode_key(char *key, char **chrom, int *pos, uint16_t * ins_offset, char *
     *haplotype = atoi(strtok(NULL, "\t"));
 }
 
-void print_view_options(opt_t *opt) {
-    khint_t i;
-    for(i=kh_begin(opt->modcodes_map); i < kh_end(opt->modcodes_map); ++i) {
-        if (!kh_exist(opt->modcodes_map, i)) continue;
-        modcodem_t *mod_code_map = kh_value(opt->modcodes_map, i);
-        char * mod_code = (char *) kh_key(opt->modcodes_map, i);
-        INFO("Modification code: %s, Context: %s", mod_code, mod_code_map->context);
-    }
-}
-
-void print_view_header(core_t* core) {
-    char * common = "ref_contig\tref_pos\tstrand\tread_id\tread_pos\tmod_code\tmod_prob";
-    char * ins_offset = "";
-    char * haplotype = "";
-    if(core->opt.insertions){
-        ins_offset = "\tins_offset";
-    }
-    if(core->opt.haplotypes){
-        haplotype = "\thaplotype";
-    }
-
-    fprintf(core->opt.output_fp, "%s%s%s\n", common, ins_offset, haplotype);
-}
-
-void print_view_output(core_t* core, db_t* db) {
-    
-    for(int i =0; i < db->n_bam_recs; i++) {
-        bam1_t *record = db->bam_recs[i];
-        const char *qname = bam_get_qname(record);
-        khash_t(viewm) *view_map = db->view_maps[i];
-
-        khint_t k;
-        for (k = kh_begin(view_map); k != kh_end(view_map); ++k) {
-            if (kh_exist(view_map, k)) {
-                view_t* view = kh_value(view_map, k);
-                char *tname = NULL;
-                int ref_pos;
-                uint16_t ins_offset;
-                char *mod_code;
-                char strand;
-                int haplotype;
-                char * key = (char *) kh_key(view_map, k);
-                decode_key(key, &tname, &ref_pos, &ins_offset, &mod_code, &strand, &haplotype);
-
-                fprintf(core->opt.output_fp, "%s\t%d\t%c\t%s\t%d\t%s\t%f", tname, ref_pos, strand, qname, view->read_pos, mod_code, view->mod_prob/255.0);
-                if(core->opt.insertions==1){
-                    fprintf(core->opt.output_fp, "\t%d", db->ins_offset[i][view->read_pos]);
-                }
-                if(core->opt.haplotypes==1){
-                    fprintf(core->opt.output_fp, "\t%d", haplotype);
-                }
-                fprintf(core->opt.output_fp, "\n");
-
-                free(tname);
-                free(mod_code);
-            }
-        }
-    }
-
-    
-
-    if(core->opt.output_fp != stdout){
-        fclose(core->opt.output_fp);
-    }
-}
-
-void print_freq_header(core_t * core) {
-    if(!core->opt.bedmethyl_out) { // tsv output header, no header for bedmethyl
-        char * common = "contig\tstart\tend\tstrand\tn_called\tn_mod\tfreq\tmod_code";
-        char * ins_offset = "";
-        char * haplotype = "";
-        if(core->opt.insertions){
-            ins_offset = "\tins_offset";
-        }
-        if(core->opt.haplotypes){
-            haplotype = "\thaplotype";
-        }
-
-        fprintf(core->opt.output_fp, "%s%s%s\n", common, ins_offset, haplotype);
-    }
-}
-
 /* Split tab-delimited keys for sorting*/
 char** split_key(char* key, int size) {
     char** tok = (char**)malloc(sizeof(char*) * size);
@@ -528,6 +446,100 @@ int cmp_key(const void* a, const void* b) {
     }
 
     return start_a - start_b;
+}
+
+void print_view_options(opt_t *opt) {
+    khint_t i;
+    for(i=kh_begin(opt->modcodes_map); i < kh_end(opt->modcodes_map); ++i) {
+        if (!kh_exist(opt->modcodes_map, i)) continue;
+        modcodem_t *mod_code_map = kh_value(opt->modcodes_map, i);
+        char * mod_code = (char *) kh_key(opt->modcodes_map, i);
+        INFO("Modification code: %s, Context: %s", mod_code, mod_code_map->context);
+    }
+}
+
+void print_view_header(core_t* core) {
+    char * common = "ref_contig\tref_pos\tstrand\tread_id\tread_pos\tmod_code\tmod_prob";
+    char * ins_offset = "";
+    char * haplotype = "";
+    if(core->opt.insertions){
+        ins_offset = "\tins_offset";
+    }
+    if(core->opt.haplotypes){
+        haplotype = "\thaplotype";
+    }
+
+    fprintf(core->opt.output_fp, "%s%s%s\n", common, ins_offset, haplotype);
+}
+
+void print_view_output(core_t* core, db_t* db) {
+    
+    for(int i =0; i < db->n_bam_recs; i++) {
+        bam1_t *record = db->bam_recs[i];
+        const char *qname = bam_get_qname(record);
+        khash_t(viewm) *view_map = db->view_maps[i];
+
+        // sort the keys
+        char ** sorted_keys = (char **)malloc(sizeof(char*) * kh_size(view_map));
+        MALLOC_CHK(sorted_keys);
+        int size = 0;
+        for (khint_t k = kh_begin(view_map); k != kh_end(view_map); ++k) {
+            if (kh_exist(view_map, k)) {
+                sorted_keys[size++] = (char *)kh_key(view_map, k);
+            }
+        }
+        qsort(sorted_keys, size, sizeof(char*), cmp_key);
+
+        khint_t k;
+        for (int j = 0; j < size; j++) {
+            k = kh_get(viewm, view_map, sorted_keys[j]);
+            if (kh_exist(view_map, k)) {
+                view_t* view = kh_value(view_map, k);
+                char *tname = NULL;
+                int ref_pos;
+                uint16_t ins_offset;
+                char *mod_code;
+                char strand;
+                int haplotype;
+                char * key = (char *) kh_key(view_map, k);
+                decode_key(key, &tname, &ref_pos, &ins_offset, &mod_code, &strand, &haplotype);
+
+                fprintf(core->opt.output_fp, "%s\t%d\t%c\t%s\t%d\t%s\t%f", tname, ref_pos, strand, qname, view->read_pos, mod_code, view->mod_prob/255.0);
+                if(core->opt.insertions==1){
+                    fprintf(core->opt.output_fp, "\t%d", db->ins_offset[i][view->read_pos]);
+                }
+                if(core->opt.haplotypes==1){
+                    fprintf(core->opt.output_fp, "\t%d", haplotype);
+                }
+                fprintf(core->opt.output_fp, "\n");
+
+                free(tname);
+                free(mod_code);
+            }
+        }
+    }
+
+    
+
+    if(core->opt.output_fp != stdout){
+        fclose(core->opt.output_fp);
+    }
+}
+
+void print_freq_header(core_t * core) {
+    if(!core->opt.bedmethyl_out) { // tsv output header, no header for bedmethyl
+        char * common = "contig\tstart\tend\tstrand\tn_called\tn_mod\tfreq\tmod_code";
+        char * ins_offset = "";
+        char * haplotype = "";
+        if(core->opt.insertions){
+            ins_offset = "\tins_offset";
+        }
+        if(core->opt.haplotypes){
+            haplotype = "\thaplotype";
+        }
+
+        fprintf(core->opt.output_fp, "%s%s%s\n", common, ins_offset, haplotype);
+    }
 }
 
 void print_freq_output(core_t * core) {
