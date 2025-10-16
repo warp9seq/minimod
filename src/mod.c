@@ -517,6 +517,8 @@ void print_view_output(core_t* core, db_t* db) {
                 free(mod_code);
             }
         }
+
+        free(sorted_keys);
     }
 
     
