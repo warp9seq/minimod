@@ -455,3 +455,16 @@ Make sure that you handle the modification tags correctly in each step in base m
 # Acknowledgement
 
 Minimod uses [klib](https://github.com/attractivechaos/klib). Some code snippets have been taken from [Minimap2](https://github.com/lh3/minimap2) and [Samtools](http://samtools.sourceforge.net/).
+
+# Citation
+
+> Samarasinghe, S., Deveson, I., Gamaarachchi, H., 2025. Base modification analysis in long read sequencing data using Minimod. https://doi.org/10.1101/2025.07.16.665072
+
+```
+@article{samarasinghe_base_2025,
+  title = {Base modification analysis in long read sequencing data using {Minimod}},
+  author = {Samarasinghe, Suneth and Deveson, Ira and Gamaarachchi, Hasindu},
+  year={2025},
+  publisher={bioRxiv}
+}
+```
