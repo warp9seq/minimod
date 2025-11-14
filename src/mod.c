@@ -1068,7 +1068,7 @@ void freq_view_single(core_t * core, db_t *db, int32_t bam_i) {
 
                 if(core->opt.insertions) { // no need to check context for insertions
 
-                } else if ((!rev && ref->is_context[req_mod->index][ref_pos] == 1) || (rev && ref->is_context[req_mod->index][ref_pos - 1] == 1)) { // in context
+                } else if (ref->is_context[req_mod->index][ref_pos] == 1) { // in context
                 } else {
                     continue;
                 }

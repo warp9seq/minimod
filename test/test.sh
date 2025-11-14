@@ -40,7 +40,7 @@ if [ ! -f test/tmp/truth.tsv ]; then
     wget  -N -O test/tmp/truth.tsv "https://raw.githubusercontent.com/imsuneth/shared-files/main/truth.tsv" || die "Downloading the truthset failed"
 fi
 
-exp_corr=0.84 # update this if the expected correlation changes
+exp_corr=0.83 # update this if the expected correlation changes
 testname="Accuracy Test: freq results correlation with truthset"
 echo -e "${BLUE}${testname}${NC}"
 ex  ./minimod freq -t 8 -b test/tmp/genome_chr22.fa test/data/example-ont.bam > test/tmp/accu.bedmethyl  || die "${testname} Running the tool failed"

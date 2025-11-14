@@ -39,6 +39,8 @@ KSEQ_INIT(gzFile, gzread);
 KHASH_MAP_INIT_STR(refm, ref_t *);
 khash_t(refm)* ref_map;
 
+static const char base_complement_lookup[256] = { ['A'] = 'T', ['C'] = 'G', ['G'] = 'C', ['T'] = 'A', ['U'] = 'A', ['N'] = 'N', ['a'] = 't', ['c'] = 'g', ['g'] = 'c', ['t'] = 'a', ['u'] = 'a', ['n'] = 'n' };
+
 void load_ref(const char * genome) {
     gzFile fp;
     kseq_t *seq;
@@ -113,7 +115,7 @@ static void search_context_kmp(const char* pat, const char* txt, uint8_t* result
     int j = 0; 
   
     while ((N - i) >= (M - j)) {
-        int matched = pat[j] == txt[i];
+        int matched = (pat[j] == txt[i]) || (base_complement_lookup[(unsigned char)pat[j]] == txt[i]);
         if (matched) {
             j++;
             i++;
@@ -147,6 +149,7 @@ ref_t * get_ref(const char * chr) {
 }
 
 void load_ref_contexts(int n_mod_codes, char ** mod_contexts) {
+    
     for (khiter_t k = kh_begin(ref_map); k != kh_end(ref_map); ++k) {
         if (kh_exist(ref_map, k)) {
             ref_t * ref = kh_value(ref_map, k);
@@ -166,6 +169,7 @@ void load_ref_contexts(int n_mod_codes, char ** mod_contexts) {
             }
         }
     }
+
 }
 
 void destroy_ref_forward() {
