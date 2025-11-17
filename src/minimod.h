@@ -97,7 +97,7 @@ typedef struct {
     int32_t num_thread; //t
     int32_t debug_break;
 
-    char *region_str; //the region string in format chr:start-end
+    // char *region_str; //the region string in format chr:start-end
 
     uint8_t bedmethyl_out; //output in bedMethyl format, only for freq
     char *mod_codes_str;
@@ -161,18 +161,18 @@ typedef struct {
 
     // bam file related
     htsFile* bam_fp;
-    hts_idx_t* bam_idx;
+    // hts_idx_t* bam_idx;
     bam_hdr_t* bam_hdr;
-    hts_itr_t* itr;
+    // hts_itr_t* itr;
 
-    //multi region related
-    char **reg_list; //the list of regions
-    int64_t reg_n;   //number of regions in list
-    int64_t reg_i;   //current region being processed
+    // //multi region related
+    // char **reg_list; //the list of regions
+    // int64_t reg_n;   //number of regions in list
+    // int64_t reg_i;   //current region being processed
 
-    //clipping coordinates
-    int32_t clip_start;
-    int32_t clip_end;
+    // //clipping coordinates
+    // int32_t clip_start;
+    // int32_t clip_end;
 
     //realtime0
     double realtime0;
