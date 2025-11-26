@@ -40,16 +40,35 @@ if [ ! -f test/tmp/truth.tsv ]; then
     wget  -N -O test/tmp/truth.tsv "https://raw.githubusercontent.com/imsuneth/shared-files/main/truth.tsv" || die "Downloading the truthset failed"
 fi
 
-exp_corr=0.83 # update this if the expected correlation changes
-testname="Accuracy Test: freq results correlation with truthset"
+testname="Accuracy Test: freq results correlation with modkit and truthset"
+exp_modkit_corr=0.97 # update this if the expected correlation changes
+exp_truth_corr=0.85 # update this if the expected correlation changes
 echo -e "${BLUE}${testname}${NC}"
-ex  ./minimod freq -t 8 -b test/tmp/genome_chr22.fa test/data/example-ont.bam > test/tmp/accu.bedmethyl  || die "${testname} Running the tool failed"
-corr=`./test/compare.py test/tmp/truth.tsv test/tmp/accu.bedmethyl`
-if (( $(echo "$corr >= $exp_corr" | bc -l) )); then
-    echo -e "${GREEN}Corr: $corr\tExpected: $exp_corr\tPassed${NC}\n"
-elif (( $(echo "$exp_corr > $corr" | bc -l) )); then
-    echo -e "${RED}Corr: $corr\tExpected: $exp_corr\tDecreased${NC}\n"
-    die "${testname} Correlation decreased"
+ex  ./minimod freq -t 8 -b test/tmp/genome_chr22.fa test/data/example-ont.bam > test/tmp/accu.freq.bedmethyl  || die "${testname} Running the tool failed"
+corr=`./test/compare.py test/data/accu.mk.pileup.bedmethyl test/tmp/accu.freq.bedmethyl`
+if (( $(echo "$corr >= $exp_modkit_corr" | bc -l) )); then
+    echo -e "${GREEN}Corr with modkit: $corr\tExpected: $exp_modkit_corr\tPassed${NC}\n"
+elif (( $(echo "$exp_modkit_corr > $corr" | bc -l) )); then
+    echo -e "${RED}Corr with modkit: $corr\tExpected: $exp_modkit_corr\tDecreased${NC}\n"
+    die "${testname} Correlation with modkit decreased"
+fi
+
+corr=`./test/compare.py test/tmp/truth.tsv test/tmp/accu.freq.bedmethyl`
+if (( $(echo "$corr >= $exp_truth_corr" | bc -l) )); then
+    echo -e "${GREEN}Corr with truthset: $corr\tExpected: $exp_truth_corr\tPassed${NC}\n"
+elif (( $(echo "$exp_truth_corr > $corr" | bc -l) )); then
+    echo -e "${RED}Corr with truthset: $corr\tExpected: $exp_truth_corr\tDecreased${NC}\n"
+    die "${testname} Correlation with truthset decreased"
+fi
+
+testname="Accuracy Test: minimod view vs modkit extract full"
+ex ./minimod view -t 8 test/tmp/genome_chr22.fa test/data/example-ont.bam > test/tmp/accu.view.tsv || die "${testname} Running the tool failed"
+mkdir -p test/tmp/view_compare
+./test/compare.sh test/tmp/accu.view.tsv test/data/accu.mk.extract.bedmethyl test/tmp/view_compare || die "${testname} Comparison failed"
+
+missing1_lines=$(wc -l < test/tmp/view_compare/missing_in_accu.view.tsv)
+if [ "$missing1_lines" -gt 0 ]; then
+    die "${testname} minimod view missing records compared to modkit extract full"
 fi
 
 testname="Test 1: view hifi"

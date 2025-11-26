@@ -882,7 +882,7 @@ void freq_view_single(core_t * core, db_t *db, int32_t bam_i) {
     int ml_start_idx = 0;
 
     char modbase;
-    // char mod_strand;  // commented for now. might need to revisit
+    char mod_strand;
     char * mod_codes = db->mod_codes[bam_i];
     int mod_codes_len;
     int * skip_counts = db->skip_counts[bam_i];
@@ -907,7 +907,7 @@ void freq_view_single(core_t * core, db_t *db, int32_t bam_i) {
         // get strand
         if(i < mm_str_len) {
             ASSERT_MSG(valid_strands[(int)mm_string[i]], "Invalid strand:%c\n", mm_string[i]);
-            // mod_strand = mm_string[i];
+            mod_strand = mm_string[i];
             i++;
         }
 
@@ -990,7 +990,7 @@ void freq_view_single(core_t * core, db_t *db, int32_t bam_i) {
             continue;
         }
 
-        int base_rank = -1;
+        int base_rank = -1; // 0-based rank
 
         int ml_idx = ml_start_idx;
         for(int c=0; c<skip_counts_len; c++) {
@@ -1043,6 +1043,11 @@ void freq_view_single(core_t * core, db_t *db, int32_t bam_i) {
                 continue;
             }
 
+            char out_strand = strand;
+            if(mod_strand == '-') {
+                out_strand = strand == '+' ? '-' : '+';
+            }
+            
             // mod prob per each mod code.
             for(int m=0; m<mod_codes_len; m++) {                
                 ml_idx = ml_start_idx + c*mod_codes_len + m;
@@ -1091,9 +1096,9 @@ void freq_view_single(core_t * core, db_t *db, int32_t bam_i) {
                         continue;
                     }
                     
-                    update_freq_map(db->freq_maps[bam_i], tname, ref_pos, ins_offset, mod_code, strand, haplotype, is_called, is_mod);
+                    update_freq_map(db->freq_maps[bam_i], tname, ref_pos, ins_offset, mod_code, out_strand, haplotype, is_called, is_mod);
                 } else if (core->opt.subtool == VIEW) {
-                    add_view_entry(db->view_maps[bam_i], tname, ref_pos, ins_offset, mod_code, strand, haplotype, mod_prob, read_pos);
+                    add_view_entry(db->view_maps[bam_i], tname, ref_pos, ins_offset, mod_code, out_strand, haplotype, mod_prob, read_pos);
                 }
             }
 

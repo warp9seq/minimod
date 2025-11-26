@@ -86,6 +86,7 @@ void load_ref(const char * genome) {
 
 }
 
+// KMP algorithm to search for pattern in text and mark matches in result array
 static void search_context_kmp(const char* pat, const char* txt, uint8_t* result) {
     int M = strlen(pat);
     int N = strlen(txt);
@@ -115,7 +116,7 @@ static void search_context_kmp(const char* pat, const char* txt, uint8_t* result
     int j = 0; 
   
     while ((N - i) >= (M - j)) {
-        int matched = (pat[j] == txt[i]) || (base_complement_lookup[(unsigned char)pat[j]] == txt[i]);
+        int matched = (pat[j] == txt[i]);
         if (matched) {
             j++;
             i++;
@@ -133,6 +134,29 @@ static void search_context_kmp(const char* pat, const char* txt, uint8_t* result
         }
     }
     free(lps);
+}
+
+// KMP-based function to mark all positions in text that are part of any match of pattern
+void search_context_kmp_mark_window(const char *pattern, const char *text, uint8_t *out) {
+    int m = strlen(pattern);
+    int n = strlen(text);
+
+    // temporary array: KMP will mark starts
+    uint8_t *starts = calloc(n, sizeof(uint8_t));
+
+    // run your existing KMP match finder
+    search_context_kmp(pattern, text, starts);
+
+    // expand each match to cover entire pattern length
+    for (int i = 0; i < n; i++) {
+        if (starts[i]) {
+            for (int j = i; j < i + m && j < n; j++) {
+                out[j] = 1;
+            }
+        }
+    }
+
+    free(starts);
 }
 
 int has_chr(const char * chr) {
@@ -164,7 +188,7 @@ void load_ref_contexts(int n_mod_codes, char ** mod_contexts) {
                         ref->is_context[i][j] = 1;
                     }
                 } else {
-                    search_context_kmp(mod_contexts[i], ref->forward, ref->is_context[i]);
+                    search_context_kmp_mark_window(mod_contexts[i], ref->forward, ref->is_context[i]);
                 }
             }
         }
