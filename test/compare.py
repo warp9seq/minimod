@@ -30,6 +30,8 @@ class MethylationStats:
         self.num_methylated_reads += num_methylated
 
     def methylation_frequency(self):
+        if self.num_reads == 0:
+            return 0.0 # Return 0.0 if there are no reads to avoid division by zero
         return float(self.num_methylated_reads) / self.num_reads
 
 def update_stats(collection, key, num_reads, num_methylated_reads, atype):

@@ -1,4 +1,4 @@
-#!/usr/bin/env bash
+#!/bin/bash
 #
 # Usage: ./compare_files.sh file1.tsv file2.bedmethyl out_dir
 #
