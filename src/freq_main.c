@@ -329,8 +329,6 @@ int freq_main(int argc, char* argv[]) {
     free(mod_contexts);
     fprintf(stderr, "[%s] Reference contexts loaded in %.3f sec\n", __func__, realtime()-realtime2);
 
-    destroy_ref_forward();
-
     //initialise the core data structure
     core_t* core = init_core(opt, realtime0);
 

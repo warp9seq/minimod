@@ -241,10 +241,17 @@ diff -q test/tmp/test16.exp.tsv.sorted test/tmp/test16.tsv.sorted || die "${test
 
 testname="Test 17: freq ChEBI mod code test with pseudouridine (ChEBI: 17802)"
 echo -e "${BLUE}${testname}${NC}"
-ex  ./minimod freq -c "17802" -t 8 test/tmp/genome_chr22.fa test/data/dRNA.bam > test/tmp/test17.tsv || die "${testname} Running the tool failed"
-sort -k1,1 -k2,2n -k4,4 test/expected/test17.tsv > test/tmp/test17.exp.tsv.sorted
-sort -k1,1 -k2,2n -k4,4 test/tmp/test17.tsv > test/tmp/test17.tsv.sorted
-diff -q test/tmp/test17.exp.tsv.sorted test/tmp/test17.tsv.sorted || die "${testname} diff failed"
+ex  ./minimod freq -c "17802[*]" -b -t 8 test/tmp/genome_chr22.fa test/data/dRNA.bam > test/tmp/test17.bedmethyl || die "${testname} Running the tool failed"
+sort -k1,1 -k2,2n -k4,4 test/expected/test17.bedmethyl > test/tmp/test17.exp.tsv.sorted
+sort -k1,1 -k2,2n -k4,4 test/tmp/test17.bedmethyl > test/tmp/test17.bedmethyl.sorted
+diff -q test/tmp/test17.exp.tsv.sorted test/tmp/test17.bedmethyl.sorted || die "${testname} diff failed"
+
+testname="Test 17a: view ChEBI mod code test with pseudouridine (ChEBI: 17802)"
+echo -e "${BLUE}${testname}${NC}"
+ex  ./minimod view -c "17802[*]" -t 8 test/tmp/genome_chr22.fa test/data/dRNA.bam > test/tmp/test17a.tsv || die "${testname} Running the tool failed"
+sort -k1,1 -k2,2n -k3,3 -k6,6 test/expected/test17a.tsv > test/tmp/test17a.exp.tsv.sorted
+sort -k1,1 -k2,2n -k3,3 -k6,6 test/tmp/test17a.tsv > test/tmp/test17a.tsv.sorted
+diff -q test/tmp/test17a.exp.tsv.sorted test/tmp/test17a.tsv.sorted || die "${testname} diff failed"
 
 testname="Test 18: summary dRNA"
 echo -e "${BLUE}${testname}${NC}"

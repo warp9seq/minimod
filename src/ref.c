@@ -35,6 +35,8 @@ SOFTWARE.
 #include "kseq.h"
 #include "khash.h"
 
+#define WILDCARD_STR "*"
+
 KSEQ_INIT(gzFile, gzread);
 KHASH_MAP_INIT_STR(refm, ref_t *);
 khash_t(refm)* ref_map;
@@ -181,7 +183,7 @@ void load_ref_contexts(int n_mod_codes, char ** mod_contexts) {
                 ref->is_context[i] = (uint8_t *) calloc(ref->ref_seq_length, sizeof(uint8_t));
                 MALLOC_CHK(ref->is_context[i]);
 
-                if(strcmp(mod_contexts[i], "*") == 0){ // if context is *, fill is_context with 1
+                if(strcmp(mod_contexts[i], WILDCARD_STR) == 0){ // if context is *, fill is_context with 1
                     for(int j=0;j<ref->ref_seq_length;j++){
                         ref->is_context[i][j] = 1;
                     }
@@ -215,6 +217,7 @@ void destroy_ref(int n_mod_codes) {
             char * ref_name = (char *) kh_key(ref_map, k);
             free(ref_name);
             free(ref->is_context);
+            free(ref->forward);
             free(ref);
         }
     }

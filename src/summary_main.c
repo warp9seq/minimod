@@ -405,7 +405,7 @@ int summary_main(int argc, char* argv[]) {
     fprintf(stderr,"\n[%s] total bytes: %.1f M",__func__,core->total_bytes/(float)(1000*1000));
     fprintf(stderr,"\n[%s] total skipped entries: %ld",__func__,(long)(core->total_reads-core->processed_reads));
     fprintf(stderr,"\n[%s] total skipped bytes: %.1f M",__func__,(core->total_bytes-core->processed_bytes)/(float)(1000*1000));
-    fprintf(stderr,"\n[%s] total processed entries: %uld",__func__,core->processed_reads);
+    fprintf(stderr,"\n[%s] total processed entries: %ld",__func__,(long)core->processed_reads);
     fprintf(stderr,"\n[%s] total processed bytes: %.1f M",__func__,(core->processed_bytes)/(float)(1000*1000));
 
     fprintf(stderr, "\n[%s] Data loading time: %.3f sec", __func__,core->load_db_time);

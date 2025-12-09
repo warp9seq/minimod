@@ -45,6 +45,7 @@ SOFTWARE.
 #define IS_DIGIT(c) (c >= '0' && c <= '9')
 
 #define KEY_SIZE 4
+#define WILDCARD_STR "*"
 
 static const int valid_bases[256] = { ['A'] = 1, ['C'] = 1, ['G'] = 1, ['T'] = 1, ['U'] = 1, ['N'] = 1, ['a'] = 1, ['c'] = 1, ['g'] = 1, ['t'] = 1, ['u'] = 1, ['n'] = 1 };
 static const int valid_strands[256] = { ['+'] = 1, ['-'] = 1 };
@@ -239,7 +240,7 @@ void parse_mod_codes(opt_t *opt) {
         } else if(opt->mod_codes_str[i] == ','){ // context is *
             char * default_ctx = get_default_context(mod_code);
             strcpy(context, default_ctx);
-            INFO("Context not provided for modification code %s. Using %s in -c argument", mod_code, context);
+            INFO("Context not provided for modification code %s in -c argument. Using %s", mod_code, context);
             
             i++;
         } else if(opt->mod_codes_str[i] == '\0'){
@@ -882,7 +883,7 @@ void freq_view_single(core_t * core, db_t *db, int32_t bam_i) {
     int ml_start_idx = 0;
 
     char modbase;
-    char mod_strand;
+    // char mod_strand;
     char * mod_codes = db->mod_codes[bam_i];
     int mod_codes_len;
     int * skip_counts = db->skip_counts[bam_i];
@@ -900,14 +901,14 @@ void freq_view_single(core_t * core, db_t *db, int32_t bam_i) {
         // get base
         if(i < mm_str_len) {
             ASSERT_MSG(valid_bases[(int)mm_string[i]], "Invalid base:%c\n", mm_string[i]);
-            modbase = mm_string[i];
+            modbase = mm_string[i] == 'U' ? 'T' : mm_string[i]; // convert U to T
             i++;
         }
 
         // get strand
         if(i < mm_str_len) {
             ASSERT_MSG(valid_strands[(int)mm_string[i]], "Invalid strand:%c\n", mm_string[i]);
-            mod_strand = mm_string[i];
+            // mod_strand = mm_string[i];
             i++;
         }
 
@@ -995,7 +996,7 @@ void freq_view_single(core_t * core, db_t *db, int32_t bam_i) {
         int ml_idx = ml_start_idx;
         for(int c=0; c<skip_counts_len; c++) {
             base_rank += skip_counts[c] + 1;
-            char mb;
+            char mb = modbase;
             int idx;
             int read_pos;
 
@@ -1009,8 +1010,6 @@ void freq_view_single(core_t * core, db_t *db, int32_t bam_i) {
             } else {
                 if(rev) {
                     mb = base_complement_lookup[(int)modbase];
-                } else {
-                    mb = modbase;
                 }
 
                 idx = base_idx_lookup[(int)mb];
@@ -1031,6 +1030,7 @@ void freq_view_single(core_t * core, db_t *db, int32_t bam_i) {
 
             ASSERT_MSG(read_pos>=0 && read_pos < seq_len, "Read pos cannot exceed seq len. read_pos: %d seq_len: %d\n", read_pos, seq_len);
 
+            // const char read_base = seq_nt16_str[bam_seqi(seq, read_pos)];
             int ref_pos = aln_pairs[read_pos];
             if(core->opt.insertions) {
                 ref_pos = ref_pos == -1 ? db->ins[bam_i][read_pos] : ref_pos;
@@ -1043,10 +1043,10 @@ void freq_view_single(core_t * core, db_t *db, int32_t bam_i) {
                 continue;
             }
 
-            char out_strand = strand;
-            if(mod_strand == '-') {
-                out_strand = strand == '+' ? '-' : '+';
-            }
+            // char out_strand = strand;
+            // if(mod_strand == '-') {
+            //     out_strand = strand == '+' ? '-' : '+';
+            // }
             
             // mod prob per each mod code.
             for(int m=0; m<mod_codes_len; m++) {                
@@ -1055,7 +1055,7 @@ void freq_view_single(core_t * core, db_t *db, int32_t bam_i) {
                 // check required mod codes
                 khint_t mk;
 
-                mk = kh_get(modcodesm, core->opt.modcodes_map, "*"); // check for wildcard first
+                mk = kh_get(modcodesm, core->opt.modcodes_map, WILDCARD_STR); // check for wildcard first
                 char * mod_code = NULL;
                 if (has_nums) { // chebi id
                     mod_code = mod_codes;
@@ -1071,9 +1071,13 @@ void freq_view_single(core_t * core, db_t *db, int32_t bam_i) {
 
                 modcodem_t *req_mod = kh_value(core->opt.modcodes_map, mk);
 
+                int require_all_contexts = strcmp(req_mod->context, WILDCARD_STR) == 0 ? 1 : 0;
+                int matches_reference = mb == 'N' || ref->forward[ref_pos] == mb;
+
+
                 if(core->opt.insertions) { // no need to check context for insertions
 
-                } else if (ref->is_context[req_mod->index][ref_pos] == 1) { // in context
+                } else if (ref->is_context[req_mod->index][ref_pos] == 1 && (require_all_contexts || matches_reference)) { // in context and mod_base matches reference
                 } else {
                     continue;
                 }
@@ -1096,9 +1100,9 @@ void freq_view_single(core_t * core, db_t *db, int32_t bam_i) {
                         continue;
                     }
                     
-                    update_freq_map(db->freq_maps[bam_i], tname, ref_pos, ins_offset, mod_code, out_strand, haplotype, is_called, is_mod);
+                    update_freq_map(db->freq_maps[bam_i], tname, ref_pos, ins_offset, mod_code, strand, haplotype, is_called, is_mod);
                 } else if (core->opt.subtool == VIEW) {
-                    add_view_entry(db->view_maps[bam_i], tname, ref_pos, ins_offset, mod_code, out_strand, haplotype, mod_prob, read_pos);
+                    add_view_entry(db->view_maps[bam_i], tname, ref_pos, ins_offset, mod_code, strand, haplotype, mod_prob, read_pos);
                 }
             }
 
@@ -1208,7 +1212,7 @@ void summary_single(core_t * core, db_t *db, int32_t bam_i) {
         // get base
         if(i < mm_str_len) {
             ASSERT_MSG(valid_bases[(int)mm_string[i]], "Invalid base:%c\n", mm_string[i]);
-            modbase = mm_string[i];
+            modbase = mm_string[i] == 'U' ? 'T' : mm_string[i]; // convert U to T
             i++;
         }
 
