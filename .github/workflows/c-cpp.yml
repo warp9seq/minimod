@@ -160,17 +160,17 @@ jobs:
   #     run: make -j8
   #   - name: test
   #     run: make test
-  os_x_13:
-    name: OSX 13
-    runs-on: macos-13
-    steps:
-    - uses: actions/checkout@v2
-    - name: install htslib
-      run: ./scripts/install-hts.sh
-    - name: build
-      run: make -j8
-    - name: test
-      run: make test
+  # os_x_13:
+  #   name: OSX 13
+  #   runs-on: macos-13
+  #   steps:
+  #   - uses: actions/checkout@v2
+  #   - name: install htslib
+  #     run: ./scripts/install-hts.sh
+  #   - name: build
+  #     run: make -j8
+  #   - name: test
+  #     run: make test
   os_x_14:
     name: OSX 14
     runs-on: macos-14
