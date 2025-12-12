@@ -1000,14 +1000,15 @@ void freq_view_single(core_t * core, db_t *db, int32_t bam_i) {
             int idx;
             int read_pos;
 
-            if (modbase == 'N') {
+            if (modbase == 'N') { // if mod_base is N, use rank of all bases
                 if(rev) {
                     read_pos = seq_len - base_rank - 1;
                 } else {
                     read_pos = base_rank;
                 }
                 
-            } else {
+            } else { // otherwise, use rank of specific base
+
                 if(rev) {
                     mb = base_complement_lookup[(int)modbase];
                 }
@@ -1030,7 +1031,6 @@ void freq_view_single(core_t * core, db_t *db, int32_t bam_i) {
 
             ASSERT_MSG(read_pos>=0 && read_pos < seq_len, "Read pos cannot exceed seq len. read_pos: %d seq_len: %d\n", read_pos, seq_len);
 
-            // const char read_base = seq_nt16_str[bam_seqi(seq, read_pos)];
             int ref_pos = aln_pairs[read_pos];
             if(core->opt.insertions) {
                 ref_pos = ref_pos == -1 ? db->ins[bam_i][read_pos] : ref_pos;
@@ -1047,6 +1047,11 @@ void freq_view_single(core_t * core, db_t *db, int32_t bam_i) {
             // if(mod_strand == '-') {
             //     out_strand = strand == '+' ? '-' : '+';
             // }
+
+            char read_base = seq_nt16_str[bam_seqi(seq, read_pos)];
+            if(rev) {
+                read_base = seq_nt16_str[bam_seqi(seq, seq_len - read_pos - 1)];
+            }
             
             // mod prob per each mod code.
             for(int m=0; m<mod_codes_len; m++) {                
@@ -1072,7 +1077,7 @@ void freq_view_single(core_t * core, db_t *db, int32_t bam_i) {
                 modcodem_t *req_mod = kh_value(core->opt.modcodes_map, mk);
 
                 int require_all_contexts = strcmp(req_mod->context, WILDCARD_STR) == 0 ? 1 : 0;
-                int matches_reference = mb == 'N' || ref->forward[ref_pos] == mb;
+                int matches_reference = mb == 'N' || ref->forward[ref_pos] == read_base;
 
 
                 if(core->opt.insertions) { // no need to check context for insertions
