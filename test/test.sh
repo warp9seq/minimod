@@ -258,4 +258,15 @@ echo -e "${BLUE}${testname}${NC}"
 ex  ./minimod summary -t 8 test/data/dRNA.bam > test/tmp/test18.tsv || die "${testname} Running the tool failed"
 diff -q test/expected/test18.tsv test/tmp/test18.tsv || die "${testname} diff failed"
 
+testname="Test 19: view RNA aligned to genome"
+echo -e "${BLUE}${testname}${NC}"
+ex  ./minimod view -c a[A] -t 8 test/tmp/genome_chr22.fa test/data/rna_algn_to_genome.bam > test/tmp/test19.tsv || die "${testname} Running the tool failed"
+neg_count=`awk 'NR > 1 && $3 == "-" { print }' test/tmp/test19.tsv | wc -l`
+echo "Negative strand alignments count: $neg_count"
+pos_count=`awk 'NR > 1 && $3 == "+" { print }' test/tmp/test19.tsv | wc -l`
+echo "Positive strand alignments count: $pos_count"
+# sort -k1,1 -k2,2n -k3,3 -k6,6 test/expected/test19.tsv > test/tmp/test19.exp.tsv.sorted
+# sort -k1,1 -k2,2n -k3,3 -k6,6 test/tmp/test19.tsv > test/tmp/test19.tsv.sorted
+# diff -q test/tmp/test19.exp.tsv.sorted test/tmp/test19.tsv.sorted || die "${testname} diff failed"
+
 echo -e "${GREEN}ALL TESTS PASSED !${NC}"
