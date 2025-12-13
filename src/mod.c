@@ -1000,15 +1000,14 @@ void freq_view_single(core_t * core, db_t *db, int32_t bam_i) {
             int idx;
             int read_pos;
 
-            if (modbase == 'N') { // if mod_base is N, use rank of all bases
+            if (modbase == 'N') {
                 if(rev) {
                     read_pos = seq_len - base_rank - 1;
                 } else {
                     read_pos = base_rank;
                 }
                 
-            } else { // otherwise, use rank of specific base
-
+            } else {
                 if(rev) {
                     mb = base_complement_lookup[(int)modbase];
                 }
@@ -1023,7 +1022,7 @@ void freq_view_single(core_t * core, db_t *db, int32_t bam_i) {
                 ASSERT_MSG(base_rank < bases_pos_lens[idx], "%d th base of %c not found in SEQ. %c base count is %d read_id:%s seq_len:%d mod.base:%c mod_codes:%s\n", base_rank, mb, mb, bases_pos_lens[idx], qname, seq_len, modbase, mod_codes);
                 
                 if(rev) {
-                    read_pos = seq_len - bases_pos[idx][bases_pos_lens[idx] - base_rank - 1] - 1;
+                    read_pos = bases_pos[idx][bases_pos_lens[idx] - base_rank - 1];
                 } else {
                     read_pos = bases_pos[idx][base_rank];
                 }
@@ -1031,7 +1030,11 @@ void freq_view_single(core_t * core, db_t *db, int32_t bam_i) {
 
             ASSERT_MSG(read_pos>=0 && read_pos < seq_len, "Read pos cannot exceed seq len. read_pos: %d seq_len: %d\n", read_pos, seq_len);
 
-            int ref_pos = aln_pairs[read_pos];
+            char read_base = seq_nt16_str[bam_seqi(seq, read_pos)];
+
+            int fastq_read_pos = rev ? (seq_len - read_pos -1) : read_pos;
+
+            int ref_pos = aln_pairs[fastq_read_pos];
             if(core->opt.insertions) {
                 ref_pos = ref_pos == -1 ? db->ins[bam_i][read_pos] : ref_pos;
             }
@@ -1047,11 +1050,6 @@ void freq_view_single(core_t * core, db_t *db, int32_t bam_i) {
             // if(mod_strand == '-') {
             //     out_strand = strand == '+' ? '-' : '+';
             // }
-
-            char read_base = seq_nt16_str[bam_seqi(seq, read_pos)];
-            if(rev) {
-                read_base = seq_nt16_str[bam_seqi(seq, seq_len - read_pos - 1)];
-            }
             
             // mod prob per each mod code.
             for(int m=0; m<mod_codes_len; m++) {                
@@ -1076,13 +1074,14 @@ void freq_view_single(core_t * core, db_t *db, int32_t bam_i) {
 
                 modcodem_t *req_mod = kh_value(core->opt.modcodes_map, mk);
 
-                int require_all_contexts = strcmp(req_mod->context, WILDCARD_STR) == 0 ? 1 : 0;
+                int req_all_contexts = strcmp(req_mod->context, WILDCARD_STR) == 0;
+                int is_in_context = req_all_contexts || (rev && ref->is_context_rev[req_mod->index][ref_pos]) || (!rev && ref->is_context[req_mod->index][ref_pos]);
                 int matches_reference = mb == 'N' || ref->forward[ref_pos] == read_base;
 
 
                 if(core->opt.insertions) { // no need to check context for insertions
 
-                } else if (ref->is_context[req_mod->index][ref_pos] == 1 && (require_all_contexts || matches_reference)) { // in context and mod_base matches reference
+                } else if (is_in_context && matches_reference) { // in context and mod_base matches reference
                 } else {
                     continue;
                 }
@@ -1091,7 +1090,7 @@ void freq_view_single(core_t * core, db_t *db, int32_t bam_i) {
                 uint8_t mod_prob = ml[ml_idx];
                 ASSERT_MSG(mod_prob <= 255 && mod_prob>=0, "Invalid mod_prob:%d\n", mod_prob);
 
-                int ins_offset = core->opt.insertions ? db->ins_offset[bam_i][read_pos] : 0;
+                int ins_offset = core->opt.insertions ? db->ins_offset[bam_i][fastq_read_pos] : 0;
                 if(core->opt.subtool == FREQ) {
                     uint8_t is_mod = 0, is_called = 0;
                     uint8_t thresh = req_mod->thresh;
@@ -1107,7 +1106,7 @@ void freq_view_single(core_t * core, db_t *db, int32_t bam_i) {
                     
                     update_freq_map(db->freq_maps[bam_i], tname, ref_pos, ins_offset, mod_code, strand, haplotype, is_called, is_mod);
                 } else if (core->opt.subtool == VIEW) {
-                    add_view_entry(db->view_maps[bam_i], tname, ref_pos, ins_offset, mod_code, strand, haplotype, mod_prob, read_pos);
+                    add_view_entry(db->view_maps[bam_i], tname, ref_pos, ins_offset, mod_code, strand, haplotype, mod_prob, fastq_read_pos);
                 }
             }
 
