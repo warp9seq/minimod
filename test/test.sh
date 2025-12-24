@@ -265,7 +265,7 @@ neg_count=`awk 'NR > 1 && $3 == "-" { print }' test/tmp/test19.tsv | wc -l`
 echo "Negative strand alignments count: $neg_count"
 pos_count=`awk 'NR > 1 && $3 == "+" { print }' test/tmp/test19.tsv | wc -l`
 echo "Positive strand alignments count: $pos_count"
-if [ "$neg_count" != 359 ] || [ "$pos_count" != 450 ]; then
+if [ "$neg_count" -ne 359 ] || [ "$pos_count" -ne 450 ]; then
     die "${testname} strand counts do not match expected values"
 fi
 # sort -k1,1 -k2,2n -k3,3 -k6,6 test/expected/test19.tsv > test/tmp/test19.exp.tsv.sorted
