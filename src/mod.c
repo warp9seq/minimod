@@ -44,7 +44,7 @@ SOFTWARE.
 #define IS_ALPHA(c) (c >= 'A' && c <= 'Z') || (c >= 'a' && c <= 'z')
 #define IS_DIGIT(c) (c >= '0' && c <= '9')
 
-#define KEY_SIZE 4
+#define KEY_SIZE 2
 #define WILDCARD_STR "*"
 
 static const int valid_bases[256] = { ['A'] = 1, ['C'] = 1, ['G'] = 1, ['T'] = 1, ['U'] = 1, ['N'] = 1, ['a'] = 1, ['c'] = 1, ['g'] = 1, ['t'] = 1, ['u'] = 1, ['n'] = 1 };
@@ -432,8 +432,6 @@ int cmp_key(const void* a, const void* b) {
 
     int start_a = atoi(toks_a[1]);
     int start_b = atoi(toks_b[1]);
-    int end_a = atoi(toks_a[2]);
-    int end_b = atoi(toks_b[2]);
 
     for (int i = 0; i < KEY_SIZE; i++) {
         free(toks_a[i]);
@@ -441,10 +439,6 @@ int cmp_key(const void* a, const void* b) {
     }
     free(toks_a);
     free(toks_b);
-
-    if (start_a == start_b) {
-        return end_a - end_b;
-    }
 
     return start_a - start_b;
 }
@@ -484,7 +478,7 @@ void print_view_output(core_t* core, db_t* db) {
         char ** sorted_keys = (char **)malloc(sizeof(char*) * kh_size(view_map));
         MALLOC_CHK(sorted_keys);
         int size = 0;
-        for (khint_t k = kh_begin(view_map); k != kh_end(view_map); ++k) {
+        for (khint_t k = kh_begin(view_map); k != kh_end(view_map); k++) {
             if (kh_exist(view_map, k)) {
                 sorted_keys[size++] = (char *)kh_key(view_map, k);
             }
@@ -552,7 +546,7 @@ void print_freq_output(core_t * core) {
     char ** sorted_keys = (char **)malloc(sizeof(char*) * kh_size(freq_map));
     MALLOC_CHK(sorted_keys);
     int size = 0;
-    for (khint_t k = kh_begin(freq_map); k != kh_end(freq_map); ++k) {
+    for (khint_t k = kh_begin(freq_map); k != kh_end(freq_map); k++) {
         if (kh_exist(freq_map, k)) {
             sorted_keys[size++] = (char *)kh_key(freq_map, k);
         }
