@@ -728,7 +728,7 @@ static void get_aln(core_t * core, db_t *db, bam_hdr_t *hdr, bam1_t *record, int
             is_inserted = 1;
         } else if(cigar_op == BAM_CSOFT_CLIP) {
             read_inc = 1;
-        } else if(cigar_op == BAM_CHARD_CLIP) {
+        } else if(cigar_op == BAM_CHARD_CLIP) { // TODO: use MN tag (seq len at the time MM value was last written) to check this?
             read_inc = 0;
             ERROR("Hard clipping found in %s and they are not supported.\nTry following workarounds.\n\t01. Filter out non-primary alignments\n\t\tsamtools view -h -F 2308 reads.bam -o primary_reads.bam\n\t02. Use minimap2 with -Y to use soft clipping for suplimentary alignments.\n", qname); 
             exit(EXIT_FAILURE);
@@ -837,7 +837,7 @@ static void add_view_entry(khash_t(viewm) *view_map, const char *tname, int ref_
 
 void freq_view_single(core_t * core, db_t *db, int32_t bam_i) {
     bam1_t *record = db->bam_recs[bam_i];
-    const char *qname = bam_get_qname(record);
+    // const char *qname = bam_get_qname(record);
     int8_t rev = bam_is_rev(record);
     bam_hdr_t *hdr = core->bam_hdr;
     int32_t tid = record->core.tid;
@@ -979,19 +979,14 @@ void freq_view_single(core_t * core, db_t *db, int32_t bam_i) {
         skip_counts_len = k;
         i++;
 
-        if(skip_counts_len == 0) { // no skip counts, no modification
-            continue;
-        }
-
-        int base_rank = -1; // 0-based rank
-
         char mb = rev? base_complement_lookup[(int)modbase] : modbase;
         int idx = base_idx_lookup[(int)mb];
-        ASSERT_MSG(base_rank < bases_pos_lens[idx], "%d th base of %c not found in SEQ. %c base count is %d read_id:%s seq_len:%d mod.base:%c mod_codes:%s\n", base_rank, mb, mb, bases_pos_lens[idx], qname, seq_len, modbase, mod_codes);
-
+        
         int ml_idx = ml_start_idx;
+        int base_rank = -1; // 0-based rank
         for(int c=0; c<skip_counts_len; c++) {
             base_rank += skip_counts[c] + 1;
+
             int read_pos;
 
             if (modbase == 'N') {
@@ -1016,8 +1011,8 @@ void freq_view_single(core_t * core, db_t *db, int32_t bam_i) {
 
             int ref_pos = aln_pairs[fastq_read_pos];
             if(core->opt.insertions) {
-                ref_pos = ref_pos == -1 ? db->ins[bam_i][read_pos] : ref_pos;
-            }
+                ref_pos = ref_pos == -1 ? db->ins[bam_i][fastq_read_pos] : ref_pos;
+            } 
 
             if(ref_pos == -1) { // not aligned nor insertion
                 if(mod_codes_len > 0) {
@@ -1167,7 +1162,7 @@ void freq_view_single(core_t * core, db_t *db, int32_t bam_i) {
                             continue;
                         }
 
-                        int ins_offset = core->opt.insertions ? db->ins_offset[bam_i][skip_read_pos] : 0;
+                        int ins_offset = core->opt.insertions ? db->ins_offset[bam_i][skip_fastq_read_pos] : 0;
 
                         if(core->opt.subtool == FREQ) {
                             uint8_t is_mod = 0, is_called = 1; // skipped bases are called as unmodified
@@ -1179,7 +1174,85 @@ void freq_view_single(core_t * core, db_t *db, int32_t bam_i) {
                 }
                 prev_skip_base_rank = skip_base_rank;
             }
-            
+
+            // handle skipped bases after the last skip count
+            for(int s=prev_skip_base_rank+1; s<bases_pos_lens[idx]; s++) {
+                int skip_read_pos;
+                if (modbase == 'N') {
+                    if(rev) {
+                        skip_read_pos = seq_len - s - 1;
+                    } else {
+                        skip_read_pos = s;
+                    }
+                } else {
+                    if(rev) {
+                        skip_read_pos = bases_pos[idx][bases_pos_lens[idx] - s - 1];
+                    } else {
+                        skip_read_pos = bases_pos[idx][s];
+                    }
+                }
+
+                ASSERT_MSG(skip_read_pos>=0 && skip_read_pos < seq_len, "Read pos cannot exceed seq len. read_pos: %d seq_len: %d\n", skip_read_pos, seq_len);
+
+                char skip_read_base = seq_nt16_str[bam_seqi(seq, skip_read_pos)];
+
+                int skip_fastq_read_pos = rev ? (seq_len - skip_read_pos -1) : skip_read_pos;
+
+                int skip_ref_pos = aln_pairs[skip_fastq_read_pos];
+                if(core->opt.insertions) {
+                    skip_ref_pos = skip_ref_pos == -1 ? db->ins[bam_i][skip_read_pos] : skip_ref_pos;
+                }
+
+                if(skip_ref_pos == -1) { // not aligned nor insertion
+                    continue;
+                }
+
+                // mod prob per each mod code.
+                for(int m=0; m<mod_codes_len; m++) {
+
+                    // check required mod codes
+                    khint_t mk;
+
+                    mk = kh_get(modcodesm, core->opt.modcodes_map, WILDCARD_STR); // check for wildcard first
+                    char * mod_code = NULL;
+                    if (has_nums) { // chebi id
+                        mod_code = mod_codes;
+                    } else { // not chebi id, need to check for each mod code
+                        mod_code = &(mod_codes[m]);
+                    }
+                    if (mk != kh_end(core->opt.modcodes_map)) { // wildcard present, all mod codes are required
+                        // do nothing, just proceed
+                    } else {
+                        mk = kh_get(modcodesm, core->opt.modcodes_map, mod_code);
+                        if(mk == kh_end(core->opt.modcodes_map)) {
+                            continue; // mod code not required
+                        }
+                    }
+
+                    modcodem_t *req_mod = kh_value(core->opt.modcodes_map, mk);
+
+                        int req_all_contexts = strcmp(req_mod->context, WILDCARD_STR) == 0;
+                        int skip_is_in_context = req_all_contexts || (rev && ref->is_context_rev[req_mod->index][skip_ref_pos]) || (!rev && ref->is_context[req_mod->index][skip_ref_pos]);
+                        int skip_matches_reference = mb == 'N' || ref->forward[skip_ref_pos] == skip_read_base;
+
+                        if(core->opt.insertions) { // no need to check context for insertions
+
+                        } else if (skip_is_in_context && skip_matches_reference) { // in context and mod_base matches reference
+                        } else {
+                            continue;
+                        }
+
+                        int ins_offset = core->opt.insertions ? db->ins_offset[bam_i][skip_fastq_read_pos] : 0;
+
+                        if(core->opt.subtool == FREQ) {
+                            uint8_t is_mod = 0, is_called = 1; // skipped bases are called as unmodified
+                            update_freq_map(db->freq_maps[bam_i], tname, skip_ref_pos, ins_offset, mod_code, strand, haplotype, is_called, is_mod);
+                        } else if (core->opt.subtool == VIEW) {
+                            add_view_entry(db->view_maps[bam_i], tname, skip_ref_pos, ins_offset, mod_code, strand, haplotype, 0, skip_fastq_read_pos);
+                        }
+                    }
+                }
+        
         }
         
     }

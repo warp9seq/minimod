@@ -274,9 +274,9 @@ ret_status_t load_db(core_t* core, db_t* db) {
 
         uint32_t ml_len;
         uint8_t *ml = get_ml_tag(rec, &ml_len);
-        if (!ml) {
-            continue;
-        }
+        // if (!ml) {
+        //     continue;
+        // }
 
         db->aln[i] = (int*)malloc(sizeof(int)*rec->core.l_qseq);
         MALLOC_CHK(db->aln[i]);
