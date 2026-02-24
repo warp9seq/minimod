@@ -492,6 +492,7 @@ int freq_main(int argc, char* argv[]) {
     fprintf(stderr, "\n[%s] Data loading time: %.3f sec", __func__,core->load_db_time);
     fprintf(stderr, "\n[%s] Data processing time: %.3f sec", __func__,core->process_db_time);
     fprintf(stderr, "\n[%s] Data merging time: %.3f sec", __func__,core->merge_db_time);
+    fprintf(stderr, "\n[%s] Data sorting time: %.3f sec", __func__,core->sort_time);
     fprintf(stderr, "\n[%s] Data output time: %.3f sec", __func__,core->output_time);
 
     fprintf(stderr,"\n");
