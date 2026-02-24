@@ -51,7 +51,7 @@ SOFTWARE.
 #define STEAL_THRESH 1 //stealing threshold
 
 //set if input, processing and output are not to be interleaved (serial mode) - useful for debugging
-#define IO_PROC_NO_INTERLEAVE 1
+// #define IO_PROC_NO_INTERLEAVE 1
 
 #define  MOD_CODE_LEN 10 // maximum length of modification codes string
 #define N_BASES 6 // A, C, G, T, N, U

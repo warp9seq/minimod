@@ -36,6 +36,7 @@ typedef struct {
     int32_t ref_seq_length;
     char * forward;
     uint8_t ** is_context;
+    uint8_t ** is_context_rev;
 } ref_t;
 
 void load_ref(const char * genome);

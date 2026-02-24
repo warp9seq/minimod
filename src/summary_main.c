@@ -347,7 +347,7 @@ int summary_main(int argc, char* argv[]) {
         pt_arg->finished = 0;
 
         //process thread launch
-        int ret = pthread_create(&tid_p, NULL, pthread_processor_view,
+        int ret = pthread_create(&tid_p, NULL, pthread_processor_summary,
                                 (void*)(pt_arg));
         NEG_CHK(ret);
         if(get_log_level() > LOG_VERB){
@@ -368,7 +368,7 @@ int summary_main(int argc, char* argv[]) {
         first_flag_pp=1;
 
         //post-process thread launch (output and freeing thread)
-        ret = pthread_create(&tid_pp, NULL, pthread_post_processor_view,
+        ret = pthread_create(&tid_pp, NULL, pthread_post_processor_summary,
                                 (void*)(pt_arg));
         NEG_CHK(ret);
         if(get_log_level() > LOG_VERB){
@@ -405,7 +405,7 @@ int summary_main(int argc, char* argv[]) {
     fprintf(stderr,"\n[%s] total bytes: %.1f M",__func__,core->total_bytes/(float)(1000*1000));
     fprintf(stderr,"\n[%s] total skipped entries: %ld",__func__,(long)(core->total_reads-core->processed_reads));
     fprintf(stderr,"\n[%s] total skipped bytes: %.1f M",__func__,(core->total_bytes-core->processed_bytes)/(float)(1000*1000));
-    fprintf(stderr,"\n[%s] total processed entries: %uld",__func__,core->processed_reads);
+    fprintf(stderr,"\n[%s] total processed entries: %ld",__func__,(long)core->processed_reads);
     fprintf(stderr,"\n[%s] total processed bytes: %.1f M",__func__,(core->processed_bytes)/(float)(1000*1000));
 
     fprintf(stderr, "\n[%s] Data loading time: %.3f sec", __func__,core->load_db_time);

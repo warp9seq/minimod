@@ -35,9 +35,13 @@ SOFTWARE.
 #include "kseq.h"
 #include "khash.h"
 
+#define WILDCARD_STR "*"
+
 KSEQ_INIT(gzFile, gzread);
 KHASH_MAP_INIT_STR(refm, ref_t *);
 khash_t(refm)* ref_map;
+
+static const char base_complement_lookup[256] = { ['A'] = 'T', ['C'] = 'G', ['G'] = 'C', ['T'] = 'A', ['U'] = 'A', ['N'] = 'N', ['a'] = 't', ['c'] = 'g', ['g'] = 'c', ['t'] = 'a', ['u'] = 'a', ['n'] = 'n' };
 
 void load_ref(const char * genome) {
     gzFile fp;
@@ -84,6 +88,7 @@ void load_ref(const char * genome) {
 
 }
 
+// KMP algorithm to search for pattern in text and mark matches in result array
 static void search_context_kmp(const char* pat, const char* txt, uint8_t* result) {
     int M = strlen(pat);
     int N = strlen(txt);
@@ -113,7 +118,7 @@ static void search_context_kmp(const char* pat, const char* txt, uint8_t* result
     int j = 0; 
   
     while ((N - i) >= (M - j)) {
-        int matched = pat[j] == txt[i];
+        int matched = (pat[j] == txt[i]);
         if (matched) {
             j++;
             i++;
@@ -133,6 +138,29 @@ static void search_context_kmp(const char* pat, const char* txt, uint8_t* result
     free(lps);
 }
 
+// KMP-based function to mark all positions in text that are part of any match of pattern
+void search_context_kmp_mark_window(const char *pattern, const char *text, uint8_t *out) {
+    int m = strlen(pattern);
+    int n = strlen(text);
+
+    // temporary array: KMP will mark starts
+    uint8_t *starts = calloc(n, sizeof(uint8_t));
+
+    // run your existing KMP match finder
+    search_context_kmp(pattern, text, starts);
+
+    // expand each match to cover entire pattern length
+    for (int i = 0; i < n; i++) {
+        if (starts[i]) {
+            for (int j = i; j < i + m && j < n; j++) {
+                out[j] = 1;
+            }
+        }
+    }
+
+    free(starts);
+}
+
 int has_chr(const char * chr) {
     khiter_t k = kh_get(refm, ref_map, chr);
     return k != kh_end(ref_map);
@@ -147,25 +175,57 @@ ref_t * get_ref(const char * chr) {
 }
 
 void load_ref_contexts(int n_mod_codes, char ** mod_contexts) {
+
+    char ** rev_mod_contexts = (char **) malloc(n_mod_codes * sizeof(char *));
+    MALLOC_CHK(rev_mod_contexts);
+
+    // generate reverse contexts
+    for (int i = 0; i < n_mod_codes; i++) {
+        int len = strlen(mod_contexts[i]);
+        rev_mod_contexts[i] = (char *) malloc((len + 1) * sizeof(char));
+        MALLOC_CHK(rev_mod_contexts[i]);
+        for (int j = 0; j < len; j++) {
+            char base = mod_contexts[i][len - j - 1];
+            char comp_base = base_complement_lookup[(unsigned char)base];
+            rev_mod_contexts[i][j] = comp_base;
+        }
+        rev_mod_contexts[i][len] = '\0';
+    }
+
     for (khiter_t k = kh_begin(ref_map); k != kh_end(ref_map); ++k) {
         if (kh_exist(ref_map, k)) {
             ref_t * ref = kh_value(ref_map, k);
-            ref->is_context = (uint8_t **) malloc(n_mod_codes * sizeof(uint8_t *));
+            ref->is_context = (uint8_t **) calloc(n_mod_codes, sizeof(uint8_t *));
             MALLOC_CHK(ref->is_context);
+
+            ref->is_context_rev = (uint8_t **) calloc(n_mod_codes, sizeof(uint8_t *));
+            MALLOC_CHK(ref->is_context_rev);
+
             for (int i = 0; i < n_mod_codes; i++) {
                 ref->is_context[i] = (uint8_t *) calloc(ref->ref_seq_length, sizeof(uint8_t));
                 MALLOC_CHK(ref->is_context[i]);
 
-                if(strcmp(mod_contexts[i], "*") == 0){ // if context is *, fill is_context with 1
+                ref->is_context_rev[i] = (uint8_t *) calloc(ref->ref_seq_length, sizeof(uint8_t));
+                MALLOC_CHK(ref->is_context_rev[i]);
+
+                if(strcmp(mod_contexts[i], WILDCARD_STR) == 0){ // if context is *, fill is_context with 1
                     for(int j=0;j<ref->ref_seq_length;j++){
                         ref->is_context[i][j] = 1;
+                        ref->is_context_rev[i][j] = 1;
                     }
                 } else {
-                    search_context_kmp(mod_contexts[i], ref->forward, ref->is_context[i]);
+                    search_context_kmp_mark_window(mod_contexts[i], ref->forward, ref->is_context[i]);
+                    search_context_kmp_mark_window(rev_mod_contexts[i], ref->forward, ref->is_context_rev[i]);
                 }
             }
         }
     }
+
+    // free reverse contexts
+    for (int i = 0; i < n_mod_codes; i++) {
+        free(rev_mod_contexts[i]);
+    }
+    free(rev_mod_contexts);
 }
 
 void destroy_ref_forward() {
@@ -185,10 +245,13 @@ void destroy_ref(int n_mod_codes) {
             ref_t * ref = kh_value(ref_map, k);
             for (int i = 0; i < n_mod_codes; i++) {
                 free(ref->is_context[i]);
+                free(ref->is_context_rev[i]);
             }
             char * ref_name = (char *) kh_key(ref_map, k);
             free(ref_name);
             free(ref->is_context);
+            free(ref->is_context_rev);
+            free(ref->forward);
             free(ref);
         }
     }
