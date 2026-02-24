@@ -404,7 +404,9 @@ void free_db_tmp(core_t* core, db_t* db) {
         if(core->opt.subtool == FREQ) {
             for (khiter_t k = kh_begin(db->freq_map[i]); k != kh_end(db->freq_maps[i]); ++k) {
                 if (kh_exist(db->freq_maps[i], k)) {
+                    char *key = (char*) kh_key(db->freq_maps[i], k);
                     freq_t *freq = kh_value(db->freq_maps[i], k);
+                    free(key);
                     free(freq);
                 }
             }

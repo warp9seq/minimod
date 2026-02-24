@@ -719,19 +719,16 @@ void merge_freq_maps(core_t* core, db_t* db) {
                 khint_t core_k = kh_put(freqm, core_map, key, &ret);
                 
                 if (ret == 0) {
-                    // Key already existed in core_map
+                    // key already exists in core_map
                     freq_t *core_freq = kh_value(core_map, core_k);
                     core_freq->n_called += db_freq->n_called;
                     core_freq->n_mod += db_freq->n_mod;
                     
-                    free(key);
                 } else {
-                    // Key did not exist and was just inserted.
-                    freq_t *core_freq = (freq_t *)malloc(sizeof(freq_t));
-                    MALLOC_CHK(core_freq);
-                    kh_value(core_map, core_k) = core_freq;
-                    core_freq->n_called = db_freq->n_called;
-                    core_freq->n_mod = db_freq->n_mod;
+                    // key does not exist, insert
+                    kh_value(core_map, core_k) = db_freq;
+                    // remove from rec_map to avoid double free later
+                    kh_del(freqm, rec_map, k);
                 }
             }
         }
