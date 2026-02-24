@@ -181,6 +181,7 @@ typedef struct {
     double process_db_time;
     double merge_db_time;
     double output_time;
+    double sort_time;
 
     //stats //set by output_db
     uint32_t total_reads; //total number entries in the bam file

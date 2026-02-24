@@ -41,11 +41,55 @@ SOFTWARE.
 #include <stdbool.h>
 #include <pthread.h>
 
+// Fallback for systems/compilers that don't expose drand48
+#ifndef drand48
+#define drand48() ((double)rand() / RAND_MAX)
+#endif
+
+#include "ksort.h"
+
 #define IS_ALPHA(c) (c >= 'A' && c <= 'Z') || (c >= 'a' && c <= 'z')
 #define IS_DIGIT(c) (c >= '0' && c <= '9')
 
 #define KEY_SIZE 2
 #define WILDCARD_STR "*"
+
+// zero-allocation comparator
+int cmp_key_fast(const char *key_a, const char *key_b) {
+    // find the first tab (end of the contig string)
+    const char *tab_a = strchr(key_a, '\t');
+    const char *tab_b = strchr(key_b, '\t');
+
+    // calculate the length of the contig portions
+    size_t len_a = tab_a ? (size_t)(tab_a - key_a) : strlen(key_a);
+    size_t len_b = tab_b ? (size_t)(tab_b - key_b) : strlen(key_b);
+
+    // compare the contigs up to the length of the shorter one
+    size_t min_len = len_a < len_b ? len_a : len_b;
+    int cmp = strncmp(key_a, key_b, min_len);
+
+    // if contigs are different, we have our answer
+    if (cmp != 0) return cmp;
+    
+    // if the prefixes match but lengths differ, the shorter one comes first
+    if (len_a != len_b) return (len_a < len_b) ? -1 : 1;
+
+    // contigs are exactly identical. compare start positions.
+    // if there is no tab, they are identical strings.
+    if (!tab_a || !tab_b) return 0;
+
+    // atoi automatically stops reading when it hits the next tab
+    int start_a = atoi(tab_a + 1);
+    int start_b = atoi(tab_b + 1);
+
+    return start_a - start_b;
+}
+
+#define freq_kv_lt(a, b) (cmp_key_fast((a).key, (b).key) < 0)
+#define view_kv_lt(a, b) (cmp_key_fast((a).key, (b).key) < 0)
+
+KSORT_INIT(freq, freq_kv_t, freq_kv_lt)
+KSORT_INIT(view, view_kv_t, view_kv_lt)
 
 static const int valid_bases[256] = { ['A'] = 1, ['C'] = 1, ['G'] = 1, ['T'] = 1, ['U'] = 1, ['N'] = 1, ['a'] = 1, ['c'] = 1, ['g'] = 1, ['t'] = 1, ['u'] = 1, ['n'] = 1 };
 static const int valid_strands[256] = { ['+'] = 1, ['-'] = 1 };
@@ -378,70 +422,82 @@ void decode_key(char *key, char **chrom, int *pos, uint16_t * ins_offset, char *
     *haplotype = atoi(strtok(NULL, "\t"));
 }
 
-/* Split tab-delimited keys for sorting*/
-char** split_key(char* key, int size) {
-    char** tok = (char**)malloc(sizeof(char*) * size);
-    MALLOC_CHK(tok);
-    char* cpy = (char*)malloc((strlen(key) + 1) * sizeof(char));
-    MALLOC_CHK(cpy);
-    strcpy(cpy, key);
-    char* cpy_start = cpy;
+// /* Split tab-delimited keys for sorting*/
+// char** split_key(char* key, int size) {
+//     char** tok = (char**)malloc(sizeof(char*) * size);
+//     MALLOC_CHK(tok);
+//     char* cpy = (char*)malloc((strlen(key) + 1) * sizeof(char));
+//     MALLOC_CHK(cpy);
+//     strcpy(cpy, key);
+//     char* cpy_start = cpy;
 
-    char* t = strtok(cpy, "\t");
-    if (t) {
-        char * tmp = (char *)malloc((strlen(t) + 1) * sizeof(char));
-        MALLOC_CHK(tmp);
-        strcpy(tmp, t);
-        tok[0] = tmp;
-    }
+//     char* t = strtok(cpy, "\t");
+//     if (t) {
+//         char * tmp = (char *)malloc((strlen(t) + 1) * sizeof(char));
+//         MALLOC_CHK(tmp);
+//         strcpy(tmp, t);
+//         tok[0] = tmp;
+//     }
 
-    for (int i = 1; i < size; i++) {
-        char* t = strtok(NULL, "\t");
-        if (t) {
-            char * tmp = (char *)malloc((strlen(t) + 1) * sizeof(char));
-            MALLOC_CHK(tmp);
-            strcpy(tmp, t);
-            tok[i] = tmp;
-        }
-    }
+//     for (int i = 1; i < size; i++) {
+//         char* t = strtok(NULL, "\t");
+//         if (t) {
+//             char * tmp = (char *)malloc((strlen(t) + 1) * sizeof(char));
+//             MALLOC_CHK(tmp);
+//             strcpy(tmp, t);
+//             tok[i] = tmp;
+//         }
+//     }
 
-    free(cpy_start);
+//     free(cpy_start);
 
-    return tok;
-}
+//     return tok;
+// }
 
-/* Compare two keys for sorting*/
-int cmp_key(const void* a, const void* b) {
-    char* key_a = *(char**)a;
-    char* key_b = *(char**)b;
+// /* Compare two keys for sorting*/
+// int cmp_key(const void* a, const void* b) {
+//     char* key_a = *(char**)a;
+//     char* key_b = *(char**)b;
 
-    char** toks_a = split_key(key_a, KEY_SIZE);
-    char** toks_b = split_key(key_b, KEY_SIZE);
+//     char** toks_a = split_key(key_a, KEY_SIZE);
+//     char** toks_b = split_key(key_b, KEY_SIZE);
 
-    int chromosome_neq = strcmp(toks_a[0], toks_b[0]);
+//     int chromosome_neq = strcmp(toks_a[0], toks_b[0]);
 
-    if (chromosome_neq) {
-        for (int i = 0; i < KEY_SIZE; i++) {
-            free(toks_a[i]);
-            free(toks_b[i]);
-        }
-        free(toks_a);
-        free(toks_b);
-        return chromosome_neq;
-    }
+//     if (chromosome_neq) {
+//         for (int i = 0; i < KEY_SIZE; i++) {
+//             free(toks_a[i]);
+//             free(toks_b[i]);
+//         }
+//         free(toks_a);
+//         free(toks_b);
+//         return chromosome_neq;
+//     }
 
-    int start_a = atoi(toks_a[1]);
-    int start_b = atoi(toks_b[1]);
+//     int start_a = atoi(toks_a[1]);
+//     int start_b = atoi(toks_b[1]);
 
-    for (int i = 0; i < KEY_SIZE; i++) {
-        free(toks_a[i]);
-        free(toks_b[i]);
-    }
-    free(toks_a);
-    free(toks_b);
+//     for (int i = 0; i < KEY_SIZE; i++) {
+//         free(toks_a[i]);
+//         free(toks_b[i]);
+//     }
+//     free(toks_a);
+//     free(toks_b);
 
-    return start_a - start_b;
-}
+//     return start_a - start_b;
+// }
+
+// int cmp_freq_kv(const void *a, const void *b) {
+//     freq_kv_t *kv_a = (freq_kv_t *)a;
+//     freq_kv_t *kv_b = (freq_kv_t *)b;
+//     return cmp_key_fast(kv_a->key, kv_b->key);
+// }
+
+// int cmp_view_kv(const void *a, const void *b) {
+//     view_kv_t *kv_a = (view_kv_t *)a;
+//     view_kv_t *kv_b = (view_kv_t *)b;
+//     return cmp_key_fast(kv_a->key, kv_b->key);
+// }
 
 void print_view_options(opt_t *opt) {
     khint_t i;
@@ -468,58 +524,70 @@ void print_view_header(core_t* core) {
 }
 
 void print_view_output(core_t* core, db_t* db) {
-    
-    for(int i =0; i < db->n_bam_recs; i++) {
+    FILE *out_fp = core->opt.output_fp;
+    int do_insertions = core->opt.insertions == 1;
+    int do_haplotypes = core->opt.haplotypes == 1;
+
+    // Reusable buffer
+    int max_arr_capacity = 0;
+    view_kv_t *sorted_arr = NULL;
+
+    for(int i = 0; i < db->n_bam_recs; i++) {
         bam1_t *record = db->bam_recs[i];
         const char *qname = bam_get_qname(record);
         khash_t(viewm) *view_map = db->view_maps[i];
+        khint_t map_size = kh_size(view_map);
 
-        // sort the keys
-        char ** sorted_keys = (char **)malloc(sizeof(char*) * kh_size(view_map));
-        MALLOC_CHK(sorted_keys);
+        if (map_size == 0) continue;
+
+        if (map_size > max_arr_capacity) {
+            max_arr_capacity = map_size;
+            sorted_arr = (view_kv_t *)realloc(sorted_arr, sizeof(view_kv_t) * max_arr_capacity);
+            MALLOC_CHK(sorted_arr);
+        }
+
         int size = 0;
         for (khint_t k = kh_begin(view_map); k != kh_end(view_map); k++) {
             if (kh_exist(view_map, k)) {
-                sorted_keys[size++] = (char *)kh_key(view_map, k);
+                sorted_arr[size].key = (char *)kh_key(view_map, k);
+                sorted_arr[size].view = kh_value(view_map, k);
+                size++;
             }
         }
-        qsort(sorted_keys, size, sizeof(char*), cmp_key);
 
-        khint_t k;
+        // qsort(sorted_arr, size, sizeof(view_kv_t), cmp_view_kv);
+        ks_introsort_view(size, sorted_arr);
+
         for (int j = 0; j < size; j++) {
-            k = kh_get(viewm, view_map, sorted_keys[j]);
-            if (kh_exist(view_map, k)) {
-                view_t* view = kh_value(view_map, k);
-                char *tname = NULL;
-                int ref_pos;
-                uint16_t ins_offset;
-                char *mod_code;
-                char strand;
-                int haplotype;
-                char * key = (char *) kh_key(view_map, k);
-                decode_key(key, &tname, &ref_pos, &ins_offset, &mod_code, &strand, &haplotype);
+            view_t* view = sorted_arr[j].view;
+            char *tname = NULL;
+            int ref_pos;
+            uint16_t ins_offset;
+            char *mod_code;
+            char strand;
+            int haplotype;
+            char * key = sorted_arr[j].key;
+            decode_key(key, &tname, &ref_pos, &ins_offset, &mod_code, &strand, &haplotype);
 
-                fprintf(core->opt.output_fp, "%s\t%d\t%c\t%s\t%d\t%s\t%f", tname, ref_pos, strand, qname, view->read_pos, mod_code, view->mod_prob/255.0);
-                if(core->opt.insertions==1){
-                    fprintf(core->opt.output_fp, "\t%d", db->ins_offset[i][view->read_pos]);
-                }
-                if(core->opt.haplotypes==1){
-                    fprintf(core->opt.output_fp, "\t%d", haplotype);
-                }
-                fprintf(core->opt.output_fp, "\n");
-
-                free(tname);
-                free(mod_code);
+            fprintf(out_fp, "%s\t%d\t%c\t%s\t%d\t%s\t%f", tname, ref_pos, strand, qname, view->read_pos, mod_code, view->mod_prob / 255.0);
+            if(do_insertions){
+                fprintf(out_fp, "\t%d", db->ins_offset[i][view->read_pos]);
             }
+            if(do_haplotypes){
+                fprintf(out_fp, "\t%d", haplotype);
+            }
+            fputc('\n', out_fp);
+            free(tname);
+            free(mod_code);
         }
-
-        free(sorted_keys);
     }
 
-    
+    if (sorted_arr) {
+        free(sorted_arr);
+    }
 
-    if(core->opt.output_fp != stdout){
-        fclose(core->opt.output_fp);
+    if(out_fp != stdout){
+        fclose(out_fp);
     }
 }
 
@@ -541,81 +609,84 @@ void print_freq_header(core_t * core) {
 
 void print_freq_output(core_t * core) {
     khash_t(freqm) *freq_map = core->freq_map;
+    khint_t map_size = kh_size(freq_map);
+    
+    if (map_size == 0) return;
 
-    // sort the keys
-    char ** sorted_keys = (char **)malloc(sizeof(char*) * kh_size(freq_map));
-    MALLOC_CHK(sorted_keys);
+    double sort_start = realtime();
+    // Allocate array of key-value structs to prevent kh_get lookups
+    freq_kv_t *sorted_arr = (freq_kv_t *)malloc(sizeof(freq_kv_t) * map_size);
+    MALLOC_CHK(sorted_arr);
     int size = 0;
     for (khint_t k = kh_begin(freq_map); k != kh_end(freq_map); k++) {
         if (kh_exist(freq_map, k)) {
-            sorted_keys[size++] = (char *)kh_key(freq_map, k);
+            sorted_arr[size].key = (char *)kh_key(freq_map, k);
+            sorted_arr[size].freq = kh_value(freq_map, k);
+            size++;
         }
     }
-    qsort(sorted_keys, size, sizeof(char*), cmp_key);
+    // qsort(sorted_arr, size, sizeof(freq_kv_t), cmp_freq_kv);
+    ks_introsort_freq(size, sorted_arr);
+    core->sort_time = realtime() - sort_start;
+
+    FILE *out_fp = core->opt.output_fp;
+    int do_insertions = core->opt.insertions;
+    int do_haplotypes = core->opt.haplotypes;
 
     if(core->opt.bedmethyl_out) {
-        // chrom, start, end, mod_code, n_called, strand, start, end, "255,0,0",  n_called, freq
-        khint_t k;
         for (int i = 0; i < size; i++) {
-            k = kh_get(freqm, freq_map, sorted_keys[i]);
-            if (kh_exist(freq_map, k)) {
-                freq_t* freq = kh_value(freq_map, k);
-                double freq_value = (double)freq->n_mod*100/freq->n_called;
-                char *contig = NULL;
-                int ref_pos;
-                uint16_t ins_offset;
-                char *mod_code;
-                char strand;
-                int haplotype;
-                char * key = (char *) kh_key(freq_map, k);
-                decode_key(key, &contig, &ref_pos, &ins_offset, &mod_code, &strand, &haplotype);
-                int end = ref_pos+1;
-                fprintf(core->opt.output_fp, "%s\t%d\t%d\t%s\t%d\t%c\t%d\t%d\t255,0,0\t%d\t%f\n", contig, ref_pos, end, mod_code, freq->n_called, strand, ref_pos, end, freq->n_called, freq_value);
-                free(contig);
-                free(mod_code);
-            }
+            freq_t* freq = sorted_arr[i].freq;
+            double freq_value = (double)freq->n_mod*100/freq->n_called;
+            char *contig = NULL;
+            int ref_pos;
+            uint16_t ins_offset;
+            char *mod_code;
+            char strand;
+            int haplotype;
+            char * key = sorted_arr[i].key;
+            decode_key(key, &contig, &ref_pos, &ins_offset, &mod_code, &strand, &haplotype);
+            int end = ref_pos+1;
+            fprintf(core->opt.output_fp, "%s\t%d\t%d\t%s\t%d\t%c\t%d\t%d\t255,0,0\t%d\t%f\n", contig, ref_pos, end, mod_code, freq->n_called, strand, ref_pos, end, freq->n_called, freq_value);
+            free(contig);
+            free(mod_code);
         }
         
     } else {
-        // contig, start, end, strand, n_called, n_mod, freq, mod_code
-        khint_t k;
         for (int i = 0; i < size; i++) {
-            k = kh_get(freqm, freq_map, sorted_keys[i]);
-            if (kh_exist(freq_map, k)) {
-                freq_t* freq = kh_value(freq_map, k);
-                double freq_value = (double)freq->n_mod/freq->n_called;
-                char * contig = NULL;
-                int ref_pos;
-                uint16_t ins_offset;
-                char * mod_code;
-                char strand;
-                int haplotype;
-                char * key = (char *) kh_key(freq_map, k);
-                decode_key(key, &contig, &ref_pos, &ins_offset, &mod_code, &strand, &haplotype);
+            freq_t* freq = sorted_arr[i].freq;
+            double freq_value = (double)freq->n_mod / freq->n_called;
+            char * contig = NULL;
+            int ref_pos;
+            uint16_t ins_offset;
+            char * mod_code;
+            char strand;
+            int haplotype;
+            char * key = sorted_arr[i].key;
+            decode_key(key, &contig, &ref_pos, &ins_offset, &mod_code, &strand, &haplotype);
 
-                fprintf(core->opt.output_fp, "%s\t%d\t%d\t%c\t%d\t%d\t%f\t%s", contig, ref_pos, ref_pos, strand, freq->n_called, freq->n_mod, freq_value, mod_code);
+            fprintf(out_fp, "%s\t%d\t%d\t%c\t%d\t%d\t%f\t%s", contig, ref_pos, ref_pos, strand, freq->n_called, freq->n_mod, freq_value, mod_code);
 
-                if(core->opt.insertions){
-                    fprintf(core->opt.output_fp, "\t%d", ins_offset);
-                } 
-                if(core->opt.haplotypes) {
-                    if(haplotype == -1){
-                        fprintf(core->opt.output_fp, "\t*");
-                    } else {
-                        fprintf(core->opt.output_fp, "\t%d", haplotype);
-                    }
+            if(do_insertions){
+                fprintf(out_fp, "\t%d", ins_offset);
+            } 
+            if(do_haplotypes) {
+                if(haplotype == -1){
+                    fputs("\t*", out_fp);
+                } else {
+                    fprintf(out_fp, "\t%d", haplotype);
                 }
-                fprintf(core->opt.output_fp, "\n");
-                free(contig);
-                free(mod_code);
             }
+            fputc('\n', out_fp);
+            free(contig);
+            free(mod_code);
         }
     }
 
-    if(core->opt.output_fp != stdout){
-        fclose(core->opt.output_fp);
+    if(out_fp != stdout){
+        fclose(out_fp);
     }
-    free(sorted_keys);
+    
+    free(sorted_arr);
 }
 
 void destroy_freq_map(khash_t(freqm)* freq_map){
@@ -633,30 +704,34 @@ void destroy_freq_map(khash_t(freqm)* freq_map){
 
 void merge_freq_maps(core_t* core, db_t* db) {
     khash_t(freqm) *core_map = core->freq_map;
-    for(int i=0;i<db->n_bam_recs;i++){
+    
+    for (int i = 0; i < db->n_bam_recs; i++) {
         khash_t(freqm) *rec_map = db->freq_maps[i];
-        khint_t k;
-        for (k = kh_begin(rec_map); k != kh_end(rec_map); ++k) {
+        
+        if (kh_size(rec_map) == 0) continue;
+
+        for (khint_t k = kh_begin(rec_map); k != kh_end(rec_map); ++k) {
             if (kh_exist(rec_map, k)) {
-                freq_t *db_freq = kh_value(rec_map, k);
                 char *key = (char *) kh_key(rec_map, k);
-                freq_t *core_freq;
-                khint_t core_k = kh_get(freqm, core_map, key);
-                if (core_k == kh_end(core_map)) {
-                    // key not found in core map, insert it
-                    int ret;
-                    core_k = kh_put(freqm, core_map, key, &ret);
-                    core_freq = (freq_t *)malloc(sizeof(freq_t));
+                freq_t *db_freq = kh_value(rec_map, k);
+                
+                int ret;
+                khint_t core_k = kh_put(freqm, core_map, key, &ret);
+                
+                if (ret == 0) {
+                    // Key already existed in core_map
+                    freq_t *core_freq = kh_value(core_map, core_k);
+                    core_freq->n_called += db_freq->n_called;
+                    core_freq->n_mod += db_freq->n_mod;
+                    
+                    free(key);
+                } else {
+                    // Key did not exist and was just inserted.
+                    freq_t *core_freq = (freq_t *)malloc(sizeof(freq_t));
                     MALLOC_CHK(core_freq);
                     kh_value(core_map, core_k) = core_freq;
                     core_freq->n_called = db_freq->n_called;
                     core_freq->n_mod = db_freq->n_mod;
-                } else {
-                    // key found in core map
-                    core_freq = kh_value(core_map, core_k);
-                    core_freq->n_called += db_freq->n_called;
-                    core_freq->n_mod += db_freq->n_mod;
-                    free(key); // free the key as it is already copied in core_freq
                 }
             }
         }
@@ -1231,27 +1306,27 @@ void freq_view_single(core_t * core, db_t *db, int32_t bam_i) {
 
                     modcodem_t *req_mod = kh_value(core->opt.modcodes_map, mk);
 
-                        int req_all_contexts = strcmp(req_mod->context, WILDCARD_STR) == 0;
-                        int skip_is_in_context = req_all_contexts || (rev && ref->is_context_rev[req_mod->index][skip_ref_pos]) || (!rev && ref->is_context[req_mod->index][skip_ref_pos]);
-                        int skip_matches_reference = mb == 'N' || ref->forward[skip_ref_pos] == skip_read_base;
+                    int req_all_contexts = strcmp(req_mod->context, WILDCARD_STR) == 0;
+                    int skip_is_in_context = req_all_contexts || (rev && ref->is_context_rev[req_mod->index][skip_ref_pos]) || (!rev && ref->is_context[req_mod->index][skip_ref_pos]);
+                    int skip_matches_reference = mb == 'N' || ref->forward[skip_ref_pos] == skip_read_base;
 
-                        if(core->opt.insertions) { // no need to check context for insertions
+                    if(core->opt.insertions) { // no need to check context for insertions
 
-                        } else if (skip_is_in_context && skip_matches_reference) { // in context and mod_base matches reference
-                        } else {
-                            continue;
-                        }
+                    } else if (skip_is_in_context && skip_matches_reference) { // in context and mod_base matches reference
+                    } else {
+                        continue;
+                    }
 
-                        int ins_offset = core->opt.insertions ? db->ins_offset[bam_i][skip_fastq_read_pos] : 0;
+                    int ins_offset = core->opt.insertions ? db->ins_offset[bam_i][skip_fastq_read_pos] : 0;
 
-                        if(core->opt.subtool == FREQ) {
-                            uint8_t is_mod = 0, is_called = 1; // skipped bases are called as unmodified
-                            update_freq_map(db->freq_maps[bam_i], tname, skip_ref_pos, ins_offset, mod_code, strand, haplotype, is_called, is_mod);
-                        } else if (core->opt.subtool == VIEW) {
-                            add_view_entry(db->view_maps[bam_i], tname, skip_ref_pos, ins_offset, mod_code, strand, haplotype, 0, skip_fastq_read_pos);
-                        }
+                    if(core->opt.subtool == FREQ) {
+                        uint8_t is_mod = 0, is_called = 1; // skipped bases are called as unmodified
+                        update_freq_map(db->freq_maps[bam_i], tname, skip_ref_pos, ins_offset, mod_code, strand, haplotype, is_called, is_mod);
+                    } else if (core->opt.subtool == VIEW) {
+                        add_view_entry(db->view_maps[bam_i], tname, skip_ref_pos, ins_offset, mod_code, strand, haplotype, 0, skip_fastq_read_pos);
                     }
                 }
+            }
         
         }
         

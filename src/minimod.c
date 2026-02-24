@@ -62,6 +62,7 @@ core_t* init_core(opt_t opt,double realtime0) {
     core->process_db_time=0;
     core->output_time=0;
     core->merge_db_time=0;
+    core->sort_time=0;
 
     core->total_bytes=0;
     core->total_reads=0;

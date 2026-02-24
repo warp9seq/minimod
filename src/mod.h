@@ -33,6 +33,16 @@ SOFTWARE.
 
 #include "minimod.h"
 
+typedef struct {
+    char *key;
+    freq_t *freq;
+} freq_kv_t;
+
+typedef struct {
+    char *key;
+    view_t *view;
+} view_kv_t;
+
 uint16_t *get_mod_tag(bam1_t *record, char *tag, uint32_t *len_ptr);
 const char *get_mm_tag_ptr(bam1_t *record);
 uint8_t *get_ml_tag(bam1_t *record, uint32_t *len_ptr);
