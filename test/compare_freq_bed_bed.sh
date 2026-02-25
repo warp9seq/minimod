@@ -93,8 +93,8 @@ awk -F'\t' -v tol="$TOLERANCE" \
     NR==FNR {
         for (i=1; i<=NF; i++) $i = clean($i)
         # Construct the key from the first 6 columns
-        key = $4 "\t" $3 "\t" $12 "\t" $6
-        prob[key] = $13
+        key = $1 "\t" $2 "\t" $3 "\t" $4 "\t" $6
+        prob[key] = $11
         next
     }
 
@@ -102,7 +102,7 @@ awk -F'\t' -v tol="$TOLERANCE" \
     {
         for (i=1; i<=NF; i++) $i = clean($i)
         # Construct the key from file2 columns in the order that matches file1
-        key1 = $1 "\t" $2 "\t" $4 "\t" $6
+        key1 = $1 "\t" $2 "\t" $3 "\t" $4 "\t" $6
         if (key1 in prob) {
             # Key found in both files: calculate the difference
             diff = prob[key1] - $11
@@ -132,6 +132,9 @@ awk -F'\t' -v tol="$TOLERANCE" \
     }
 ' "$f1" "$f2"
 # --- Completion Message ---
+echo "Input files:"
+echo "  - file1: $f1"
+echo "  - file2: $f2"
 echo "Results written to:"
 echo "  - $OUT_MATCH"
 echo "  - $OUT_LARGE_DIFF"

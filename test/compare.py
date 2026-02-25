@@ -104,7 +104,7 @@ def load_bedmethyl(filename):
 
 # Load the file of methylation frequency based on the filename
 def load_methylation(filename):
-    if filename.find("bedmethyl") != -1:
+    if filename.find("bedmethyl") != -1 or filename.find(".bed") != -1:
         return load_bedmethyl(filename)
     elif filename.find(".mm.tsv") != -1: #minimod freq output
         return load_mm_tsv(filename)

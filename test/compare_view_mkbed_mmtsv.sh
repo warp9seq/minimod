@@ -134,8 +134,8 @@ awk -F'\t' -v tol="$TOLERANCE" \
 ' "$f1" "$f2"
 # --- Completion Message ---
 echo "Input files:"
-echo "  - $f1"
-echo "  - $f2"
+echo "  - file1: $f1"
+echo "  - file2: $f2"
 echo "Results written to:"
 echo "  - $OUT_MATCH"
 echo "  - $OUT_LARGE_DIFF"
