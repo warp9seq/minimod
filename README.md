@@ -18,6 +18,7 @@ Minimod reads base modification information encoded under `MM:Z` and `ML:B:C` SA
 - [minimod view](#minimod-view)
 - [minimod freq](#minimod-freq)
 - [minimod summary](#minimod-summary)
+- [How skipped bases are handled](#how-skipped-bases-are-handled)
 - [Modification codes and contexts](#modification-codes-and-contexts)
 - [Modification threshold](#modification-threshold)
 - [Enable insertions](#enable-insertions)
@@ -217,8 +218,9 @@ chr22	19982787	19982788	m	1	+	19982787	19982788	255,0,0	1	0.000000
 | 6. strand | char | strand (+/-) of the read |
 | 7. start | int | = field 2 |
 | 8. end   | int | = field 3 |
-| 9. n_mod | int | = field 5 |
-| 10. freq | float | n_mod/n_called ratio |
+| 9. color | str | always 255,0,0 (for compatibility) |
+| 10. n_mod | int | = field 5 |
+| 11. freq | float | n_mod/n_called ratio |
 
 # minimod summary
 
@@ -266,6 +268,9 @@ canonical_base(character such as ACGTN)|mod_code(character or ChEBI number)|stat
 Status flag describes how skipped bases (not included in the output of view or freq subtools) should be interpreted by downstream tools.
 - **.** : skipped bases should be assumed to have low probability of modifications.
 - **?** : there is no information about the modification status of skipped bases
+
+# How skipped bases are handled
+Modified base positions are encoded in MM tag as a series of integers each indicating how many bases to be skipped before the next modified base. If skipped bases should be considered low probability it is encoded as C+m. in MM tag. If the skipped bases are unknown it is encoded as C+m? in MM tag. Minimod output each low probability skipped base as separate row in the output with mod_prob value equals to 0. Minimod does not include unknown modifications in the output.
 
 # Modification codes and contexts
 Base modification codes and contexts can be set for both view and freq tool using -c option to take only specific base modifications found in a given contexts. The context should match in the reference and bases in unmatching contexts are ignored.
@@ -448,9 +453,6 @@ Make sure that you handle the modification tags correctly in each step in base m
 
 - If more than 90% of the reads in the BAM file are skipped due to various reasons (unmapped, 0 length, or missing MM/ML tags), minimod prints a warning message. However, if all of them are skipped minimod errors out.
 - If hard clipped non-primary alignments are found, minimod errors out. (to filter out non-primary alignments: ```samtools view -h -F 2308 reads.bam -o primary_reads.bam``` or use minimap2 with -Y to use soft clipping).
-
-# Limitations / Future Improvements
-- Status of skipped bases (encoded as . or ? in MM tag) are ignored
 
 # Acknowledgement
 
