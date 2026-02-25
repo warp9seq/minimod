@@ -244,7 +244,7 @@ diff -q test/tmp/test16.exp.tsv.sorted test/tmp/test16.tsv.sorted || die "${test
 testname="Test 17: freq ChEBI mod code test with pseudouridine (ChEBI: 17802)"
 echo -e "${BLUE}${testname}${NC}"
 ex  ./minimod freq -c "17802[*]" -b -t 8 test/tmp/genome_chr22.fa test/data/dRNA.bam > test/tmp/dRNA.mm.freq.17802.bedmethyl || die "${testname} Running the tool failed"
-/storage/suneth/install/dist_modkit_v0.5.1_8fa79e3/modkit pileup --reference test/tmp/genome_chr22.fa test/data/dRNA.bam test/expected/dRNA.mk.pileup.bedmethyl || die "${testname} Running modkit pileup failed"
+# /storage/suneth/install/dist_modkit_v0.5.1_8fa79e3/modkit pileup --reference test/tmp/genome_chr22.fa test/data/dRNA.bam test/expected/dRNA.mk.pileup.bedmethyl || die "${testname} Running modkit pileup failed"
 awk 'NR==1 || $4=="17802"' test/expected/dRNA.mk.pileup.bedmethyl > test/expected/dRNA.mk.pileup.17802.bedmethyl
 # test/compare_freq_bed_bed.sh -y test/expected/dRNA.mk.pileup.17802.bedmethyl test/tmp/dRNA.mm.freq.17802.bedmethyl test/tmp/dRNA_17802_compare || die "${testname} Comparison failed"
 corr=`python3 test/compare.py test/expected/dRNA.mk.pileup.17802.bedmethyl test/tmp/dRNA.mm.freq.17802.bedmethyl`
