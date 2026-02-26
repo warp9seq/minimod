@@ -629,6 +629,8 @@ void print_freq_output(core_t * core) {
     ks_introsort_freq(size, sorted_arr);
     core->sort_time = realtime() - sort_start;
 
+    double output_start = realtime();
+
     FILE *out_fp = core->opt.output_fp;
     int do_insertions = core->opt.insertions;
     int do_haplotypes = core->opt.haplotypes;
@@ -687,6 +689,8 @@ void print_freq_output(core_t * core) {
     }
     
     free(sorted_arr);
+
+    core->output_time += (realtime()-output_start);
 }
 
 void destroy_freq_map(khash_t(freqm)* freq_map){

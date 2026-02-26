@@ -376,13 +376,11 @@ void merge_db(core_t* core, db_t* db) {
 }
 
 void output_core(core_t* core) {
-    double output_start = realtime();
 
     if(core->opt.subtool == FREQ){
         print_freq_output(core);
     }
 
-    core->output_time += (realtime()-output_start);
 }
 
 /* partially free a data batch - only the read dependent allocations are freed */
