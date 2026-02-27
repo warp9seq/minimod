@@ -258,14 +258,19 @@ ret_status_t load_db(core_t* core, db_t* db) {
         db->total_bytes += rec->l_data;
         
         if(rec->core.flag & BAM_FUNMAP){
-                LOG_TRACE("Skipping unmapped read %s",bam_get_qname(rec));
-                continue;
-            }
+            LOG_TRACE("Skipping unmapped read %s",bam_get_qname(rec));
+            continue;
+        }
 
-            if(rec->core.l_qseq == 0){
-                LOG_TRACE("Skipping read with 0 length %s",bam_get_qname(rec));
-                continue;
-            }
+        if(!core->opt.secondary && rec->core.flag & BAM_FSECONDARY){
+            LOG_TRACE("Skipping secondary alignment read %s",bam_get_qname(rec));
+            continue;
+        }
+
+        if(rec->core.l_qseq == 0){
+            LOG_TRACE("Skipping read with 0 length %s",bam_get_qname(rec));
+            continue;
+        }
 
         const char *mm = get_mm_tag_ptr(rec);
         if (!mm) {
@@ -487,6 +492,10 @@ void init_opt(opt_t* opt) {
     opt->ref_file = NULL;
     opt->mod_codes_str = NULL;
     opt->mod_threshes_str = NULL;
+
+    opt->haplotypes = 0;
+    opt->insertions = 0;
+    opt->secondary = 0;
 
     opt->modcodes_map = kh_init(modcodesm);
 

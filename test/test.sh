@@ -464,6 +464,20 @@ test/compare_view_mkbed_mmtsv.sh -y test/expected/dna_5mCG_5hmCG_mm_chr22_no_sup
 echo -e "${GREEN}${testname} passed!${NC}\n"
 
 
+testname="view m[CG] --secondary dna_5mCG_5hmCG_mm_with_secondary_no_supps_chr22.bam"
+echo -e "${BLUE}${testname}${NC}"
+# samtools sort -n -o test/data/dna_5mCG_5hmCG_mm_with_secondary_no_supps_chr22_namesort.bam test/data/dna_5mCG_5hmCG_mm_with_secondary_no_supps_chr22.bam
+# samtools fixmate -M test/data/dna_5mCG_5hmCG_mm_with_secondary_no_supps_chr22_namesort.bam test/data/dna_5mCG_5hmCG_mm_with_secondary_no_supps_chr22_MN.bam
+ex  ./minimod view -t 8 --secondary test/tmp/genome_chr22.fa test/data/dna_5mCG_5hmCG_mm_with_secondary_no_supps_chr22_MN.bam > test/tmp/dna_5mCG_5hmCG_mm_with_secondary_no_supps_chr22.mm.view.tsv || die "${testname} Running the tool failed"
+# /storage/suneth/install/dist_modkit_v0.5.1_8fa79e3/modkit extract full --allow-non-primary --cpg --kmer-size 1 --force --reference test/tmp/genome_chr22.fa test/data/dna_5mCG_5hmCG_mm_with_secondary_no_supps_chr22_MN.bam test/expected/dna_5mCG_5hmCG_mm_with_secondary_no_supps_chr22_MN.mk.extract.bed
+# awk 'NR==1 || $14=="m"' test/expected/dna_5mCG_5hmCG_mm_with_secondary_no_supps_chr22_MN.mk.extract.bed > test/expected/dna_5mCG_5hmCG_mm_with_secondary_no_supps_chr22_MN.mk.extract.m.bed
+test/compare_view_mkbed_mmtsv.sh -y test/expected/dna_5mCG_5hmCG_mm_with_secondary_no_supps_chr22_MN.mk.extract.m.bed test/tmp/dna_5mCG_5hmCG_mm_with_secondary_no_supps_chr22_MN.mm.view.tsv test/tmp/dna_5mCG_5hmCG_mm_with_secondary_no_supps_chr22_MN_view_compare || die "${testname} Comparison failed"
+[ "$(wc -l < test/tmp/dna_5mCG_5hmCG_mm_with_secondary_no_supps_chr22_MN_view_compare/missing_in_file1.tsv)" -gt 1 ] && die "${testname} minimod view missing records compared to modkit extract full"
+[ "$(wc -l < test/tmp/dna_5mCG_5hmCG_mm_with_secondary_no_supps_chr22_MN_view_compare/missing_in_file2.tsv)" -gt 1 ] && die "${testname} modkit extract full missing records compared to minimod view"
+[ "$(wc -l < test/tmp/dna_5mCG_5hmCG_mm_with_secondary_no_supps_chr22_MN_view_compare/large_prob_diff.tsv)" -gt 1 ] && die "${testname} Records with large prob diff between minimod view and modkit extract full"
+echo -e "${GREEN}${testname} passed!${NC}\n"
+
+
 
 
 

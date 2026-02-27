@@ -114,6 +114,7 @@ typedef struct {
     uint8_t n_mods;
     uint8_t insertions; //is insertions enabled, add ins column to the output
     uint8_t haplotypes; //is haplotypes enabled, add haplotype column to the output
+    uint8_t secondary; //is secondary alignments enabled, process secondary alignments in the bam file
 
 } opt_t;
 

@@ -58,6 +58,7 @@ static struct option long_options[] = {
     {"output",required_argument, 0, 'o'},          //11 output file
     {"insertions",no_argument, 0, 0},              //12 enable modifications in insertions
     {"haplotypes",no_argument, 0, 0},              //13 enable haplotype mode
+    {"secondary",no_argument, 0, 0},              //14 enable secondary alignments
     {0, 0, 0, 0}};
 
 
@@ -73,10 +74,11 @@ static inline void print_help_msg(FILE *fp_help, opt_t opt){
     fprintf(fp_help,"   -h                         help\n");
     fprintf(fp_help,"   -p INT                     print progress every INT seconds (0: per batch) [%d]\n", opt.progress_interval);
     fprintf(fp_help,"   -o FILE                    output file [%s]\n", opt.output_file==NULL?"stdout":opt.output_file);
-    fprintf(fp_help,"   --insertions               enable modifications in insertions [%s]\n", (opt.insertions?"yes":"no"));
-    fprintf(fp_help,"   --haplotypes               enable haplotype mode [%s]\n", (opt.haplotypes?"yes":"no"));
+    fprintf(fp_help,"   --insertions               output modifications in insertions [%s]\n", (opt.insertions?"yes":"no"));
+    fprintf(fp_help,"   --haplotypes               output haplotypes [%s]\n", (opt.haplotypes?"yes":"no"));
     fprintf(fp_help,"   --verbose INT              verbosity level [%d]\n",(int)get_log_level());
     fprintf(fp_help,"   --version                  print version\n");
+    fprintf(fp_help,"   --secondary                output secondary alignments [%s]\n", (opt.secondary?"yes":"no"));
 
     fprintf(fp_help,"\nadvanced options:\n");
     fprintf(fp_help,"   --debug-break INT          break after processing the specified no. of batches\n");
@@ -237,6 +239,8 @@ int freq_main(int argc, char* argv[]) {
             opt.insertions = 1;
         } else if(c == 0 && longindex == 13){ //haplotypes
             opt.haplotypes = 1;
+        } else if(c == 0 && longindex == 14){ //secondary alignments
+            opt.secondary = 1;
         } else {
             print_help_msg(fp_help, opt);
             if(fp_help == stdout){
