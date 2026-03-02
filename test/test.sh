@@ -479,6 +479,17 @@ echo -e "${GREEN}${testname} passed!${NC}\n"
 
 
 
+testname="view * --include-alt-alleles dna_5mCG_5hmCG_mm_chr22_no_supps.bam"
+echo -e "${BLUE}${testname}${NC}"
+ex  ./minimod view -t 8 --include-alt-alleles -c '*' test/tmp/genome_chr22.fa test/data/dna_5mCG_5hmCG_mm_chr22_no_supps.bam > test/tmp/dna_5mCG_5hmCG_mm_chr22_no_supps.mm.view.all.all.alt.tsv || die "${testname} Running the tool failed"
+# /install/modkit-v0.5.1/modkit extract full --kmer-size 1 --mapped-only --force --reference test/tmp/genome_chr22.fa test/data/dna_5mCG_5hmCG_mm_chr22_no_supps.bam test/expected/dna_5mCG_5hmCG_mm_chr22_no_supps.mk.extract.bed
+test/compare_view_mkbed_mmtsv.sh -y test/expected/dna_5mCG_5hmCG_mm_chr22_no_supps.mk.extract.bed test/tmp/dna_5mCG_5hmCG_mm_chr22_no_supps.mm.view.all.all.alt.tsv test/tmp/dna_5mCG_5hmCG_mm_chr22_no_supps_view_compare || die "${testname} Comparison failed"
+[ "$(wc -l < test/tmp/dna_5mCG_5hmCG_mm_chr22_no_supps_view_compare/missing_in_file1.tsv)" -gt 1 ] && die "${testname} minimod view missing records compared to modkit extract full"
+[ "$(wc -l < test/tmp/dna_5mCG_5hmCG_mm_chr22_no_supps_view_compare/missing_in_file2.tsv)" -gt 1 ] && die "${testname} modkit extract full missing records compared to minimod view"
+[ "$(wc -l < test/tmp/dna_5mCG_5hmCG_mm_chr22_no_supps_view_compare/large_prob_diff.tsv)" -gt 1 ] && die "${testname} Records with large prob diff between minimod view and modkit extract full"
+echo -e "${GREEN}${testname} passed!${NC}\n"
+
+exit 1
 
 
 #************** dna_4mC_5mC_mm_chr22_no_supps C|21839|. C|m|. **************

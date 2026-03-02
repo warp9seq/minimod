@@ -1127,7 +1127,7 @@ void freq_view_single(core_t * core, db_t *db, int32_t bam_i) {
 
                 int req_all_contexts = strcmp(req_mod->context, WILDCARD_STR) == 0;
                 int is_in_context = req_all_contexts || (rev && ref->is_context_rev[req_mod->index][ref_pos]) || (!rev && ref->is_context[req_mod->index][ref_pos]);
-                int matches_reference = mb == 'N' || ref->forward[ref_pos] == read_base;
+                int matches_reference = core->opt.alt_alleles || mb == 'N' || ref->forward[ref_pos] == read_base;
 
 
                 if(core->opt.insertions) { // no need to check context for insertions
@@ -1229,7 +1229,7 @@ void freq_view_single(core_t * core, db_t *db, int32_t bam_i) {
 
                         int req_all_contexts = strcmp(req_mod->context, WILDCARD_STR) == 0;
                         int skip_is_in_context = req_all_contexts || (rev && ref->is_context_rev[req_mod->index][skip_ref_pos]) || (!rev && ref->is_context[req_mod->index][skip_ref_pos]);
-                        int skip_matches_reference = mb == 'N' || ref->forward[skip_ref_pos] == skip_read_base;
+                        int skip_matches_reference = core->opt.alt_alleles || mb == 'N' || ref->forward[skip_ref_pos] == skip_read_base;
 
                         if(core->opt.insertions) { // no need to check context for insertions
 
@@ -1309,7 +1309,7 @@ void freq_view_single(core_t * core, db_t *db, int32_t bam_i) {
 
                     int req_all_contexts = strcmp(req_mod->context, WILDCARD_STR) == 0;
                     int skip_is_in_context = req_all_contexts || (rev && ref->is_context_rev[req_mod->index][skip_ref_pos]) || (!rev && ref->is_context[req_mod->index][skip_ref_pos]);
-                    int skip_matches_reference = mb == 'N' || ref->forward[skip_ref_pos] == skip_read_base;
+                    int skip_matches_reference = core->opt.alt_alleles || mb == 'N' || ref->forward[skip_ref_pos] == skip_read_base;
 
                     if(core->opt.insertions) { // no need to check context for insertions
 

@@ -57,6 +57,7 @@ static struct option long_options[] = {
     {"insertions",no_argument, 0, 0},              //10 enable modifications in insertions
     {"haplotypes",no_argument, 0, 0},              //11 enable haplotype mode
     {"secondary",no_argument, 0, 0},              //12 enable secondary alignments
+    {"include-alt-alleles",no_argument, 0, 0},     //15 include modifications occuring on non-reference alleles (eg. due to SNPs)
     {0, 0, 0, 0}};
 
 
@@ -75,6 +76,7 @@ static inline void print_help_msg(FILE *fp_help, opt_t opt){
     fprintf(fp_help,"   --verbose INT              verbosity level [%d]\n",(int)get_log_level());
     fprintf(fp_help,"   --version                  print version\n");
     fprintf(fp_help,"   --secondary                output secondary alignments [%s]\n", (opt.secondary?"yes":"no"));
+    fprintf(fp_help,"   --include-alt-alleles      include modifications occuring on non-reference alleles (eg. due to SNPs) [%s]\n", (opt.alt_alleles?"yes":"no"));
 
     fprintf(fp_help,"\nadvanced options:\n");
     fprintf(fp_help,"   --debug-break INT          break after processing the specified no. of batches\n");
@@ -232,6 +234,8 @@ int view_main(int argc, char* argv[]) {
             opt.haplotypes = 1;
         } else if(c == 0 && longindex == 12){ //secondary alignments
             opt.secondary = 1;
+        } else if(c == 0 && longindex == 13){ //include modifications on non-reference alleles
+            opt.alt_alleles = 1;
         } else {
             print_help_msg(fp_help, opt);
             if(fp_help == stdout){

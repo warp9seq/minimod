@@ -496,6 +496,7 @@ void init_opt(opt_t* opt) {
     opt->haplotypes = 0;
     opt->insertions = 0;
     opt->secondary = 0;
+    opt->alt_alleles = 0;
 
     opt->modcodes_map = kh_init(modcodesm);
 
