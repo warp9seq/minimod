@@ -13,6 +13,8 @@
 
 - Before v0.4.0, we allowed primary, secondary, suppelmentary alignments when viewing and calculating frequencies. From >=v0.5.0, we only consider primary, supplementary alignments by default. We introduced --secondary option to enable considering secondary alignments. Minimod still errors out if hard-clipping is found.
 
+- Before v0.4.0, when --insertions option is used, errornous reference positions were included in both freq and view outputs. We have fixed it in >=v0.5.0.
+
 ## Modkit consistency
 Tool versions we used for comparisons are modkit 0.5.1 and minimod 0.5.0
 
