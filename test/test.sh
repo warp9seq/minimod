@@ -489,7 +489,6 @@ test/compare_view_mkbed_mmtsv.sh -y test/expected/dna_5mCG_5hmCG_mm_chr22_no_sup
 [ "$(wc -l < test/tmp/dna_5mCG_5hmCG_mm_chr22_no_supps_view_compare/large_prob_diff.tsv)" -gt 1 ] && die "${testname} Records with large prob diff between minimod view and modkit extract full"
 echo -e "${GREEN}${testname} passed!${NC}\n"
 
-exit 1
 
 
 #************** dna_4mC_5mC_mm_chr22_no_supps C|21839|. C|m|. **************
