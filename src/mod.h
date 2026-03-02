@@ -58,6 +58,7 @@ void print_summary_output(core_t* core, db_t* db);
 void destroy_freq_map(khash_t(freqm)* freq_map);
 void parse_mod_codes(opt_t *opt);
 void parse_mod_threshes(opt_t * opt);
+void warn_untested_cases(opt_t * opt);
 void print_view_options(opt_t *opt);
 
 #endif

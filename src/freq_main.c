@@ -260,6 +260,7 @@ int freq_main(int argc, char* argv[]) {
     }
 
     parse_mod_codes(&opt);
+    warn_untested_cases(&opt);
 
     if(opt.mod_threshes_str==NULL || strlen(opt.mod_threshes_str)==0){
         INFO("%s", "Modification threshold not provided. Using default threshold 0.8");

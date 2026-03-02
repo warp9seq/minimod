@@ -97,6 +97,8 @@ static const int base_idx_lookup[256] = { ['A'] = 0, ['C'] = 1, ['G'] = 2, ['T']
 static const char base_complement_lookup[256] = { ['A'] = 'T', ['C'] = 'G', ['G'] = 'C', ['T'] = 'A', ['U'] = 'A', ['N'] = 'N', ['a'] = 't', ['c'] = 'g', ['g'] = 'c', ['t'] = 'a', ['u'] = 'a', ['n'] = 'n' };
 static const char* default_context[256] = { ['*'] = "*", ['m'] = "CG", ['h'] = "CG", ['f'] = "C", ['c'] = "C", ['C'] = "C", ['g'] = "T", ['e'] = "T", ['b'] = "T", ['T'] = "T", ['U'] = "U", ['a'] = "A", ['A'] = "A", ['o'] = "G", ['G'] = "G", ['n'] = "N", ['N'] = "N" };
 
+static const char* tested_cases[] = {"m[CG]", "h[CG]", "m[C]", "h[C]", "m[*]", "h[*]", "*[*]", "21839[C]", "a[A]", "a[*]", "19229[G]", "19229[*]", "69426[A]", "17596[A]", "19228[C]", "19227[T]", "17802[T]", "17802[*]", "e[T]", "b[T]"}; 
+
 static inline char* get_default_context(char* mod_code) {
     if(strlen(mod_code) == 1) {
         char c = mod_code[0];
@@ -388,6 +390,34 @@ void parse_mod_threshes(opt_t * opt) {
     } else if(n_thresh != opt->n_mods){
         ERROR("Number of modification codes and thresholds do not match. Codes:%d, Thresholds:%d",opt->n_mods,n_thresh);
         exit(EXIT_FAILURE);
+    }
+}
+
+void warn_untested_cases(opt_t * opt) {
+    int n_tested_cases = sizeof(tested_cases) / sizeof(tested_cases[0]);
+    for(int i=0; i < opt->n_mods; i++) {
+        khint_t i;
+        for(i=kh_begin(opt->modcodes_map); i < kh_end(opt->modcodes_map); ++i) {
+            if (!kh_exist(opt->modcodes_map, i)) continue;
+            char * mod_code = (char *) kh_key(opt->modcodes_map, i);
+            char * context = kh_value(opt->modcodes_map, i)->context;
+
+            char * mod_code_with_context = (char *)malloc(strlen(mod_code) + strlen(context) + 3); // for null terminator and brackets
+            MALLOC_CHK(mod_code_with_context);
+            snprintf(mod_code_with_context, strlen(mod_code) + strlen(context) + 3, "%s[%s]", mod_code, context);
+
+            int is_tested = false;
+            for(int j=0; j < n_tested_cases; j++){
+                if(strcmp(mod_code_with_context, tested_cases[j]) == 0){
+                    is_tested = true;
+                    break;
+                }
+            }
+            if(!is_tested){
+                WARNING("Modification code with context %s has not been tested.", mod_code_with_context);
+            }
+            free(mod_code_with_context);
+        }
     }
 }
 

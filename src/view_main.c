@@ -251,6 +251,7 @@ int view_main(int argc, char* argv[]) {
     }
 
     parse_mod_codes(&opt);
+    warn_untested_cases(&opt);
     print_view_options(&opt);
 
     // No arguments given
