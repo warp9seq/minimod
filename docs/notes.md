@@ -19,9 +19,24 @@
 Tool versions we used for comparisons are modkit 0.5.1 and minimod 0.5.0
 
 - Comparing modified base with reference base
-    - minimod by default outputs modified bases that match with reference base.
-    - modkit output modified bases without matching with reference base when the context is not specified using --cpg or --motif options.
-    - to match minimod's behaviour with modkit's, use --include-alt-alleles option with minimod. 
+    - minimod by default outputs m modified bases in CG context that are mapped and match with reference base.
+    - modkit by default outputs all modification without matching the read base with reference base when the context is not specified using --cpg or --motif options.
+    - to match minimod's behaviour with modkit's, use --include-alt-alleles option with minimod.
+
+    Following two commands using minimod v0.5.0 and modkit 0.5.1 should give the same output. (To compare modkit's extract bed with minimod's view tsv, test/compare_view_mkbed_mmtsv.sh script can be used)
+    ```bash
+    modkit extract full --mapped-only --reference ref.fa reads.bam mk_extract.bed
+    minimod view --include-alt-alleles -c '*' ref.fa reads.bam > mm_view.tsv
+    test/compare_view_mkbed_mmtsv.sh mk_extract.bed mm_view.tsv out_dir
+    ```
 - Which reads are used for computations
     - By default modkit extract ignores non-primary alignments and --allow-non-primary option can allow secondary and supplementary alignments if a valid MN tag is found (https://github.com/nanoporetech/modkit/blob/481e3c9e7930f3f499eadf1ef441606f33e6881c/book/src/intro_extract.md#note-on-non-primary-alignments). 
     - minimod ignores secondary alignments by default and uses primary and supplementary alignments. Using --secondary options can allow them secondary alignments. minimod does not require the MN tag to allow non-primary alignments. Further, minimod errors out when hard-clipping is detected.
+
+    ### Summary
+    |  | modkit v0.5.1 | minimod v0.5.0 |
+    |----------|----------|----------|
+    | mapped bases | no, use --mapped-only | always |
+    | match reference base and modified read base | not unless the context is specified | yes, --include-alt-alleles to avoid |
+    | modifications | all, can --ignore | m in CG context, use --c to specify |
+    | alignments | primary, can --allow-non-primary if MN tag is found | primary and supplementary, can allow --secondary |
