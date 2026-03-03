@@ -279,15 +279,15 @@ Here are the possible context formats.
 - **a[A]** : type a modifications of all A bases
 - **h[CG]** : type h modifications in CG context (CpG sites)
 - **m** : type m modifications in default CG context
-- **a[*]** : type a modifications in all contexts
+- **a[*]** : ideally same as a[A]. But can be useful if the canonical base is unknown
 - **\*[CG]** : all types of modifications in CG context
 - **\*** : all types of modifications in all contexts
 - **17802[T]** : pseU modifications in T context (modification code is given as ChEBI code)
 
 Here are some example commands.
 ```bash
-minimod view -c a[A],h[CG],m,a[*] ref.fa reads.bam
-minimod freq -c a[A],h[CG],m,a[*] ref.fa reads.bam
+minimod view -c a[A],h[CG],m ref.fa reads.bam
+minimod freq -c a[A],h[CG],m ref.fa reads.bam
 minimod freq -c "*[CG]" ref.fa reads.bam
 minimod freq -c "*" ref.fa reads.bam
 minimof freq -c "17802[T]" ref.fa reads.bam
@@ -364,6 +364,8 @@ minimod can handle inserted modified bases (where canonical base in not in refer
 
 Specifying --insertions will add an extra ins_offset column(**only in tsv output**) which is the position of modified base within the inserted region.
 
+The context matching and base matching are ignored when reporting modified bases in inserted region due to the lack of a aligned reference site.
+
 **Sample output of view with --insertions**
 
 ```bash
@@ -436,7 +438,6 @@ Make sure that you handle the modification tags correctly in each step in base m
    ```
 
 ## Aligning
-- Avoid secondary alignments
 - Use soft clipping for supplementary alignments
 
    Corresponding minimap2 flags are as follows.
@@ -444,11 +445,10 @@ Make sure that you handle the modification tags correctly in each step in base m
    |-|-|
    |-Y | Use soft clipping for supplementary alignments |
    |-y | Copy input FASTA/Q comments to output |
-   |--secondary=no| Avoid secondary alignments |
 
    Example: aligning ONT reads using [minimap2](https://github.com/lh3/minimap2)
    ```
-   minimap2 -ax map-ont -Y -y --secondary=no ref.idx reads.fastq
+   minimap2 -ax map-ont -Y -y ref.idx reads.fastq
    ```
 
 - If more than 90% of the reads in the BAM file are skipped due to various reasons (unmapped, 0 length, or missing MM/ML tags), minimod prints a warning message. However, if all of them are skipped minimod errors out.
