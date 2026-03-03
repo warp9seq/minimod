@@ -195,6 +195,6 @@ jobs:
       with:
         args: >
           bash -c "apt-get update &&
-          apt-get install -y zlib1g-dev gcc make wget curl &&
+          apt-get install -y zlib1g-dev gcc make wget curl python3 python3-pip &&
           ldd --version && gcc --version &&
           ./scripts/install-hts.sh && make && make test"
