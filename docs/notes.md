@@ -23,5 +23,5 @@ Tool versions we used for comparisons are modkit 0.5.1 and minimod 0.5.0
     - modkit output modified bases without matching with reference base when the context is not specified using --cpg or --motif options.
     - to match minimod's behaviour with modkit's, use --include-alt-alleles option with minimod. 
 - Which reads are used for computations
-    - By default modkit extract ignores non-primary alignments and --allow-non-primary option can allow secondary and supplementary alignments (https://github.com/nanoporetech/modkit/blob/v0.5.1-rc1/book/src/advanced_usage.md#extract-full)
-    - minimod ignores only secondary alignments and --secondary options can allow them. Further, minimod errors out when hard-clipping is detected.
+    - By default modkit extract ignores non-primary alignments and --allow-non-primary option can allow secondary and supplementary alignments if a valid MN tag is found (https://github.com/nanoporetech/modkit/blob/481e3c9e7930f3f499eadf1ef441606f33e6881c/book/src/intro_extract.md#note-on-non-primary-alignments). 
+    - minimod ignores secondary alignments by default and uses primary and supplementary alignments. Using --secondary options can allow them secondary alignments. minimod does not require the MN tag to allow non-primary alignments. Further, minimod errors out when hard-clipping is detected.
