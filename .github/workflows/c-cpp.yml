@@ -40,7 +40,7 @@ jobs:
         - /node20217:/__e/node20:ro,rshared
     steps:
       - name: install packages
-        run: apt-get update && apt-get install -y zlib1g-dev gcc g++ autoconf automake make wget curl bzip2
+        run: apt-get update && apt-get install -y zlib1g-dev gcc g++ autoconf automake make wget curl bzip2 python3 python3-pip
       - name: nodejs
         run: |
           apt-get install -y wget xz-utils
@@ -65,7 +65,7 @@ jobs:
       - name: Install sudo package
         run: apt update && apt install sudo
       - name: install packages
-        run: sudo apt-get update && sudo apt-get install -y zlib1g-dev gcc g++ autoconf automake make wget curl
+        run: sudo apt-get update && sudo apt-get install -y zlib1g-dev gcc g++ autoconf automake make wget curl python3 python3-pip
       - name: nodejs
         run: |
           apt-get install -y wget xz-utils
@@ -85,7 +85,7 @@ jobs:
     - name: Install sudo package
       run: apt update && apt install sudo
     - name: install packages
-      run: sudo apt-get update && sudo apt-get install -y zlib1g-dev gcc g++ autoconf automake make wget curl
+      run: sudo apt-get update && sudo apt-get install -y zlib1g-dev gcc g++ autoconf automake make wget curl python3 python3-pip
     - name: install htslib
       run: ./scripts/install-hts.sh
     - name: test
@@ -96,7 +96,7 @@ jobs:
       steps:
       - uses: actions/checkout@v2
       - name: install packages
-        run: sudo apt-get update && sudo apt-get install -y zlib1g-dev gcc g++ autoconf automake make wget curl
+        run: sudo apt-get update && sudo apt-get install -y zlib1g-dev gcc g++ autoconf automake make wget curl python3 python3-pip
       - name: install htslib
         run: ./scripts/install-hts.sh
       - name: test
