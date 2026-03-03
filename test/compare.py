@@ -1,4 +1,4 @@
-#! /usr/bin/env python
+#! /usr/bin/env python3
 #! pip install numpy
 #---------------------------------------------------------
 # Copyright 2015 Ontario Institute for Cancer Research
