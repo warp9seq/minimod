@@ -116,6 +116,7 @@ typedef struct {
     uint8_t haplotypes; //is haplotypes enabled, add haplotype column to the output
     uint8_t secondary; //is secondary alignments enabled, process secondary alignments in the bam file
     uint8_t alt_alleles; // whether to require the read base to match the reference base
+    uint8_t skip_supplementary; // whether to skip supplementary alignments
 
 } opt_t;
 

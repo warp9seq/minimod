@@ -267,6 +267,11 @@ ret_status_t load_db(core_t* core, db_t* db) {
             continue;
         }
 
+        if(core->opt.skip_supplementary && rec->core.flag & BAM_FSUPPLEMENTARY){
+            LOG_TRACE("Skipping supplementary alignment read %s",bam_get_qname(rec));
+            continue;
+        }
+
         if(rec->core.l_qseq == 0){
             LOG_TRACE("Skipping read with 0 length %s",bam_get_qname(rec));
             continue;
@@ -497,6 +502,7 @@ void init_opt(opt_t* opt) {
     opt->insertions = 0;
     opt->secondary = 0;
     opt->alt_alleles = 0;
+    opt->skip_supplementary = 0;
 
     opt->modcodes_map = kh_init(modcodesm);
 
