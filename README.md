@@ -106,10 +106,13 @@ basic options:
    -h                         help
    -p INT                     print progress every INT seconds (0: per batch) [0]
    -o FILE                    output file [stdout]
+   --insertions               output modifications in insertions [no]
+   --haplotypes               output haplotypes [no]
    --verbose INT              verbosity level [4]
    --version                  print version
-   --insertions               enable modifications in insertions [no]
-   --haplotypes               enable haplotype mode [no]
+   --secondary                output secondary alignments [no]
+   --include-alt-alleles      include modifications occuring on non-reference alleles (eg. due to SNPs) [no]
+   --skip-supplementary       skip supplementary alignments [no]
 ```
 
 - See [how to consider inserted modified bases?](#modified-bases-in-insertions)
@@ -159,10 +162,13 @@ basic options:
    -h                         help
    -p INT                     print progress every INT seconds (0: per batch) [0]
    -o FILE                    output file [stdout]
+   --insertions               output modifications in insertions [no]
+   --haplotypes               output haplotypes [no]
    --verbose INT              verbosity level [4]
    --version                  print version
-   --insertions               enable modifications in insertions [no]
-   --haplotypes               enable haplotype mode [no]
+   --secondary                output secondary alignments [no]
+   --include-alt-alleles      include modifications occuring on non-reference alleles (eg. due to SNPs) [no]
+   --skip-supplementary       skip supplementary alignments [no]
 ```
 
 **Sample modfreqs.tsv output**
