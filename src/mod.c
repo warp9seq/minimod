@@ -93,11 +93,11 @@ KSORT_INIT(view, view_kv_t, view_kv_lt)
 
 static const int valid_bases[256] = { ['A'] = 1, ['C'] = 1, ['G'] = 1, ['T'] = 1, ['U'] = 1, ['N'] = 1, ['a'] = 1, ['c'] = 1, ['g'] = 1, ['t'] = 1, ['u'] = 1, ['n'] = 1 };
 static const int valid_strands[256] = { ['+'] = 1, ['-'] = 1 };
-static const int base_idx_lookup[256] = { ['A'] = 0, ['C'] = 1, ['G'] = 2, ['T'] = 3, ['U'] = 4, ['N'] = 5, ['a'] = 0, ['c'] = 1, ['g'] = 2, ['t'] = 3, ['u'] = 4, ['n'] = 5 };
+static const int base_idx_lookup[256] = { ['A'] = 0, ['C'] = 1, ['G'] = 2, ['T'] = 3, ['U'] = 3, ['N'] = 4, ['a'] = 0, ['c'] = 1, ['g'] = 2, ['t'] = 3, ['u'] = 3, ['n'] = 4 };
 static const char base_complement_lookup[256] = { ['A'] = 'T', ['C'] = 'G', ['G'] = 'C', ['T'] = 'A', ['U'] = 'A', ['N'] = 'N', ['a'] = 't', ['c'] = 'g', ['g'] = 'c', ['t'] = 'a', ['u'] = 'a', ['n'] = 'n' };
-static const char* default_context[256] = { ['*'] = "*", ['m'] = "CG", ['h'] = "CG", ['f'] = "C", ['c'] = "C", ['C'] = "C", ['g'] = "T", ['e'] = "T", ['b'] = "T", ['T'] = "T", ['U'] = "U", ['a'] = "A", ['A'] = "A", ['o'] = "G", ['G'] = "G", ['n'] = "N", ['N'] = "N" };
+static const char* default_context[256] = { ['*'] = "*", ['m'] = "CG", ['h'] = "CG", ['f'] = "C", ['c'] = "C", ['C'] = "C", ['g'] = "T", ['e'] = "T", ['b'] = "T", ['T'] = "T", ['U'] = "T", ['a'] = "A", ['A'] = "A", ['o'] = "G", ['G'] = "G", ['n'] = "N", ['N'] = "N" };
 
-static const char* tested_cases[] = {"m[CG]", "h[CG]", "m[C]", "h[C]", "m[*]", "h[*]", "*[*]", "21839[C]", "a[A]", "a[*]", "19229[G]", "19229[*]", "69426[A]", "17596[A]", "19228[C]", "19227[T]", "17802[T]", "17802[*]", "e[T]", "b[T]"}; 
+static const char* tested_cases[] = {"m[CG]", "h[CG]", "m[C]", "h[C]", "m[*]", "h[*]", "*[*]", "21839[C]", "a[A]", "a[*]", "19229[G]", "19229[*]", "69426[A]", "17596[A]", "19228[C]", "19227[T]", "17802[T]", "17802[*]", "e[T]", "b[T]", "m[CT]"}; 
 
 static inline char* get_default_context(char* mod_code) {
     if(strlen(mod_code) == 1) {
@@ -266,6 +266,9 @@ void parse_mod_codes(opt_t *opt) {
                     MALLOC_CHK(context);
                 }
                 context[j] = toupper(opt->mod_codes_str[i]);
+                if (context[j] == 'U') {
+                    context[j] = 'T';
+                }
                 i++;
                 j++;
             }
