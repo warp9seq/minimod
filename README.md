@@ -111,7 +111,7 @@ basic options:
    --verbose INT              verbosity level [4]
    --version                  print version
    --secondary                output secondary alignments [no]
-   --include-alt-alleles      include modifications occuring on non-reference alleles (eg. due to SNPs) [no]
+   --include-non-ref          include modifications on bases not matching reference (eg. due to SNPs) [no]
    --skip-supplementary       skip supplementary alignments [no]
 ```
 
@@ -167,7 +167,7 @@ basic options:
    --verbose INT              verbosity level [4]
    --version                  print version
    --secondary                output secondary alignments [no]
-   --include-alt-alleles      include modifications occuring on non-reference alleles (eg. due to SNPs) [no]
+   --include-non-ref          include modifications on bases not matching reference (eg. due to SNPs) [no]
    --skip-supplementary       skip supplementary alignments [no]
 ```
 

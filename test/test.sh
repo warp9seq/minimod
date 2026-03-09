@@ -479,9 +479,9 @@ echo -e "${GREEN}${testname} passed!${NC}\n"
 
 
 
-testname="view * --include-alt-alleles dna_5mCG_5hmCG_mm_chr22_no_supps.bam"
+testname="view * --include-non-ref dna_5mCG_5hmCG_mm_chr22_no_supps.bam"
 echo -e "${BLUE}${testname}${NC}"
-ex  ./minimod view -t 8 --include-alt-alleles -c '*' test/tmp/genome_chr22.fa test/data/dna_5mCG_5hmCG_mm_chr22_no_supps.bam > test/tmp/dna_5mCG_5hmCG_mm_chr22_no_supps.mm.view.all.all.alt.tsv || die "${testname} Running the tool failed"
+ex  ./minimod view -t 8 --include-non-ref -c '*' test/tmp/genome_chr22.fa test/data/dna_5mCG_5hmCG_mm_chr22_no_supps.bam > test/tmp/dna_5mCG_5hmCG_mm_chr22_no_supps.mm.view.all.all.alt.tsv || die "${testname} Running the tool failed"
 # /install/modkit-v0.5.1/modkit extract full --kmer-size 1 --mapped-only --force --reference test/tmp/genome_chr22.fa test/data/dna_5mCG_5hmCG_mm_chr22_no_supps.bam test/expected/dna_5mCG_5hmCG_mm_chr22_no_supps.mk.extract.bed
 test/compare_view_mkbed_mmtsv.sh -y test/expected/dna_5mCG_5hmCG_mm_chr22_no_supps.mk.extract.bed test/tmp/dna_5mCG_5hmCG_mm_chr22_no_supps.mm.view.all.all.alt.tsv test/tmp/dna_5mCG_5hmCG_mm_chr22_no_supps_view_compare || die "${testname} Comparison failed"
 [ "$(wc -l < test/tmp/dna_5mCG_5hmCG_mm_chr22_no_supps_view_compare/missing_in_file1.tsv)" -gt 1 ] && die "${testname} minimod view missing records compared to modkit extract full"
@@ -499,9 +499,9 @@ echo "Correlation of freq m[CG] with modkit pileup: $corr"
 echo -e "${GREEN}${testname} passed!${NC}\n"
 
 
-testname="freq * --include-alt-alleles dna_5mCG_5hmCG_mm_chr22_no_supps.bam"
+testname="freq * --include-non-ref dna_5mCG_5hmCG_mm_chr22_no_supps.bam"
 echo -e "${BLUE}${testname}${NC}"
-ex  ./minimod freq -b -t 8 --include-alt-alleles -c '*' test/tmp/genome_chr22.fa test/data/dna_5mCG_5hmCG_mm_chr22_no_supps.bam > test/tmp/dna_5mCG_5hmCG_mm_chr22_no_supps.mm.freq.all.alt.bed || die "${testname} Running the tool failed"
+ex  ./minimod freq -b -t 8 --include-non-ref -c '*' test/tmp/genome_chr22.fa test/data/dna_5mCG_5hmCG_mm_chr22_no_supps.bam > test/tmp/dna_5mCG_5hmCG_mm_chr22_no_supps.mm.freq.all.alt.bed || die "${testname} Running the tool failed"
 # /data/suneth/install/dist_modkit_v0.5.1_8fa79e3/modkit pileup --region chr22 --reference test/tmp/genome_chr22.fa test/data/dna_5mCG_5hmCG_mm_chr22_no_supps.bam test/expected/dna_5mCG_5hmCG_mm_chr22_no_supps.mk.pileup.bed || die "${testname} Running modkit pileup failed"
 corr=`test/compare.py test/expected/dna_5mCG_5hmCG_mm_chr22_no_supps.mk.pileup.bed test/tmp/dna_5mCG_5hmCG_mm_chr22_no_supps.mm.freq.all.alt.bed` || die "${testname} Comparison failed"
 echo "Correlation of freq * with modkit pileup: $corr"
@@ -694,7 +694,7 @@ echo -e "${GREEN}${testname} passed!${NC}\n"
 
 testname="freq * dna_6mA_mm_chr22_no_supps.bam"
 echo -e "${BLUE}${testname}${NC}"
-ex  ./minimod freq -t 8 -b -c '*' --include-alt-alleles test/tmp/genome_chr22.fa test/data/dna_6mA_mm_chr22_no_supps.bam > test/tmp/dna_6mA_mm_chr22_no_supps.mm.freq.all.bed || die "${testname} Running the tool failed"
+ex  ./minimod freq -t 8 -b -c '*' --include-non-ref test/tmp/genome_chr22.fa test/data/dna_6mA_mm_chr22_no_supps.bam > test/tmp/dna_6mA_mm_chr22_no_supps.mm.freq.all.bed || die "${testname} Running the tool failed"
 # /data/suneth/install/dist_modkit_v0.5.1_8fa79e3/modkit pileup --region chr22 --reference test/tmp/genome_chr22.fa test/data/dna_6mA_mm_chr22_no_supps.bam test/expected/dna_6mA_mm_chr22_no_supps.mk.pileup.bed || die "${testname} Running modkit pileup failed"
 corr=`test/compare.py test/expected/dna_6mA_mm_chr22_no_supps.mk.pileup.bed test/tmp/dna_6mA_mm_chr22_no_supps.mm.freq.all.bed` || die "${testname} Comparison failed" 
 echo "Correlation of freq * with modkit pileup: $corr"

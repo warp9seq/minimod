@@ -9,7 +9,7 @@
 
 - Before v0.5.0, when non CG contexts were requested, both minimod view and freq were reporting modifications from errornous contexts. We have fixed and tested this issue from >= v0.5.0.
 
-- From >=v0.5.0, we compare if modified read base matches aligned reference base and output only the matching bases by default. However, this comparison can be avoided using --include-alt-alleles option. (Note that only the modified base is compared, not the whole context.)
+- From >=v0.5.0, we compare if modified read base matches aligned reference base and output only the matching bases by default. However, this comparison can be avoided using --include-non-ref option. (Note that only the modified base is compared, not the whole context.)
 
 - Before v0.4.0, we allowed primary, secondary, suppelmentary alignments when viewing and calculating frequencies. From >=v0.5.0, we only consider primary, supplementary alignments by default. We introduced --secondary option to enable considering secondary alignments. Minimod still errors out if hard-clipping is found.
 
@@ -21,12 +21,12 @@ Tool versions we used for comparisons are modkit 0.5.1 and minimod 0.5.0
 - Comparing modified base with reference base
     - minimod by default outputs m modified bases in CG context that are mapped and match with reference base.
     - modkit by default outputs all modification without matching the read base with reference base when the context is not specified using --cpg or --motif options.
-    - to match minimod's behaviour with modkit's, use --include-alt-alleles option with minimod.
+    - to match minimod's behaviour with modkit's, use --include-non-ref option with minimod.
 
     Following two commands using minimod v0.5.0 and modkit 0.5.1 should give the same output. (To compare modkit's extract bed with minimod's view tsv, test/compare_view_mkbed_mmtsv.sh script can be used)
     ```bash
     modkit extract full --mapped-only --reference ref.fa reads.bam mk_extract.bed
-    minimod view --include-alt-alleles -c '*' ref.fa reads.bam > mm_view.tsv
+    minimod view --include-non-ref -c '*' ref.fa reads.bam > mm_view.tsv
     test/compare_view_mkbed_mmtsv.sh mk_extract.bed mm_view.tsv out_dir
     ```
 - Which reads are used for computations
@@ -37,6 +37,6 @@ Tool versions we used for comparisons are modkit 0.5.1 and minimod 0.5.0
     |  | modkit v0.5.1 | minimod v0.5.0 |
     |----------|----------|----------|
     | mapped bases | no, use --mapped-only | always |
-    | match reference base and modified read base | not unless the context is specified | yes, --include-alt-alleles to avoid |
+    | match reference base and modified read base | not unless the context is specified | yes, --include-non-ref to avoid |
     | modifications | all, can --ignore | m in CG context, use --c to specify |
     | alignments | primary, can --allow-non-primary if MN tag is found | primary and supplementary, can allow --secondary |

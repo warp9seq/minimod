@@ -56,9 +56,9 @@ static struct option long_options[] = {
     {"output",required_argument, 0, 'o'},          //9 output file
     {"insertions",no_argument, 0, 0},              //10 enable modifications in insertions
     {"haplotypes",no_argument, 0, 0},              //11 enable haplotype mode
-    {"secondary",no_argument, 0, 0},              //12 enable secondary alignments
-    {"include-alt-alleles",no_argument, 0, 0},     //15 include modifications occuring on non-reference alleles (eg. due to SNPs)
-    {"skip-supplementary",no_argument, 0, 0},     //16 skip supplementary alignments
+    {"secondary",no_argument, 0, 0},               //12 enable secondary alignments
+    {"include-non-ref",no_argument, 0, 0},         //15 include modifications occuring on non-reference alleles (eg. due to SNPs)
+    {"skip-supplementary",no_argument, 0, 0},      //16 skip supplementary alignments
     {0, 0, 0, 0}};
 
 
@@ -77,7 +77,7 @@ static inline void print_help_msg(FILE *fp_help, opt_t opt){
     fprintf(fp_help,"   --verbose INT              verbosity level [%d]\n",(int)get_log_level());
     fprintf(fp_help,"   --version                  print version\n");
     fprintf(fp_help,"   --secondary                output secondary alignments [%s]\n", (opt.secondary?"yes":"no"));
-    fprintf(fp_help,"   --include-alt-alleles      include modifications occuring on non-reference alleles (eg. due to SNPs) [%s]\n", (opt.alt_alleles?"yes":"no"));
+    fprintf(fp_help,"   --include-non-ref          include modifications on bases not matching reference (eg. due to SNPs) [%s]\n", (opt.alt_alleles?"yes":"no"));
     fprintf(fp_help,"   --skip-supplementary       skip supplementary alignments [%s]\n", (opt.skip_supplementary?"yes":"no"));
 
     fprintf(fp_help,"\nadvanced options:\n");
