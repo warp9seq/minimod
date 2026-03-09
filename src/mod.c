@@ -602,7 +602,7 @@ void print_view_output(core_t* core, db_t* db) {
             char * key = sorted_arr[j].key;
             decode_key(key, &tname, &ref_pos, &ins_offset, &mod_code, &strand, &haplotype);
 
-            fprintf(out_fp, "%s\t%d\t%c\t%s\t%d\t%s\t%f", tname, ref_pos, strand, qname, view->read_pos, mod_code, view->mod_prob / 255.0);
+            fprintf(out_fp, "%s\t%d\t%c\t%s\t%d\t%s\t%f", tname, ref_pos, strand, qname, view->read_pos, mod_code, (view->mod_prob + 0.5) / 255.0);
             if(do_insertions){
                 fprintf(out_fp, "\t%d", db->ins_offset[i][view->read_pos]);
             }
