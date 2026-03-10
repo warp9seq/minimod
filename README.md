@@ -280,13 +280,12 @@ Modified base positions are encoded in MM tag as a series of integers each indic
 Base modification codes and contexts can be set for both view and freq tool using -c option to take only specific base modifications found in a given contexts. The context should match in the reference and bases in unmatching contexts are ignored.
 
 Here are the possible context formats.
-- **a[A]** : type a modifications of all A bases
-- **h[CG]** : type h modifications in CG context (CpG sites)
-- **m** : type m modifications in default CG context
-- **a[*]** : ideally same as a[A]. But can be useful if the canonical base is unknown
-- **\*[CG]** : all types of modifications in CG context
-- **\*** : all types of modifications in all contexts
-- **17802[T]** : pseU modifications in T context (modification code is given as ChEBI code)
+- **m[CG]** : type m modifications in CG context. the modified read base should match the corresponding reference base. the whole context may not match between read sequence and reference sequence.
+- **m** : same as **m[CG]**.
+- **a[A]** : same as **a**. type a modifications in A context. modified read base should match the corresponding reference base.
+- **a[*]** : type a modifications regardless of the context in reference or read sequences.
+- **\*[CG]** : all types of modifications in CG context. the modified read base should match the corresponding reference base. the whole context may not match between read sequence and reference sequence.
+- **17802[T]** : pseU modifications in T context (modification code is given as ChEBI code). the modified read base should match the corresponding reference base. the whole context may not match between read sequence and reference sequence.
 
 Here are some example commands.
 ```bash
