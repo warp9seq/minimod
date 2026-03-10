@@ -296,8 +296,7 @@ testname="view m[*] example-hifi_no_supps.bam"
 echo -e "${BLUE}${testname}${NC}"
 ex  ./minimod view -c m[*] -t 8 test/tmp/genome_chr22.fa test/data/example-hifi_no_supps.bam > test/tmp/example-hifi.mm.view.m.all.tsv  || die "${testname} Running the tool failed"
 # /install/modkit-v0.5.1/modkit extract full --kmer-size 1 --mapped-only --force --reference test/tmp/genome_chr22.fa test/data/example-hifi_no_supps.bam test/expected/example-hifi.mk.extract.bed
-# awk -F '\t' 'function c(b){b=toupper(b);return b=="A"?"T":b=="T"?"A":b=="C"?"G":b=="G"?"C":b} NR==1 || ($14=="m" && (($21==16 && toupper($16)==c($17)) || ($21!=16 && toupper($16)==toupper($17))))' test/expected/example-hifi.mk.extract.bed > test/expected/example-hifi.mk.extract.m.bed
-test/compare_view_mkbed_mmtsv.sh -y test/expected/example-hifi.mk.extract.m.bed test/tmp/example-hifi.mm.view.m.all.tsv test/tmp/example_hifi_view_compare || die "${testname} Comparison failed"
+test/compare_view_mkbed_mmtsv.sh -y test/expected/example-hifi.mk.extract.bed test/tmp/example-hifi.mm.view.m.all.tsv test/tmp/example_hifi_view_compare || die "${testname} Comparison failed"
 [ "$(wc -l < test/tmp/example_hifi_view_compare/missing_in_file1.tsv)" -gt 1 ] && die "${testname} minimod view missing records compared to modkit extract full"
 [ "$(wc -l < test/tmp/example_hifi_view_compare/missing_in_file2.tsv)" -gt 1 ] && die "${testname} modkit extract full missing records compared to minimod view"
 [ "$(wc -l < test/tmp/example_hifi_view_compare/large_prob_diff.tsv)" -gt 1 ] && die "${testname} Records with large prob diff between minimod view and modkit extract full"
@@ -366,7 +365,7 @@ testname="view m[*] example-ont_no_supps.bam"
 echo -e "${BLUE}${testname}${NC}"
 ex  ./minimod view -t 8 -c m[*] test/tmp/genome_chr22.fa test/data/example-ont_no_supps.bam > test/tmp/example-ont_no_supps.mm.view.m.all.tsv || die "${testname} Running the tool failed"
 # /install/modkit-v0.5.1/modkit extract full --kmer-size 1 --mapped-only --force --reference test/tmp/genome_chr22.fa test/data/example-ont_no_supps.bam test/expected/example-ont_no_supps.mk.extract.bed
-# awk -F '\t' 'function c(b){b=toupper(b);return b=="A"?"T":b=="T"?"A":b=="C"?"G":b=="G"?"C":b} NR==1 || ($14=="m" && (($21==16 && toupper($16)==c($17)) || ($21!=16 && toupper($16)==toupper($17))))' test/expected/example-ont_no_supps.mk.extract.bed > test/expected/example-ont_no_supps.mk.extract.m.bed
+# awk 'NR==1 || $14=="m"' test/expected/example-ont_no_supps.mk.extract.bed > test/expected/example-ont_no_supps.mk.extract.m.bed
 test/compare_view_mkbed_mmtsv.sh -y test/expected/example-ont_no_supps.mk.extract.m.bed test/tmp/example-ont_no_supps.mm.view.m.all.tsv test/tmp/example_ont_view_compare || die "${testname} Comparison failed"
 [ "$(wc -l < test/tmp/example_ont_view_compare/missing_in_file1.tsv)" -gt 1 ] && die "${testname} minimod view missing records compared to modkit extract full"
 [ "$(wc -l < test/tmp/example_ont_view_compare/missing_in_file2.tsv)" -gt 1 ] && die "${testname} modkit extract full missing records compared to minimod view"
@@ -377,7 +376,7 @@ testname="view h[*] example-ont_no_supps.bam"
 echo -e "${BLUE}${testname}${NC}"
 ex  ./minimod view -t 8 -c h[*] test/tmp/genome_chr22.fa test/data/example-ont_no_supps.bam > test/tmp/example-ont_no_supps.mm.view.h.all.tsv || die "${testname} Running the tool failed"
 # /install/modkit-v0.5.1/modkit extract full --kmer-size 1  --mapped-only --force --reference test/tmp/genome_chr22.fa test/data/example-ont_no_supps.bam test/expected/example-ont_no_supps.mk.extract.bed
-awk 'function c(b){b=toupper(b);return b=="A"?"T":b=="T"?"A":b=="C"?"G":b=="G"?"C":b} NR==1 || ($14=="h" && (($21==16 && toupper($16)==c($17)) || ($21!=16 && toupper($16)==toupper($17))))' test/expected/example-ont_no_supps.mk.extract.bed > test/expected/example-ont_no_supps.mk.extract.h.bed
+# awk 'NR==1 || $14=="h"' test/expected/example-ont_no_supps.mk.extract.bed > test/expected/example-ont_no_supps.mk.extract.h.bed
 test/compare_view_mkbed_mmtsv.sh -y test/expected/example-ont_no_supps.mk.extract.h.bed test/tmp/example-ont_no_supps.mm.view.h.all.tsv test/tmp/example_ont_view_compare || die "${testname} Comparison failed"
 [ "$(wc -l < test/tmp/example_ont_view_compare/missing_in_file1.tsv)" -gt 1 ] && die "${testname} minimod view missing records compared to modkit extract full"
 [ "$(wc -l < test/tmp/example_ont_view_compare/missing_in_file2.tsv)" -gt 1 ] && die "${testname} modkit extract full missing records compared to minimod view"
@@ -434,7 +433,7 @@ testname="view m[*] dna_5mCG_5hmCG_mm_chr22_no_supps.bam"
 echo -e "${BLUE}${testname}${NC}"
 ex  ./minimod view -t 8 -c m[*] test/tmp/genome_chr22.fa test/data/dna_5mCG_5hmCG_mm_chr22_no_supps.bam > test/tmp/dna_5mCG_5hmCG_mm_chr22_no_supps.mm.view.m.all.tsv || die "${testname} Running the tool failed"
 # /install/modkit-v0.5.1/modkit extract full --kmer-size 1 --mapped-only --force --reference test/tmp/genome_chr22.fa test/data/dna_5mCG_5hmCG_mm_chr22_no_supps.bam test/expected/dna_5mCG_5hmCG_mm_chr22_no_supps.mk.extract.bed
-# awk -F '\t' 'function c(b){b=toupper(b);return b=="A"?"T":b=="T"?"A":b=="C"?"G":b=="G"?"C":b} NR==1 || ($14=="m" && (($21==16 && toupper($16)==c($17)) || ($21!=16 && toupper($16)==toupper($17))))'  test/expected/dna_5mCG_5hmCG_mm_chr22_no_supps.mk.extract.bed > test/expected/dna_5mCG_5hmCG_mm_chr22_no_supps.mk.extract.m.bed
+# awk 'NR==1 || $14=="m"' test/expected/dna_5mCG_5hmCG_mm_chr22_no_supps.mk.extract.bed > test/expected/dna_5mCG_5hmCG_mm_chr22_no_supps.mk.extract.m.bed
 test/compare_view_mkbed_mmtsv.sh -y test/expected/dna_5mCG_5hmCG_mm_chr22_no_supps.mk.extract.m.bed test/tmp/dna_5mCG_5hmCG_mm_chr22_no_supps.mm.view.m.all.tsv test/tmp/dna_5mCG_5hmCG_mm_chr22_no_supps_view_compare || die "${testname} Comparison failed"
 [ "$(wc -l < test/tmp/dna_5mCG_5hmCG_mm_chr22_no_supps_view_compare/missing_in_file1.tsv)" -gt 1 ] && die "${testname} minimod view missing records compared to modkit extract full"
 [ "$(wc -l < test/tmp/dna_5mCG_5hmCG_mm_chr22_no_supps_view_compare/missing_in_file2.tsv)" -gt 1 ] && die "${testname} modkit extract full missing records compared to minimod view"
@@ -445,8 +444,7 @@ testname="view * dna_5mCG_5hmCG_mm_chr22_no_supps.bam"
 echo -e "${BLUE}${testname}${NC}"
 ex  ./minimod view -t 8 -c '*' test/tmp/genome_chr22.fa test/data/dna_5mCG_5hmCG_mm_chr22_no_supps.bam > test/tmp/dna_5mCG_5hmCG_mm_chr22_no_supps.mm.view.all.all.tsv || die "${testname} Running the tool failed"
 # /install/modkit-v0.5.1/modkit extract full --kmer-size 1 --mapped-only --force --reference test/tmp/genome_chr22.fa test/data/dna_5mCG_5hmCG_mm_chr22_no_supps.bam test/expected/dna_5mCG_5hmCG_mm_chr22_no_supps.mk.extract.bed
-# awk -F '\t' 'function c(b){b=toupper(b);return b=="A"?"T":b=="T"?"A":b=="C"?"G":b=="G"?"C":b} NR==1 || (($21==16 && toupper($16)==c($17)) || ($21!=16 && toupper($16)==toupper($17)))'  test/expected/dna_5mCG_5hmCG_mm_chr22_no_supps.mk.extract.bed > test/expected/dna_5mCG_5hmCG_mm_chr22_no_supps.mk.extract.matching.bed
-test/compare_view_mkbed_mmtsv.sh -y test/expected/dna_5mCG_5hmCG_mm_chr22_no_supps.mk.extract.matching.bed test/tmp/dna_5mCG_5hmCG_mm_chr22_no_supps.mm.view.all.all.tsv test/tmp/dna_5mCG_5hmCG_mm_chr22_no_supps_view_compare || die "${testname} Comparison failed"
+test/compare_view_mkbed_mmtsv.sh -y test/expected/dna_5mCG_5hmCG_mm_chr22_no_supps.mk.extract.bed test/tmp/dna_5mCG_5hmCG_mm_chr22_no_supps.mm.view.all.all.tsv test/tmp/dna_5mCG_5hmCG_mm_chr22_no_supps_view_compare || die "${testname} Comparison failed"
 [ "$(wc -l < test/tmp/dna_5mCG_5hmCG_mm_chr22_no_supps_view_compare/missing_in_file1.tsv)" -gt 1 ] && die "${testname} minimod view missing records compared to modkit extract full"
 [ "$(wc -l < test/tmp/dna_5mCG_5hmCG_mm_chr22_no_supps_view_compare/missing_in_file2.tsv)" -gt 1 ] && die "${testname} modkit extract full missing records compared to minimod view"
 [ "$(wc -l < test/tmp/dna_5mCG_5hmCG_mm_chr22_no_supps_view_compare/large_prob_diff.tsv)" -gt 1 ] && die "${testname} Records with large prob diff between minimod view and modkit extract full"
@@ -468,9 +466,9 @@ echo -e "${GREEN}${testname} passed!${NC}\n"
 
 
 
-testname="view * --include-non-ref dna_5mCG_5hmCG_mm_chr22_no_supps.bam"
+testname="view * dna_5mCG_5hmCG_mm_chr22_no_supps.bam"
 echo -e "${BLUE}${testname}${NC}"
-ex  ./minimod view -t 8 --include-non-ref -c '*' test/tmp/genome_chr22.fa test/data/dna_5mCG_5hmCG_mm_chr22_no_supps.bam > test/tmp/dna_5mCG_5hmCG_mm_chr22_no_supps.mm.view.all.all.alt.tsv || die "${testname} Running the tool failed"
+ex  ./minimod view -t 8 -c '*' test/tmp/genome_chr22.fa test/data/dna_5mCG_5hmCG_mm_chr22_no_supps.bam > test/tmp/dna_5mCG_5hmCG_mm_chr22_no_supps.mm.view.all.all.alt.tsv || die "${testname} Running the tool failed"
 # /install/modkit-v0.5.1/modkit extract full --kmer-size 1 --mapped-only --force --reference test/tmp/genome_chr22.fa test/data/dna_5mCG_5hmCG_mm_chr22_no_supps.bam test/expected/dna_5mCG_5hmCG_mm_chr22_no_supps.mk.extract.bed
 test/compare_view_mkbed_mmtsv.sh -y test/expected/dna_5mCG_5hmCG_mm_chr22_no_supps.mk.extract.bed test/tmp/dna_5mCG_5hmCG_mm_chr22_no_supps.mm.view.all.all.alt.tsv test/tmp/dna_5mCG_5hmCG_mm_chr22_no_supps_view_compare || die "${testname} Comparison failed"
 [ "$(wc -l < test/tmp/dna_5mCG_5hmCG_mm_chr22_no_supps_view_compare/missing_in_file1.tsv)" -gt 1 ] && die "${testname} minimod view missing records compared to modkit extract full"
@@ -488,9 +486,9 @@ echo "Correlation of freq m[CG] with modkit pileup: $corr"
 echo -e "${GREEN}${testname} passed!${NC}\n"
 
 
-testname="freq * --include-non-ref dna_5mCG_5hmCG_mm_chr22_no_supps.bam"
+testname="freq * dna_5mCG_5hmCG_mm_chr22_no_supps.bam"
 echo -e "${BLUE}${testname}${NC}"
-ex  ./minimod freq -b -t 8 --include-non-ref -c '*' test/tmp/genome_chr22.fa test/data/dna_5mCG_5hmCG_mm_chr22_no_supps.bam > test/tmp/dna_5mCG_5hmCG_mm_chr22_no_supps.mm.freq.all.alt.bed || die "${testname} Running the tool failed"
+ex  ./minimod freq -b -t 8  -c '*' test/tmp/genome_chr22.fa test/data/dna_5mCG_5hmCG_mm_chr22_no_supps.bam > test/tmp/dna_5mCG_5hmCG_mm_chr22_no_supps.mm.freq.all.alt.bed || die "${testname} Running the tool failed"
 # /data/suneth/install/dist_modkit_v0.5.1_8fa79e3/modkit pileup --region chr22 --reference test/tmp/genome_chr22.fa test/data/dna_5mCG_5hmCG_mm_chr22_no_supps.bam test/expected/dna_5mCG_5hmCG_mm_chr22_no_supps.mk.pileup.bed || die "${testname} Running modkit pileup failed"
 corr=`test/compare.py test/expected/dna_5mCG_5hmCG_mm_chr22_no_supps.mk.pileup.bed test/tmp/dna_5mCG_5hmCG_mm_chr22_no_supps.mm.freq.all.alt.bed` || die "${testname} Comparison failed"
 echo "Correlation of freq * with modkit pileup: $corr"
@@ -539,8 +537,7 @@ testname="view * dna_4mC_5mC_mm_chr22_no_supps.bam"
 echo -e "${BLUE}${testname}${NC}"
 ex  ./minimod view -t 8 -c '*' test/tmp/genome_chr22.fa test/data/dna_4mC_5mC_mm_chr22_no_supps.bam > test/tmp/dna_4mC_5mC_mm_chr22_no_supps.mm.view.all.all.tsv || die "${testname} Running the tool failed"
 # /install/modkit-v0.5.1/modkit extract full --kmer-size 1 --mapped-only --force --reference test/tmp/genome_chr22.fa test/data/dna_4mC_5mC_mm_chr22_no_supps.bam test/expected/dna_4mC_5mC_mm_chr22_no_supps.mk.extract.bed
-# awk -F '\t' 'function c(b){b=toupper(b);return b=="A"?"T":b=="T"?"A":b=="C"?"G":b=="G"?"C":b} NR==1 || (($21==16 && toupper($16)==c($17)) || ($21!=16 && toupper($16)==toupper($17)))' test/expected/dna_4mC_5mC_mm_chr22_no_supps.mk.extract.bed > test/expected/dna_4mC_5mC_mm_chr22_no_supps.mk.extract.matching.bed
-test/compare_view_mkbed_mmtsv.sh -y test/expected/dna_4mC_5mC_mm_chr22_no_supps.mk.extract.matching.bed test/tmp/dna_4mC_5mC_mm_chr22_no_supps.mm.view.all.all.tsv test/tmp/dna_4mC_5mC_mm_chr22_no_supps_view_compare || die "${testname} Comparison failed"
+test/compare_view_mkbed_mmtsv.sh -y test/expected/dna_4mC_5mC_mm_chr22_no_supps.mk.extract.bed test/tmp/dna_4mC_5mC_mm_chr22_no_supps.mm.view.all.all.tsv test/tmp/dna_4mC_5mC_mm_chr22_no_supps_view_compare || die "${testname} Comparison failed"
 [ "$(wc -l < test/tmp/dna_4mC_5mC_mm_chr22_no_supps_view_compare/missing_in_file1.tsv)" -gt 1 ] && die "${testname} minimod view missing records compared to modkit extract full"
 [ "$(wc -l < test/tmp/dna_4mC_5mC_mm_chr22_no_supps_view_compare/missing_in_file2.tsv)" -gt 1 ] && die "${testname} modkit extract full missing records compared to minimod view"
 [ "$(wc -l < test/tmp/dna_4mC_5mC_mm_chr22_no_supps_view_compare/large_prob_diff.tsv)" -gt 1 ] && die "${testname} Records with large prob diff between minimod view and modkit extract full"
@@ -616,7 +613,7 @@ testname="view m[*] dna_5mC_5hmC_mm_chr22_no_supps.bam"
 echo -e "${BLUE}${testname}${NC}"
 ex  ./minimod view -t 8 -c m[*] test/tmp/genome_chr22.fa test/data/dna_5mC_5hmC_mm_chr22_no_supps.bam > test/tmp/dna_5mC_5hmC_mm_chr22_no_supps.mm.view.m.all.tsv || die "${testname} Running the tool failed"
 # /install/modkit-v0.5.1/modkit extract full --kmer-size 1 --mapped-only --force --reference test/tmp/genome_chr22.fa test/data/dna_5mC_5hmC_mm_chr22_no_supps.bam test/expected/dna_5mC_5hmC_mm_chr22_no_supps.mk.extract.bed
-# awk -F '\t' 'function c(b){b=toupper(b);return b=="A"?"T":b=="T"?"A":b=="C"?"G":b=="G"?"C":b} NR==1 || ($14=="m" && (($21==16 && toupper($16)==c($17)) || ($21!=16 && toupper($16)==toupper($17))))' test/expected/dna_5mC_5hmC_mm_chr22_no_supps.mk.extract.bed > test/expected/dna_5mC_5hmC_mm_chr22_no_supps.mk.extract.m.bed
+awk 'NR==1 || $14=="m"' test/expected/dna_5mC_5hmC_mm_chr22_no_supps.mk.extract.bed > test/expected/dna_5mC_5hmC_mm_chr22_no_supps.mk.extract.m.bed
 test/compare_view_mkbed_mmtsv.sh -y test/expected/dna_5mC_5hmC_mm_chr22_no_supps.mk.extract.m.bed test/tmp/dna_5mC_5hmC_mm_chr22_no_supps.mm.view.m.all.tsv test/tmp/dna_5mC_5hmC_mm_chr22_no_supps_view_compare || die "${testname} Comparison failed"
 [ "$(wc -l < test/tmp/dna_5mC_5hmC_mm_chr22_no_supps_view_compare/missing_in_file1.tsv)" -gt 1 ] && die "${testname} minimod view missing records compared to modkit extract full"
 [ "$(wc -l < test/tmp/dna_5mC_5hmC_mm_chr22_no_supps_view_compare/missing_in_file2.tsv)" -gt 1 ] && die "${testname} modkit extract full missing records compared to minimod view"
@@ -627,8 +624,7 @@ testname="view * dna_5mC_5hmC_mm_chr22_no_supps.bam"
 echo -e "${BLUE}${testname}${NC}"
 ex  ./minimod view -t 8 -c '*' test/tmp/genome_chr22.fa test/data/dna_5mC_5hmC_mm_chr22_no_supps.bam > test/tmp/dna_5mC_5hmC_mm_chr22_no_supps.mm.view.all.all.tsv || die "${testname} Running the tool failed"
 # /install/modkit-v0.5.1/modkit extract full --kmer-size 1 --mapped-only --force --reference test/tmp/genome_chr22.fa test/data/dna_5mC_5hmC_mm_chr22_no_supps.bam test/expected/dna_5mC_5hmC_mm_chr22_no_supps.mk.extract.bed
-# awk -F '\t' 'function c(b){b=toupper(b);return b=="A"?"T":b=="T"?"A":b=="C"?"G":b=="G"?"C":b} NR==1 || (($21==16 && toupper($16)==c($17)) || ($21!=16 && toupper($16)==toupper($17)))' test/expected/dna_5mC_5hmC_mm_chr22_no_supps.mk.extract.bed > test/expected/dna_5mC_5hmC_mm_chr22_no_supps.mk.extract.matching.bed
-test/compare_view_mkbed_mmtsv.sh -y test/expected/dna_5mC_5hmC_mm_chr22_no_supps.mk.extract.matching.bed test/tmp/dna_5mC_5hmC_mm_chr22_no_supps.mm.view.all.all.tsv test/tmp/dna_5mC_5hmC_mm_chr22_no_supps_view_compare || die "${testname} Comparison failed"
+test/compare_view_mkbed_mmtsv.sh -y test/expected/dna_5mC_5hmC_mm_chr22_no_supps.mk.extract.bed test/tmp/dna_5mC_5hmC_mm_chr22_no_supps.mm.view.all.all.tsv test/tmp/dna_5mC_5hmC_mm_chr22_no_supps_view_compare || die "${testname} Comparison failed"
 [ "$(wc -l < test/tmp/dna_5mC_5hmC_mm_chr22_no_supps_view_compare/missing_in_file1.tsv)" -gt 1 ] && die "${testname} minimod view missing records compared to modkit extract full"
 [ "$(wc -l < test/tmp/dna_5mC_5hmC_mm_chr22_no_supps_view_compare/missing_in_file2.tsv)" -gt 1 ] && die "${testname} modkit extract full missing records compared to minimod view"
 [ "$(wc -l < test/tmp/dna_5mC_5hmC_mm_chr22_no_supps_view_compare/large_prob_diff.tsv)" -gt 1 ] && die "${testname} Records with large prob diff between minimod view and modkit extract full"
@@ -654,7 +650,7 @@ testname="view a[*] dna_6mA_mm_chr22_no_supps.bam"
 echo -e "${BLUE}${testname}${NC}"
 ex  ./minimod view -t 8 -c "a[*]" test/tmp/genome_chr22.fa test/data/dna_6mA_mm_chr22_no_supps.bam > test/tmp/dna_6mA_mm_chr22_no_supps.mm.view.a.all.tsv || die "${testname} Running the tool failed"
 # /install/modkit-v0.5.1/modkit extract full --kmer-size 1 --mapped-only --force --reference test/tmp/genome_chr22.fa test/data/dna_6mA_mm_chr22_no_supps.bam test/expected/dna_6mA_mm_chr22_no_supps.mk.extract.bed
-# awk -F '\t' 'function c(b){b=toupper(b);return b=="A"?"T":b=="T"?"A":b=="C"?"G":b=="G"?"C":b} NR==1 || ($14=="a" && (($21==16 && toupper($16)==c($17)) || ($21!=16 && toupper($16)==toupper($17))))' test/expected/dna_6mA_mm_chr22_no_supps.mk.extract.bed > test/expected/dna_6mA_mm_chr22_no_supps.mk.extract.a.bed
+awk 'NR==1 || $14=="a"' test/expected/dna_6mA_mm_chr22_no_supps.mk.extract.bed > test/expected/dna_6mA_mm_chr22_no_supps.mk.extract.a.bed
 test/compare_view_mkbed_mmtsv.sh -y test/expected/dna_6mA_mm_chr22_no_supps.mk.extract.a.bed test/tmp/dna_6mA_mm_chr22_no_supps.mm.view.a.all.tsv test/tmp/dna_6mA_mm_chr22_no_supps_view_compare || die "${testname} Comparison failed"
 [ "$(wc -l < test/tmp/dna_6mA_mm_chr22_no_supps_view_compare/missing_in_file1.tsv)" -gt 1 ] && die "${testname} minimod view missing records compared to modkit extract full"
 [ "$(wc -l < test/tmp/dna_6mA_mm_chr22_no_supps_view_compare/missing_in_file2.tsv)" -gt 1 ] && die "${testname} modkit extract full missing records compared to minimod view"
@@ -665,8 +661,7 @@ testname="view * dna_6mA_mm_chr22_no_supps.bam"
 echo -e "${BLUE}${testname}${NC}"
 ex  ./minimod view -t 8 -c '*' test/tmp/genome_chr22.fa test/data/dna_6mA_mm_chr22_no_supps.bam > test/tmp/dna_6mA_mm_chr22_no_supps.mm.view.all.all.tsv || die "${testname} Running the tool failed"
 # /install/modkit-v0.5.1/modkit extract full --kmer-size 1 --mapped-only --force --reference test/tmp/genome_chr22.fa test/data/dna_6mA_mm_chr22_no_supps.bam test/expected/dna_6mA_mm_chr22_no_supps.mk.extract.bed
-# awk -F '\t' 'function c(b){b=toupper(b);return b=="A"?"T":b=="T"?"A":b=="C"?"G":b=="G"?"C":b} NR==1 || (($21==16 && toupper($16)==c($17)) || ($21!=16 && toupper($16)==toupper($17)))' test/expected/dna_6mA_mm_chr22_no_supps.mk.extract.bed > test/expected/dna_6mA_mm_chr22_no_supps.mk.extract.matching.bed
-test/compare_view_mkbed_mmtsv.sh -y test/expected/dna_6mA_mm_chr22_no_supps.mk.extract.matching.bed test/tmp/dna_6mA_mm_chr22_no_supps.mm.view.all.all.tsv test/tmp/dna_6mA_mm_chr22_no_supps_view_compare || die "${testname} Comparison failed"
+test/compare_view_mkbed_mmtsv.sh -y test/expected/dna_6mA_mm_chr22_no_supps.mk.extract.bed test/tmp/dna_6mA_mm_chr22_no_supps.mm.view.all.all.tsv test/tmp/dna_6mA_mm_chr22_no_supps_view_compare || die "${testname} Comparison failed"
 [ "$(wc -l < test/tmp/dna_6mA_mm_chr22_no_supps_view_compare/missing_in_file1.tsv)" -gt 1 ] && die "${testname} minimod view missing records compared to modkit extract full"
 [ "$(wc -l < test/tmp/dna_6mA_mm_chr22_no_supps_view_compare/missing_in_file2.tsv)" -gt 1 ] && die "${testname} modkit extract full missing records compared to minimod view"
 [ "$(wc -l < test/tmp/dna_6mA_mm_chr22_no_supps_view_compare/large_prob_diff.tsv)" -gt 1 ] && die "${testname} Records with large prob diff between minimod view and modkit extract full"
@@ -683,7 +678,7 @@ echo -e "${GREEN}${testname} passed!${NC}\n"
 
 testname="freq * dna_6mA_mm_chr22_no_supps.bam"
 echo -e "${BLUE}${testname}${NC}"
-ex  ./minimod freq -t 8 -b -c '*' --include-non-ref test/tmp/genome_chr22.fa test/data/dna_6mA_mm_chr22_no_supps.bam > test/tmp/dna_6mA_mm_chr22_no_supps.mm.freq.all.bed || die "${testname} Running the tool failed"
+ex  ./minimod freq -t 8 -b -c '*' test/tmp/genome_chr22.fa test/data/dna_6mA_mm_chr22_no_supps.bam > test/tmp/dna_6mA_mm_chr22_no_supps.mm.freq.all.bed || die "${testname} Running the tool failed"
 # /data/suneth/install/dist_modkit_v0.5.1_8fa79e3/modkit pileup --region chr22 --reference test/tmp/genome_chr22.fa test/data/dna_6mA_mm_chr22_no_supps.bam test/expected/dna_6mA_mm_chr22_no_supps.mk.pileup.bed || die "${testname} Running modkit pileup failed"
 corr=`test/compare.py test/expected/dna_6mA_mm_chr22_no_supps.mk.pileup.bed test/tmp/dna_6mA_mm_chr22_no_supps.mm.freq.all.bed` || die "${testname} Comparison failed" 
 echo "Correlation of freq * with modkit pileup: $corr"
@@ -711,7 +706,7 @@ testname="view 19229[*] rna_2OmeG_mm_hg38_chr22_no_supps.bam"
 echo -e "${BLUE}${testname}${NC}"
 ex  ./minimod view -t 8 -c "19229[*]" test/tmp/genome_chr22.fa test/data/rna_2OmeG_mm_hg38_chr22_no_supps.bam > test/tmp/rna_2OmeG_mm_hg38_chr22_no_supps.mm.view.19229.all.tsv || die "${testname} Running the tool failed"
 # /install/modkit-v0.5.1/modkit extract full --kmer-size 1 --mapped-only --force --reference test/tmp/genome_chr22.fa test/data/rna_2OmeG_mm_hg38_chr22_no_supps.bam test/expected/rna_2OmeG_mm_hg38_chr22_no_supps.mk.extract.bed
-# awk -F '\t' 'function c(b){b=toupper(b);return b=="A"?"T":b=="T"?"A":b=="C"?"G":b=="G"?"C":b} NR==1 || ($14=="19229" && (($21==16 && toupper($16)==c($17)) || ($21!=16 && toupper($16)==toupper($17))))' test/expected/rna_2OmeG_mm_hg38_chr22_no_supps.mk.extract.bed > test/expected/rna_2OmeG_mm_hg38_chr22_no_supps.mk.extract.19229.all.bed
+awk 'NR==1 || $14=="19229"' test/expected/rna_2OmeG_mm_hg38_chr22_no_supps.mk.extract.bed > test/expected/rna_2OmeG_mm_hg38_chr22_no_supps.mk.extract.19229.all.bed
 test/compare_view_mkbed_mmtsv.sh -y test/expected/rna_2OmeG_mm_hg38_chr22_no_supps.mk.extract.19229.all.bed test/tmp/rna_2OmeG_mm_hg38_chr22_no_supps.mm.view.19229.all.tsv test/tmp/rna_2OmeG_mm_hg38_chr22_no_supps_view_compare || die "${testname} Comparison failed"
 [ "$(wc -l < test/tmp/rna_2OmeG_mm_hg38_chr22_no_supps_view_compare/missing_in_file1.tsv)" -gt 1 ] && die "${testname} minimod view missing records compared to modkit extract full"
 [ "$(wc -l < test/tmp/rna_2OmeG_mm_hg38_chr22_no_supps_view_compare/missing_in_file2.tsv)" -gt 1 ] && die "${testname} modkit extract full missing records compared to minimod view"
@@ -722,8 +717,7 @@ testname="view * rna_2OmeG_mm_hg38_chr22_no_supps.bam"
 echo -e "${BLUE}${testname}${NC}"
 ex  ./minimod view -t 8 -c '*' test/tmp/genome_chr22.fa test/data/rna_2OmeG_mm_hg38_chr22_no_supps.bam > test/tmp/rna_2OmeG_mm_hg38_chr22_no_supps.mm.view.all.all.tsv || die "${testname} Running the tool failed"
 # /install/modkit-v0.5.1/modkit extract full --kmer-size 1 --mapped-only --force --reference test/tmp/genome_chr22.fa test/data/rna_2OmeG_mm_hg38_chr22_no_supps.bam test/expected/rna_2OmeG_mm_hg38_chr22_no_supps.mk.extract.bed
-# awk -F '\t' 'function c(b){b=toupper(b);return b=="A"?"T":b=="T"?"A":b=="C"?"G":b=="G"?"C":b} NR==1 || (($21==16 && toupper($16)==c($17)) || ($21!=16 && toupper($16)==toupper($17)))' test/expected/rna_2OmeG_mm_hg38_chr22_no_supps.mk.extract.bed > test/expected/rna_2OmeG_mm_hg38_chr22_no_supps.mk.extract.matching.bed
-test/compare_view_mkbed_mmtsv.sh -y test/expected/rna_2OmeG_mm_hg38_chr22_no_supps.mk.extract.matching.bed test/tmp/rna_2OmeG_mm_hg38_chr22_no_supps.mm.view.all.all.tsv test/tmp/rna_2OmeG_mm_hg38_chr22_no_supps_view_compare || die "${testname} Comparison failed"
+test/compare_view_mkbed_mmtsv.sh -y test/expected/rna_2OmeG_mm_hg38_chr22_no_supps.mk.extract.bed test/tmp/rna_2OmeG_mm_hg38_chr22_no_supps.mm.view.all.all.tsv test/tmp/rna_2OmeG_mm_hg38_chr22_no_supps_view_compare || die "${testname} Comparison failed"
 [ "$(wc -l < test/tmp/rna_2OmeG_mm_hg38_chr22_no_supps_view_compare/missing_in_file1.tsv)" -gt 1 ] && die "${testname} minimod view missing records compared to modkit extract full"
 [ "$(wc -l < test/tmp/rna_2OmeG_mm_hg38_chr22_no_supps_view_compare/missing_in_file2.tsv)" -gt 1 ] && die "${testname} modkit extract full missing records compared to minimod view"
 [ "$(wc -l < test/tmp/rna_2OmeG_mm_hg38_chr22_no_supps_view_compare/large_prob_diff.tsv)" -gt 1 ] && die "${testname} Records with large prob diff between minimod view and modkit extract full"
@@ -771,8 +765,7 @@ testname="view * rna_inosine_m6A_2OmeA_mm_hg38_chr22_no_supps.bam"
 echo -e "${BLUE}${testname}${NC}"
 ex  ./minimod view -t 8 -c '*' test/tmp/genome_chr22.fa test/data/rna_inosine_m6A_2OmeA_mm_hg38_chr22_no_supps.bam > test/tmp/rna_inosine_m6A_2OmeA_mm_hg38_chr22_no_supps.mm.view.all.all.tsv || die "${testname} Running the tool failed"
 # /install/modkit-v0.5.1/modkit extract full --kmer-size 1 --mapped-only --force --reference test/tmp/genome_chr22.fa test/data/rna_inosine_m6A_2OmeA_mm_hg38_chr22_no_supps.bam test/expected/rna_inosine_m6A_2OmeA_mm_hg38_chr22_no_supps.mk.extract.bed
-# awk -F '\t' 'function c(b){b=toupper(b);return b=="A"?"T":b=="T"?"A":b=="C"?"G":b=="G"?"C":b} NR==1 || (($21==16 && toupper($16)==c($17)) || ($21!=16 && toupper($16)==toupper($17)))' test/expected/rna_inosine_m6A_2OmeA_mm_hg38_chr22_no_supps.mk.extract.bed > test/expected/rna_inosine_m6A_2OmeA_mm_hg38_chr22_no_supps.mk.extract.matching.bed
-test/compare_view_mkbed_mmtsv.sh -y test/expected/rna_inosine_m6A_2OmeA_mm_hg38_chr22_no_supps.mk.extract.matching.bed test/tmp/rna_inosine_m6A_2OmeA_mm_hg38_chr22_no_supps.mm.view.all.all.tsv test/tmp/rna_inosine_m6A_2OmeA_mm_hg38_chr22_no_supps_view_compare || die "${testname} Comparison failed"
+test/compare_view_mkbed_mmtsv.sh -y test/expected/rna_inosine_m6A_2OmeA_mm_hg38_chr22_no_supps.mk.extract.bed test/tmp/rna_inosine_m6A_2OmeA_mm_hg38_chr22_no_supps.mm.view.all.all.tsv test/tmp/rna_inosine_m6A_2OmeA_mm_hg38_chr22_no_supps_view_compare || die "${testname} Comparison failed"
 [ "$(wc -l < test/tmp/rna_inosine_m6A_2OmeA_mm_hg38_chr22_no_supps_view_compare/missing_in_file1.tsv)" -gt 1 ] && die "${testname} minimod view missing records compared to modkit extract full"
 [ "$(wc -l < test/tmp/rna_inosine_m6A_2OmeA_mm_hg38_chr22_no_supps_view_compare/missing_in_file2.tsv)" -gt 1 ] && die "${testname} modkit extract full missing records compared to minimod view"
 [ "$(wc -l < test/tmp/rna_inosine_m6A_2OmeA_mm_hg38_chr22_no_supps_view_compare/large_prob_diff.tsv)" -gt 1 ] && die "${testname} Records with large prob diff between minimod view and modkit extract full"
@@ -810,8 +803,7 @@ testname="view * rna_m5C_2OmeC_mm_hg38_chr22_no_supps.bam"
 echo -e "${BLUE}${testname}${NC}"
 ex  ./minimod view -t 8 -c '*' test/tmp/genome_chr22.fa test/data/rna_m5C_2OmeC_mm_hg38_chr22_no_supps.bam > test/tmp/rna_m5C_2OmeC_mm_hg38_chr22_no_supps.mm.view.all.all.tsv || die "${testname} Running the tool failed"
 # /install/modkit-v0.5.1/modkit extract full --kmer-size 1 --mapped-only --force --reference test/tmp/genome_chr22.fa test/data/rna_m5C_2OmeC_mm_hg38_chr22_no_supps.bam test/expected/rna_m5C_2OmeC_mm_hg38_chr22_no_supps.mk.extract.bed
-# awk -F '\t' 'function c(b){b=toupper(b);return b=="A"?"T":b=="T"?"A":b=="C"?"G":b=="G"?"C":b} NR==1 || (($21==16 && toupper($16)==c($17)) || ($21!=16 && toupper($16)==toupper($17)))' test/expected/rna_m5C_2OmeC_mm_hg38_chr22_no_supps.mk.extract.bed > test/expected/rna_m5C_2OmeC_mm_hg38_chr22_no_supps.mk.extract.matching.bed
-test/compare_view_mkbed_mmtsv.sh -y test/expected/rna_m5C_2OmeC_mm_hg38_chr22_no_supps.mk.extract.matching.bed test/tmp/rna_m5C_2OmeC_mm_hg38_chr22_no_supps.mm.view.all.all.tsv test/tmp/rna_m5C_2OmeC_mm_hg38_chr22_no_supps_view_compare || die "${testname} Comparison failed"
+test/compare_view_mkbed_mmtsv.sh -y test/expected/rna_m5C_2OmeC_mm_hg38_chr22_no_supps.mk.extract.bed test/tmp/rna_m5C_2OmeC_mm_hg38_chr22_no_supps.mm.view.all.all.tsv test/tmp/rna_m5C_2OmeC_mm_hg38_chr22_no_supps_view_compare || die "${testname} Comparison failed"
 [ "$(wc -l < test/tmp/rna_m5C_2OmeC_mm_hg38_chr22_no_supps_view_compare/missing_in_file1.tsv)" -gt 1 ] && die "${testname} minimod view missing records compared to modkit extract full"
 [ "$(wc -l < test/tmp/rna_m5C_2OmeC_mm_hg38_chr22_no_supps_view_compare/missing_in_file2.tsv)" -gt 1 ]&& die "${testname} modkit extract full missing records compared to minimod view"
 [ "$(wc -l < test/tmp/rna_m5C_2OmeC_mm_hg38_chr22_no_supps_view_compare/large_prob_diff.tsv)" -gt 1 ] && die "${testname} Records with large prob diff between minimod view and modkit extract full"
@@ -838,8 +830,7 @@ testname="view * rna_m6A_DRACH_mm_hg38_chr22_no_supps.bam"
 echo -e "${BLUE}${testname}${NC}"
 ex  ./minimod view -t 8 -c '*' test/tmp/genome_chr22.fa test/data/rna_m6A_DRACH_mm_hg38_chr22_no_supps.bam > test/tmp/rna_m6A_DRACH_mm_hg38_chr22_no_supps.mm.view.all.all.tsv || die "${testname} Running the tool failed"
 # /install/modkit-v0.5.1/modkit extract full --kmer-size 1 --mapped-only --force --reference test/tmp/genome_chr22.fa test/data/rna_m6A_DRACH_mm_hg38_chr22_no_supps.bam test/expected/rna_m6A_DRACH_mm_hg38_chr22_no_supps.mk.extract.bed
-# awk -F '\t' 'function c(b){b=toupper(b);return b=="A"?"T":b=="T"?"A":b=="C"?"G":b=="G"?"C":b} NR==1 || (($21==16 && toupper($16)==c($17)) || ($21!=16 && toupper($16)==toupper($17)))' test/expected/rna_m6A_DRACH_mm_hg38_chr22_no_supps.mk.extract.bed > test/expected/rna_m6A_DRACH_mm_hg38_chr22_no_supps.mk.extract.matching.bed
-test/compare_view_mkbed_mmtsv.sh -y test/expected/rna_m6A_DRACH_mm_hg38_chr22_no_supps.mk.extract.matching.bed test/tmp/rna_m6A_DRACH_mm_hg38_chr22_no_supps.mm.view.all.all.tsv test/tmp/rna_m6A_DRACH_mm_hg38_chr22_no_supps_view_compare || die "${testname} Comparison failed"
+test/compare_view_mkbed_mmtsv.sh -y test/expected/rna_m6A_DRACH_mm_hg38_chr22_no_supps.mk.extract.bed test/tmp/rna_m6A_DRACH_mm_hg38_chr22_no_supps.mm.view.all.all.tsv test/tmp/rna_m6A_DRACH_mm_hg38_chr22_no_supps_view_compare || die "${testname} Comparison failed"
 [ "$(wc -l < test/tmp/rna_m6A_DRACH_mm_hg38_chr22_no_supps_view_compare/missing_in_file1.tsv)" -gt 1 ] && die "${testname} minimod view missing records compared to modkit extract full"
 [ "$(wc -l < test/tmp/rna_m6A_DRACH_mm_hg38_chr22_no_supps_view_compare/missing_in_file2.tsv)" -gt 1 ]&& die "${testname} modkit extract full missing records compared to minimod view"
 [ "$(wc -l < test/tmp/rna_m6A_DRACH_mm_hg38_chr22_no_supps_view_compare/large_prob_diff.tsv)" -gt 1 ] && die "${testname} Records with large prob diff between minimod view and modkit extract full"
@@ -892,8 +883,7 @@ testname="view * rna_pseU_2OmeU_mm_hg38_chr22_no_supps.bam"
 echo -e "${BLUE}${testname}${NC}"
 ex  ./minimod view -t 8 -c '*' test/tmp/genome_chr22.fa test/data/rna_pseU_2OmeU_mm_hg38_chr22_no_supps.bam > test/tmp/rna_pseU_2OmeU_mm_hg38_chr22_no_supps.mm.view.all.all.tsv || die "${testname} Running the tool failed"
 # /install/modkit-v0.5.1/modkit extract full --kmer-size 1 --mapped-only --force --reference test/tmp/genome_chr22.fa test/data/rna_pseU_2OmeU_mm_hg38_chr22_no_supps.bam test/expected/rna_pseU_2OmeU_mm_hg38_chr22_no_supps.mk.extract.bed
-# awk -F '\t' 'function c(b){b=toupper(b);return b=="A"?"T":b=="T"?"A":b=="C"?"G":b=="G"?"C":b} NR==1 || (($21==16 && toupper($16)==c($17)) || ($21!=16 && toupper($16)==toupper($17)))' test/expected/rna_pseU_2OmeU_mm_hg38_chr22_no_supps.mk.extract.bed > test/expected/rna_pseU_2OmeU_mm_hg38_chr22_no_supps.mk.extract.matching.bed
-test/compare_view_mkbed_mmtsv.sh -y test/expected/rna_pseU_2OmeU_mm_hg38_chr22_no_supps.mk.extract.matching.bed test/tmp/rna_pseU_2OmeU_mm_hg38_chr22_no_supps.mm.view.all.all.tsv test/tmp/rna_pseU_2OmeU_mm_hg38_chr22_no_supps_view_compare || die "${testname} Comparison failed"
+test/compare_view_mkbed_mmtsv.sh -y test/expected/rna_pseU_2OmeU_mm_hg38_chr22_no_supps.mk.extract.bed test/tmp/rna_pseU_2OmeU_mm_hg38_chr22_no_supps.mm.view.all.all.tsv test/tmp/rna_pseU_2OmeU_mm_hg38_chr22_no_supps_view_compare || die "${testname} Comparison failed"
 [ "$(wc -l < test/tmp/rna_pseU_2OmeU_mm_hg38_chr22_no_supps_view_compare/missing_in_file1.tsv)" -gt 1 ] && die "${testname} minimod view missing records compared to modkit extract full"
 [ "$(wc -l < test/tmp/rna_pseU_2OmeU_mm_hg38_chr22_no_supps_view_compare/missing_in_file2.tsv)" -gt 1 ]&& die "${testname} modkit extract full missing records compared to minimod view"
 [ "$(wc -l < test/tmp/rna_pseU_2OmeU_mm_hg38_chr22_no_supps_view_compare/large_prob_diff.tsv)" -gt 1 ] && die "${testname} Records with large prob diff between minimod view and modkit extract full"
@@ -996,8 +986,7 @@ testname="view * rna_m5C_2OmeC_mm_trans_ENST00000249299.7_no_supps.bam"
 echo -e "${BLUE}${testname}${NC}"
 ex  ./minimod view -t 8 -c '*' test/data/transcript_ENST00000249299.7.fa test/data/rna_m5C_2OmeC_mm_trans_ENST00000249299.7_no_supps.bam > test/tmp/rna_m5C_2OmeC_mm_trans_ENST00000249299.7_no_supps.mm.view.all.all.tsv || die "${testname} Running the tool failed"
 # /storage/suneth/install/dist_modkit_v0.5.1_8fa79e3/modkit extract full -t 32 --kmer-size 1 --mapped-only --force --reference test/data/transcript_ENST00000249299.7.fa test/data/rna_m5C_2OmeC_mm_trans_ENST00000249299.7_no_supps.bam test/expected/rna_m5C_2OmeC_mm_trans_ENST00000249299.7_no_supps.mk.extract.bed
-# awk -F '\t' 'function c(b){b=toupper(b);return b=="A"?"T":b=="T"?"A":b=="C"?"G":b=="G"?"C":b} NR==1 || (($21==16 && toupper($16)==c($17)) || ($21!=16 && toupper($16)==toupper($17)))' test/expected/rna_m5C_2OmeC_mm_trans_ENST00000249299.7_no_supps.mk.extract.bed > test/expected/rna_m5C_2OmeC_mm_trans_ENST00000249299.7_no_supps.mk.extract.matching.bed
-test/compare_view_mkbed_mmtsv.sh -y test/expected/rna_m5C_2OmeC_mm_trans_ENST00000249299.7_no_supps.mk.extract.matching.bed test/tmp/rna_m5C_2OmeC_mm_trans_ENST00000249299.7_no_supps.mm.view.all.all.tsv test/tmp/rna_m5C_2OmeC_mm_trans_ENST00000249299.7_no_supps_view_compare || die "${testname} Comparison failed"
+test/compare_view_mkbed_mmtsv.sh -y test/expected/rna_m5C_2OmeC_mm_trans_ENST00000249299.7_no_supps.mk.extract.bed test/tmp/rna_m5C_2OmeC_mm_trans_ENST00000249299.7_no_supps.mm.view.all.all.tsv test/tmp/rna_m5C_2OmeC_mm_trans_ENST00000249299.7_no_supps_view_compare || die "${testname} Comparison failed"
 [ "$(wc -l < test/tmp/rna_m5C_2OmeC_mm_trans_ENST00000249299.7_no_supps_view_compare/missing_in_file1.tsv)" -gt 1 ] && die "${testname} minimod view missing records compared to modkit extract full"
 [ "$(wc -l < test/tmp/rna_m5C_2OmeC_mm_trans_ENST00000249299.7_no_supps_view_compare/missing_in_file2.tsv)" -gt 1 ] && die "${testname} modkit extract full missing records compared to minimod view"
 [ "$(wc -l < test/tmp/rna_m5C_2OmeC_mm_trans_ENST00000249299.7_no_supps_view_compare/large_prob_diff.tsv)" -gt 1 ] && die "${testname} Records with large prob diff between minimod view and modkit extract full"
@@ -1057,8 +1046,7 @@ testname="view * rna_pseU_2OmeU_mm_trans_ENST00000249299.7_no_supps.bam"
 echo -e "${BLUE}${testname}${NC}"
 ex  ./minimod view -t 8 -c '*' test/data/transcript_ENST00000249299.7.fa test/data/rna_pseU_2OmeU_mm_trans_ENST00000249299.7_no_supps.bam > test/tmp/rna_pseU_2OmeU_mm_trans_ENST00000249299.7_no_supps.mm.view.all.all.tsv || die "${testname} Running the tool failed"
 # /storage/suneth/install/dist_modkit_v0.5.1_8fa79e3/modkit extract full -t 32 --kmer-size 1 --mapped-only --force --reference test/data/transcript_ENST00000249299.7.fa test/data/rna_pseU_2OmeU_mm_trans_ENST00000249299.7_no_supps.bam test/expected/rna_pseU_2OmeU_mm_trans_ENST00000249299.7_no_supps.mk.extract.bed
-# awk -F '\t' 'function c(b){b=toupper(b);return b=="A"?"T":b=="T"?"A":b=="C"?"G":b=="G"?"C":b} NR==1 || (($21==16 && toupper($16)==c($17)) || ($21!=16 && toupper($16)==toupper($17)))' test/expected/rna_pseU_2OmeU_mm_trans_ENST00000249299.7_no_supps.mk.extract.bed > test/expected/rna_pseU_2OmeU_mm_trans_ENST00000249299.7_no_supps.mk.extract.matching.bed
-test/compare_view_mkbed_mmtsv.sh -y test/expected/rna_pseU_2OmeU_mm_trans_ENST00000249299.7_no_supps.mk.extract.matching.bed test/tmp/rna_pseU_2OmeU_mm_trans_ENST00000249299.7_no_supps.mm.view.all.all.tsv test/tmp/rna_pseU_2OmeU_mm_trans_ENST00000249299.7_no_supps_view_compare || die "${testname} Comparison failed"
+test/compare_view_mkbed_mmtsv.sh -y test/expected/rna_pseU_2OmeU_mm_trans_ENST00000249299.7_no_supps.mk.extract.bed test/tmp/rna_pseU_2OmeU_mm_trans_ENST00000249299.7_no_supps.mm.view.all.all.tsv test/tmp/rna_pseU_2OmeU_mm_trans_ENST00000249299.7_no_supps_view_compare || die "${testname} Comparison failed"
 [ "$(wc -l < test/tmp/rna_pseU_2OmeU_mm_trans_ENST00000249299.7_no_supps_view_compare/missing_in_file1.tsv)" -gt 1 ] && die "${testname} minimod view missing records compared to modkit extract full"
 [ "$(wc -l < test/tmp/rna_pseU_2OmeU_mm_trans_ENST00000249299.7_no_supps_view_compare/missing_in_file2.tsv)" -gt 1 ] && die "${testname} modkit extract full missing records compared to minimod view"
 [ "$(wc -l < test/tmp/rna_pseU_2OmeU_mm_trans_ENST00000249299.7_no_supps_view_compare/large_prob_diff.tsv)" -gt 1 ] && die "${testname} Records with large prob diff between minimod view and modkit extract full"

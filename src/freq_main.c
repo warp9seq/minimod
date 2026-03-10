@@ -81,7 +81,7 @@ static inline void print_help_msg(FILE *fp_help, opt_t opt){
     fprintf(fp_help,"   --verbose INT              verbosity level [%d]\n",(int)get_log_level());
     fprintf(fp_help,"   --version                  print version\n");
     fprintf(fp_help,"   --secondary                output secondary alignments [%s]\n", (opt.secondary?"yes":"no"));
-    fprintf(fp_help,"   --include-non-ref          include modifications on bases not matching reference (eg. due to SNPs) [%s]\n", (opt.alt_alleles?"yes":"no"));
+    // fprintf(fp_help,"   --include-non-ref          include modifications on bases not matching reference (eg. due to SNPs) [%s]\n", (opt.alt_alleles?"yes":"no"));
     fprintf(fp_help,"   --skip-supplementary       skip supplementary alignments [%s]\n", (opt.skip_supplementary?"yes":"no"));
 
     fprintf(fp_help,"\nadvanced options:\n");
