@@ -20,7 +20,7 @@ Tool versions we used for comparisons are modkit 0.5.1 and minimod 0.5.0
 
 - modkit by default outputs all modification without matching the read base with reference base when the context is not specified using --cpg or --motif options.
 - minimod by default outputs m modified bases in CG context in reference that are mapped and matched with reference base.
-- modkit by default extract ignores non-primary alignments and --allow-non-primary option can allow secondary and supplementary alignments if a valid MN tag is found (https://github.com/nanoporetech/modkit/blob/481e3c9e7930f3f499eadf1ef441606f33e6881c/book/src/intro_extract.md#note-on-non-primary-alignments). 
+- modkit by default extract ignores non-primary alignments and --allow-non-primary option can allow secondary and supplementary alignments if a valid MN tag is found (https://github.com/nanoporetech/modkit/blob/481e3c9e7930f3f499eadf1ef441606f33e6881c/book/src/intro_extract.md#note-on-non-primary-alignments).
 - minimod by default ignores secondary alignments and uses primary and supplementary alignments. Using --secondary options can allow them secondary alignments. minimod does not require the MN tag to allow non-primary alignments. Further, minimod errors out when hard-clipping is detected.
 
 
@@ -49,3 +49,14 @@ awk 'NR==1 || $14=="a"' mk_extract_A.bed > mk_extract_aA.bed
 minimod view -c 'a[A]' --skip-supplementary ref.fa reads.bam > mm_view_aA.tsv
 test/compare_view_mkbed_mmtsv.sh mk_extract_a.bed mm_view_aA.tsv out_dir
 ```
+
+## Philosophy
+
+Minimod is intended to be kept simple. Its main use case is for reference-based analysis.
+
+## Ratinale for decisions
+
+Why reference is still take for a[*]?
+Sanity check if the BAM header contigs match to the reference
+
+## modkit v0.5.0 equivalence commands
