@@ -9,7 +9,7 @@
 
 - Before v0.5.0, when non CG contexts were requested, both minimod view and freq were reporting modifications from errornous contexts. We have fixed and tested this issue from >= v0.5.0.
 
-- From >=v0.5.0, we compare if modified read base matches aligned reference base and output only the matching bases by default. However, this comparison can be avoided using * as the context in -c option (ex: -c a[*]). (Note that only the modified base is compared, not the whole context.)
+- From >=v0.5.0, when a context is provided (ex: -c h[CG]) option, we output modifications where the modified read base matches aligned reference base. However, when the context is * (ex: -c a[*]), this comparison is ignored and modifications at both matched and mismatched positions are output. Note that only the modified base is compared with reference base, not the whole context.
 
 - Before v0.4.0, we allowed primary, secondary, suppelmentary alignments when viewing and calculating frequencies. From >=v0.5.0, we only consider primary, supplementary alignments by default. We introduced --secondary option to enable considering secondary alignments. Minimod still errors out if hard-clipping is found.
 
@@ -18,25 +18,34 @@
 ## Modkit consistency
 Tool versions we used for comparisons are modkit 0.5.1 and minimod 0.5.0
 
-- Comparing modified base with reference base
-    - minimod by default outputs m modified bases in CG context that are mapped and match with reference base.
-    - modkit by default outputs all modification without matching the read base with reference base when the context is not specified using --cpg or --motif options.
-    - to match minimod's behaviour with modkit's, use * as the context in -c option (ex: -c a[*]) option with minimod.
+- modkit by default outputs all modification without matching the read base with reference base when the context is not specified using --cpg or --motif options.
+- minimod by default outputs m modified bases in CG context in reference that are mapped and matched with reference base.
+- modkit by default extract ignores non-primary alignments and --allow-non-primary option can allow secondary and supplementary alignments if a valid MN tag is found (https://github.com/nanoporetech/modkit/blob/481e3c9e7930f3f499eadf1ef441606f33e6881c/book/src/intro_extract.md#note-on-non-primary-alignments). 
+- minimod by default ignores secondary alignments and uses primary and supplementary alignments. Using --secondary options can allow them secondary alignments. minimod does not require the MN tag to allow non-primary alignments. Further, minimod errors out when hard-clipping is detected.
 
-    Following two commands using minimod v0.5.0 and modkit 0.5.1 should give the same output. (To compare modkit's extract bed with minimod's view tsv, test/compare_view_mkbed_mmtsv.sh script can be used)
-    ```bash
-    modkit extract full --mapped-only --reference ref.fa reads.bam mk_extract.bed
-    minimod view -c '*' ref.fa reads.bam > mm_view.tsv
-    test/compare_view_mkbed_mmtsv.sh mk_extract.bed mm_view.tsv out_dir
-    ```
-- Which reads are used for computations
-    - By default modkit extract ignores non-primary alignments and --allow-non-primary option can allow secondary and supplementary alignments if a valid MN tag is found (https://github.com/nanoporetech/modkit/blob/481e3c9e7930f3f499eadf1ef441606f33e6881c/book/src/intro_extract.md#note-on-non-primary-alignments). 
-    - minimod ignores secondary alignments by default and uses primary and supplementary alignments. Using --secondary options can allow them secondary alignments. minimod does not require the MN tag to allow non-primary alignments. Further, minimod errors out when hard-clipping is detected.
 
-    ### Summary
-    |  | modkit v0.5.1 | minimod v0.5.0 |
-    |----------|----------|----------|
-    | mapped bases | no, use --mapped-only | always |
-    | match reference base and modified read base | not unless the context is specified | yes, ex: -c a[*] to avoid |
-    | modifications | all, can --ignore | m in CG context, use --c to specify |
-    | alignments | primary, can --allow-non-primary if MN tag is found | primary and supplementary, can allow --secondary |
+Following pair of commands using minimod v0.5.0 and modkit 0.5.1 should give the same output. (To compare modkit's extract bed with minimod's view tsv, test/compare_view_mkbed_mmtsv.sh script can be used)
+
+Let's assume reads.bam containes mapped and unmapped, primary, secondary and supplementary alignments.
+
+When the context and modification type is unknown
+```bash
+modkit extract full --mapped-only reads.bam mk_extract.bed
+minimod view -c '*' --skip-supplementary  ref.fa reads.bam > mm_view.tsv
+test/compare_view_mkbed_mmtsv.sh mk_extract.bed mm_view.tsv out_dir
+```
+
+When the context is known and modification type is unknown
+```bash
+modkit extract full --motif A 0 --mapped-only --reference ref.fa reads.bam mk_extract_A.bed
+minimod view -c '*[A]' --skip-supplementary ref.fa reads.bam > mm_view_A.tsv
+test/compare_view_mkbed_mmtsv.sh mk_extract_A.bed mm_view.tsv out_dir
+```
+
+When the context and modification type is known
+```bash
+modkit extract full --motif A 0 --mapped-only --reference ref.fa reads.bam mk_extract_A.bed
+awk 'NR==1 || $14=="a"' mk_extract_A.bed > mk_extract_aA.bed
+minimod view -c 'a[A]' --skip-supplementary ref.fa reads.bam > mm_view_aA.tsv
+test/compare_view_mkbed_mmtsv.sh mk_extract_a.bed mm_view_aA.tsv out_dir
+```
