@@ -1,19 +1,18 @@
 # Notes
 
-
 ## Information about the implementations
 
-- From >=v0.5.0, we print a warning if a certain modfication and a context is untested.  For versions before this, only m[CG] for DNA (genome) and a[A] for transcriptome were tested.
+- From >=v0.5.0, we print a warning if a certain modification and a context is untested.  For versions before this, only m[CG] for DNA (genome) and a[A] for transcriptome were tested.
 
 ## Breaking changes from v0.4.0 to v0.5.0
 
-- Before v0.5.0, when non CG contexts were requested, both minimod view and freq were reporting modifications from errornous contexts. We have fixed and tested this issue from >= v0.5.0.
+- Before v0.5.0, when non CG contexts were requested, both minimod view and freq were reporting modifications from erroneous contexts. We have fixed and tested this issue from >= v0.5.0.
 
 - From >=v0.5.0, when a context is provided (ex: -c h[CG]) option, we output modifications where the modified read base matches aligned reference base. However, when the context is * (ex: -c a[*]), this comparison is ignored and modifications at both matched and mismatched positions are output. Note that only the modified base is compared with reference base, not the whole context.
 
-- Before v0.4.0, we allowed primary, secondary, suppelmentary alignments when viewing and calculating frequencies. From >=v0.5.0, we only consider primary, supplementary alignments by default. We introduced --secondary option to enable considering secondary alignments. Minimod still errors out if hard-clipping is found.
+- For <=v0.4.0, we allowed primary, secondary, supplementary alignments when viewing and calculating frequencies. From >=v0.5.0, we only consider primary and supplementary alignments by default. We introduced --secondary option to enable considering secondary alignments. Minimod still errors out if hard-clipping is found.
 
-- Before v0.4.0, when --insertions option is used, errornous reference positions were included in both freq and view outputs. We have fixed it in >=v0.5.0.
+- For <=v0.4.0, when --insertions option is used, errornous reference positions were included in both freq and view outputs. We have fixed it in >=v0.5.0.
 
 ## Modkit consistency
 Tool versions we used for comparisons are modkit 0.5.1 and minimod 0.5.0
@@ -54,9 +53,8 @@ test/compare_view_mkbed_mmtsv.sh mk_extract_a.bed mm_view_aA.tsv out_dir
 
 Minimod is intended to be kept simple. Its main use case is for reference-based analysis.
 
-## Ratinale for decisions
+## Rationale for decisions
 
 Why reference is still take for a[*]?
 Sanity check if the BAM header contigs match to the reference
 
-## modkit v0.5.0 equivalence commands
