@@ -60,7 +60,7 @@ SOFTWARE.
 typedef struct {
     int index;
     char * context; //context string
-    uint8_t thresh; //threshold value (0-255)
+    double thresh; //threshold value (0-255)
 } modcodem_t;
 
 /* map of required modification codes to their contexts and thresholds */

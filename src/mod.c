@@ -53,6 +53,7 @@ SOFTWARE.
 
 #define KEY_SIZE 2
 #define WILDCARD_STR "*"
+#define THRESH_UINT8_TO_DBL(x) ((double)( (x + 0.5) / 256.0 )) // convert uint8 threshold to double with 0.5/256 added for proper rounding
 
 // zero-allocation comparator
 int cmp_key_fast(const char *key_a, const char *key_b) {
@@ -369,7 +370,7 @@ void parse_mod_threshes(opt_t * opt) {
                     continue; // skip if the index does not match
                 }
                 INFO("Modification code: %s, Context: %s, Threshold: %f", key, mod_code_entry->context, d);
-                mod_code_entry->thresh = (uint8_t)(d * 255); // convert to 0-255 range
+                mod_code_entry->thresh = d;
             }
         }
 
@@ -387,7 +388,7 @@ void parse_mod_threshes(opt_t * opt) {
             if (!kh_exist(opt->modcodes_map, i)) continue;
             modcodem_t *mod_code_map = kh_value(opt->modcodes_map, i);
             char * mod_code = (char *) kh_key(opt->modcodes_map, i);
-            mod_code_map->thresh = (uint8_t)(d * 255); // set the same threshold for all codes
+            mod_code_map->thresh = d;
             INFO("Modification code: %s, Context: %s, Threshold: %f", mod_code, mod_code_map->context, d);
         }
     } else if(n_thresh != opt->n_mods){
@@ -602,7 +603,7 @@ void print_view_output(core_t* core, db_t* db) {
             char * key = sorted_arr[j].key;
             decode_key(key, &tname, &ref_pos, &ins_offset, &mod_code, &strand, &haplotype);
 
-            fprintf(out_fp, "%s\t%d\t%c\t%s\t%d\t%s\t%f", tname, ref_pos, strand, qname, view->read_pos, mod_code, (view->mod_prob + 0.5) / 256.0);
+            fprintf(out_fp, "%s\t%d\t%c\t%s\t%d\t%s\t%f", tname, ref_pos, strand, qname, view->read_pos, mod_code, THRESH_UINT8_TO_DBL(view->mod_prob));
             if(do_insertions){
                 fprintf(out_fp, "\t%d", db->ins_offset[i][view->read_pos]);
             }
@@ -1177,12 +1178,13 @@ void freq_view_single(core_t * core, db_t *db, int32_t bam_i) {
                 int ins_offset = core->opt.insertions ? db->ins_offset[bam_i][fastq_read_pos] : 0;
                 if(core->opt.subtool == FREQ) {
                     uint8_t is_mod = 0, is_called = 0;
-                    uint8_t thresh = req_mod->thresh;
+                    double thresh = req_mod->thresh;
+                    double mod_prob_dbl = THRESH_UINT8_TO_DBL(mod_prob);
                     
-                    if(mod_prob >= thresh){ // modified with mod_code
+                    if(mod_prob_dbl >= thresh){ // modified with mod_code
                         is_called = 1;
                         is_mod = 1;
-                    } else if(mod_prob <= 255-thresh){ // not modified with mod_code
+                    } else if(mod_prob_dbl <= 255.5/256.0 - thresh){ // not modified with mod_code
                         is_called = 1;
                     } else { // ambiguous
                         continue;
