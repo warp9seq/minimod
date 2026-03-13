@@ -148,81 +148,81 @@ sort -k1,1 -k2,2n -k4,4 test/expected/test5b.tsv > test/tmp/test5b.exp.tsv.sorte
 sort -k1,1 -k2,2n -k4,4 test/tmp/test5b.tsv > test/tmp/test5b.tsv.sorted
 diff -q test/tmp/test5b.exp.tsv.sorted test/tmp/test5b.tsv.sorted || die "${testname} diff failed"
 
-# testname="Test 5c: freq ont with haplotypes"
-# echo -e "${BLUE}${testname}${NC}"
-# ex  ./minimod freq -t 8 --haplotypes test/tmp/genome_chr1.fa test/data/hap.bam > test/tmp/test5c.tsv || die "${testname} Running the tool failed"
-# sort -k1,1 -k2,2n -k4,4 test/expected/test5c.tsv > test/tmp/test5c.exp.tsv.sorted
-# sort -k1,1 -k2,2n -k4,4 test/tmp/test5c.tsv > test/tmp/test5c.tsv.sorted
-# diff -q test/tmp/test5c.exp.tsv.sorted test/tmp/test5c.tsv.sorted || die "${testname} diff failed"
+testname="Test 5c: freq ont with haplotypes"
+echo -e "${BLUE}${testname}${NC}"
+ex  ./minimod freq -t 8 --haplotypes test/tmp/genome_chr1.fa test/data/hap.bam > test/tmp/test5c.tsv || die "${testname} Running the tool failed"
+sort -k1,1 -k2,2n -k4,4 test/expected/test5c.tsv > test/tmp/test5c.exp.tsv.sorted
+sort -k1,1 -k2,2n -k4,4 test/tmp/test5c.tsv > test/tmp/test5c.tsv.sorted
+diff -q test/tmp/test5c.exp.tsv.sorted test/tmp/test5c.tsv.sorted || die "${testname} diff failed"
 
-# testname="Test 6: freq ont bedmethyl output"
-# echo -e "${BLUE}${testname}${NC}"
-# ex  ./minimod freq -b -t 8 test/tmp/genome_chr22.fa test/data/example-ont.bam > test/tmp/test6.bedmethyl || die "${testname} Running the tool failed"
-# sort -k1,1 -k2,2n -k6,6 test/expected/test6.bedmethyl > test/tmp/test6.bedmethyl.exp.sorted
-# sort -k1,1 -k2,2n -k6,6 test/tmp/test6.bedmethyl > test/tmp/test6.bedmethyl.sorted
-# diff -q test/tmp/test6.bedmethyl.exp.sorted test/tmp/test6.bedmethyl.sorted || die "${testname} diff failed"
+testname="Test 6: freq ont bedmethyl output"
+echo -e "${BLUE}${testname}${NC}"
+ex  ./minimod freq -b -t 8 test/tmp/genome_chr22.fa test/data/example-ont.bam > test/tmp/test6.bedmethyl || die "${testname} Running the tool failed"
+sort -k1,1 -k2,2n -k6,6 test/expected/test6.bedmethyl > test/tmp/test6.bedmethyl.exp.sorted
+sort -k1,1 -k2,2n -k6,6 test/tmp/test6.bedmethyl > test/tmp/test6.bedmethyl.sorted
+diff -q test/tmp/test6.bedmethyl.exp.sorted test/tmp/test6.bedmethyl.sorted || die "${testname} diff failed"
 
-# testname="Test 7: freq ont with mod threshold"
-# echo -e "${BLUE}${testname}${NC}"
-# ex  ./minimod freq -m 0.8 -t 8 test/tmp/genome_chr22.fa test/data/example-ont.bam > test/tmp/test7.tsv || die "${testname} Running the tool failed"
-# sort -k1,1 -k2,2n -k4,4 test/expected/test7.tsv > test/tmp/test7.exp.tsv.sorted
-# sort -k1,1 -k2,2n -k4,4 test/tmp/test7.tsv > test/tmp/test7.tsv.sorted
-# diff -q test/tmp/test7.exp.tsv.sorted test/tmp/test7.tsv.sorted || die "${testname} diff failed"
+testname="Test 7: freq ont with mod threshold"
+echo -e "${BLUE}${testname}${NC}"
+ex  ./minimod freq -m 0.8 -t 8 test/tmp/genome_chr22.fa test/data/example-ont.bam > test/tmp/test7.tsv || die "${testname} Running the tool failed"
+sort -k1,1 -k2,2n -k4,4 test/expected/test7.tsv > test/tmp/test7.exp.tsv.sorted
+sort -k1,1 -k2,2n -k4,4 test/tmp/test7.tsv > test/tmp/test7.tsv.sorted
+diff -q test/tmp/test7.exp.tsv.sorted test/tmp/test7.tsv.sorted || die "${testname} diff failed"
 
-# testname="Test 8: freq ont with mod codes m and h"
-# echo -e "${BLUE}${testname}${NC}"
-# ex  ./minimod freq -c "m,h" -m 0.8,0.8 -t 8 test/tmp/genome_chr22.fa test/data/example-ont.bam > test/tmp/test8.tsv || die "${testname} Running the tool failed"
-# sort -k1,1 -k2,2n -k4,4 test/expected/test8.tsv > test/tmp/test8.exp.tsv.sorted
-# sort -k1,1 -k2,2n -k4,4 test/tmp/test8.tsv > test/tmp/test8.tsv.sorted
-# diff -q test/tmp/test8.exp.tsv.sorted test/tmp/test8.tsv.sorted || die "${testname} diff failed"
+testname="Test 8: freq ont with mod codes m and h"
+echo -e "${BLUE}${testname}${NC}"
+ex  ./minimod freq -c "m,h" -m 0.8,0.8 -t 8 test/tmp/genome_chr22.fa test/data/example-ont.bam > test/tmp/test8.tsv || die "${testname} Running the tool failed"
+sort -k1,1 -k2,2n -k4,4 test/expected/test8.tsv > test/tmp/test8.exp.tsv.sorted
+sort -k1,1 -k2,2n -k4,4 test/tmp/test8.tsv > test/tmp/test8.tsv.sorted
+diff -q test/tmp/test8.exp.tsv.sorted test/tmp/test8.tsv.sorted || die "${testname} diff failed"
 
-# testname="Test 9: freq ont with mod codes h only"
-# echo -e "${BLUE}${testname}${NC}"
-# ex  ./minimod freq -c "h" -t 8 test/tmp/genome_chr22.fa test/data/example-ont.bam > test/tmp/test9.tsv || die "${testname} Running the tool failed"
-# sort -k1,1 -k2,2n -k4,4 test/expected/test9.tsv > test/tmp/test9.exp.tsv.sorted
-# sort -k1,1 -k2,2n -k4,4 test/tmp/test9.tsv > test/tmp/test9.tsv.sorted
-# diff -q test/tmp/test9.exp.tsv.sorted test/tmp/test9.tsv.sorted || die "${testname} diff failed"
+testname="Test 9: freq ont with mod codes h only"
+echo -e "${BLUE}${testname}${NC}"
+ex  ./minimod freq -c "h" -t 8 test/tmp/genome_chr22.fa test/data/example-ont.bam > test/tmp/test9.tsv || die "${testname} Running the tool failed"
+sort -k1,1 -k2,2n -k4,4 test/expected/test9.tsv > test/tmp/test9.exp.tsv.sorted
+sort -k1,1 -k2,2n -k4,4 test/tmp/test9.tsv > test/tmp/test9.tsv.sorted
+diff -q test/tmp/test9.exp.tsv.sorted test/tmp/test9.tsv.sorted || die "${testname} diff failed"
 
-# testname="Test 10: view ont with mod threshold"
-# echo -e "${BLUE}${testname}${NC}"
-# ex  ./minimod view -t 8 test/tmp/genome_chr22.fa test/data/example-ont.bam > test/tmp/test10.tsv || die "${testname} Running the tool failed"
-# sort -k1,1 -k2,2n -k3,3 -k6,6 test/expected/test10.tsv > test/tmp/test10.exp.tsv.sorted
-# sort -k1,1 -k2,2n -k3,3 -k6,6 test/tmp/test10.tsv > test/tmp/test10.tsv.sorted
-# diff -q test/tmp/test10.exp.tsv.sorted test/tmp/test10.tsv.sorted || die "${testname} diff failed"
+testname="Test 10: view ont with mod threshold"
+echo -e "${BLUE}${testname}${NC}"
+ex  ./minimod view -t 8 test/tmp/genome_chr22.fa test/data/example-ont.bam > test/tmp/test10.tsv || die "${testname} Running the tool failed"
+sort -k1,1 -k2,2n -k3,3 -k6,6 test/expected/test10.tsv > test/tmp/test10.exp.tsv.sorted
+sort -k1,1 -k2,2n -k3,3 -k6,6 test/tmp/test10.tsv > test/tmp/test10.tsv.sorted
+diff -q test/tmp/test10.exp.tsv.sorted test/tmp/test10.tsv.sorted || die "${testname} diff failed"
 
-# testname="Test 11: view ont with mod codes m and h with different thresholds"
-# echo -e "${BLUE}${testname}${NC}"
-# ex  ./minimod view -c "m,h"  -t 8 test/tmp/genome_chr22.fa test/data/example-ont.bam > test/tmp/test11.tsv || die "${testname} Running the tool failed"
-# sort -k1,1 -k2,2n -k3,3 -k6,6 test/expected/test11.tsv > test/tmp/test11.exp.tsv.sorted
-# sort -k1,1 -k2,2n -k3,3 -k6,6 test/tmp/test11.tsv > test/tmp/test11.tsv.sorted
-# diff -q test/tmp/test11.exp.tsv.sorted test/tmp/test11.tsv.sorted || die "${testname} diff failed"
+testname="Test 11: view ont with mod codes m and h with different thresholds"
+echo -e "${BLUE}${testname}${NC}"
+ex  ./minimod view -c "m,h"  -t 8 test/tmp/genome_chr22.fa test/data/example-ont.bam > test/tmp/test11.tsv || die "${testname} Running the tool failed"
+sort -k1,1 -k2,2n -k3,3 -k6,6 test/expected/test11.tsv > test/tmp/test11.exp.tsv.sorted
+sort -k1,1 -k2,2n -k3,3 -k6,6 test/tmp/test11.tsv > test/tmp/test11.tsv.sorted
+diff -q test/tmp/test11.exp.tsv.sorted test/tmp/test11.tsv.sorted || die "${testname} diff failed"
 
-# testname="Test 12: freq ont with mod codes m and h with different thresholds"
-# echo -e "${BLUE}${testname}${NC}"
-# ex  ./minimod freq -c "m,h" -m "0.8,0.5" -t 8 test/tmp/genome_chr22.fa test/data/example-ont.bam > test/tmp/test12.tsv || die "${testname} Running the tool failed"
-# sort -k1,1 -k2,2n -k4,4 test/expected/test12.tsv > test/tmp/test12.exp.tsv.sorted
-# sort -k1,1 -k2,2n -k4,4 test/tmp/test12.tsv > test/tmp/test12.tsv.sorted
-# diff -q test/tmp/test12.exp.tsv.sorted test/tmp/test12.tsv.sorted || die "${testname} diff failed"
+testname="Test 12: freq ont with mod codes m and h with different thresholds"
+echo -e "${BLUE}${testname}${NC}"
+ex  ./minimod freq -c "m,h" -m "0.8,0.5" -t 8 test/tmp/genome_chr22.fa test/data/example-ont.bam > test/tmp/test12.tsv || die "${testname} Running the tool failed"
+sort -k1,1 -k2,2n -k4,4 test/expected/test12.tsv > test/tmp/test12.exp.tsv.sorted
+sort -k1,1 -k2,2n -k4,4 test/tmp/test12.tsv > test/tmp/test12.tsv.sorted
+diff -q test/tmp/test12.exp.tsv.sorted test/tmp/test12.tsv.sorted || die "${testname} diff failed"
 
-# testname="Test 13: view ont with -o flag"
-# echo -e "${BLUE}${testname}${NC}"
-# ex  ./minimod view -t 8 test/tmp/genome_chr22.fa test/data/example-ont.bam -o test/tmp/test13.tsv || die "${testname} Running the tool failed"
-# sort -k1,1 -k2,2n -k3,3 -k6,6 test/expected/test2.tsv > test/tmp/test13.exp.tsv.sorted
-# sort -k1,1 -k2,2n -k3,3 -k6,6 test/tmp/test13.tsv > test/tmp/test13.tsv.sorted
-# diff -q test/tmp/test13.exp.tsv.sorted test/tmp/test13.tsv.sorted || die "${testname} diff failed"
+testname="Test 13: view ont with -o flag"
+echo -e "${BLUE}${testname}${NC}"
+ex  ./minimod view -t 8 test/tmp/genome_chr22.fa test/data/example-ont.bam -o test/tmp/test13.tsv || die "${testname} Running the tool failed"
+sort -k1,1 -k2,2n -k3,3 -k6,6 test/expected/test2.tsv > test/tmp/test13.exp.tsv.sorted
+sort -k1,1 -k2,2n -k3,3 -k6,6 test/tmp/test13.tsv > test/tmp/test13.tsv.sorted
+diff -q test/tmp/test13.exp.tsv.sorted test/tmp/test13.tsv.sorted || die "${testname} diff failed"
 
-# testname="Test 14: freq ont with -o flag"
-# echo -e "${BLUE}${testname}${NC}"
-# ex  ./minimod freq -t 8 test/tmp/genome_chr22.fa test/data/example-ont.bam -o test/tmp/test14.tsv || die "${testname} Running the tool failed"
-# sort -k1,1 -k2,2n -k4,4 test/tmp/test14.tsv > test/tmp/test14.tsv.sorted
-# diff -q test/tmp/test5.exp.tsv.sorted test/tmp/test14.tsv.sorted || die "${testname} diff failed"
+testname="Test 14: freq ont with -o flag"
+echo -e "${BLUE}${testname}${NC}"
+ex  ./minimod freq -t 8 test/tmp/genome_chr22.fa test/data/example-ont.bam -o test/tmp/test14.tsv || die "${testname} Running the tool failed"
+sort -k1,1 -k2,2n -k4,4 test/tmp/test14.tsv > test/tmp/test14.tsv.sorted
+diff -q test/tmp/test5.exp.tsv.sorted test/tmp/test14.tsv.sorted || die "${testname} diff failed"
 
-# testname="Test 15: view ont with mod codes e and b"
-# echo -e "${BLUE}${testname}${NC}"
-# ex  ./minimod view -c e,b -t 8 test/tmp/genome_chr1.fa test/data/eb.bam > test/tmp/test15.tsv || die "${testname} Running the tool failed"
-# sort -k1,1 -k2,2n -k3,3 -k6,6 test/expected/test15.tsv > test/tmp/test15.exp.tsv.sorted
-# sort -k1,1 -k2,2n -k3,3 -k6,6 test/tmp/test15.tsv > test/tmp/test15.tsv.sorted
-# diff -q test/tmp/test15.exp.tsv.sorted test/tmp/test15.tsv.sorted || die "${testname} diff failed"
+testname="Test 15: view ont with mod codes e and b"
+echo -e "${BLUE}${testname}${NC}"
+ex  ./minimod view -c e,b -t 8 test/tmp/genome_chr1.fa test/data/eb.bam > test/tmp/test15.tsv || die "${testname} Running the tool failed"
+sort -k1,1 -k2,2n -k3,3 -k6,6 test/expected/test15.tsv > test/tmp/test15.exp.tsv.sorted
+sort -k1,1 -k2,2n -k3,3 -k6,6 test/tmp/test15.tsv > test/tmp/test15.tsv.sorted
+diff -q test/tmp/test15.exp.tsv.sorted test/tmp/test15.tsv.sorted || die "${testname} diff failed"
 
 testname="Test 16: freq ont with mod codes e and b"
 echo -e "${BLUE}${testname}${NC}"
@@ -892,6 +892,31 @@ echo -e "${GREEN}${testname} passed!${NC}\n"
 
 
 
+#************** rna_m5C_2OmeC_inosine_m6A_2OmeA_pseU_2OmeU_2OmeG_mm_hg38_chr22 A|17596|. C|m|. A|a|. C|19228|. T|19227|. A|69426|. G|19229|. T|17802|. ***************
+testname="view 17596[A] rna_m5C_2OmeC_inosine_m6A_2OmeA_pseU_2OmeU_2OmeG_mm_hg38_chr22.bam"
+echo -e "${BLUE}${testname}${NC}"
+ex  ./minimod view --skip-supplementary -c "17596[A]" test/tmp/genome_chr22.fa test/data/rna_m5C_2OmeC_inosine_m6A_2OmeA_pseU_2OmeU_2OmeG_mm_hg38_chr22.bam > test/tmp/rna_m5C_2OmeC_inosine_m6A_2OmeA_pseU_2OmeU_2OmeG_mm_hg38_chr22.mm.view.17596.A.tsv || die "${testname} Running the tool failed"
+# /install/modkit-v0.5.1/modkit extract full --motif A 0 --mapped-only --force --reference test/tmp/genome_chr22.fa test/data/rna_m5C_2OmeC_inosine_m6A_2OmeA_pseU_2OmeU_2OmeG_mm_hg38_chr22.bam test/expected/rna_m5C_2OmeC_inosine_m6A_2OmeA_pseU_2OmeU_2OmeG_mm_hg38_chr22.mk.extract.A.bed
+# awk 'NR==1 || $14=="17596"' test/expected/rna_m5C_2OmeC_inosine_m6A_2OmeA_pseU_2OmeU_2OmeG_mm_hg38_chr22.mk.extract.A.bed > test/expected/rna_m5C_2OmeC_inosine_m6A_2OmeA_pseU_2OmeU_2OmeG_mm_hg38_chr22.mk.extract.17596.A.bed
+test/compare_view_mkbed_mmtsv.sh -y test/expected/rna_m5C_2OmeC_inosine_m6A_2OmeA_pseU_2OmeU_2OmeG_mm_hg38_chr22.mk.extract.17596.A.bed test/tmp/rna_m5C_2OmeC_inosine_m6A_2OmeA_pseU_2OmeU_2OmeG_mm_hg38_chr22.mm.view.17596.A.tsv test/tmp/rna_m5C_2OmeC_inosine_m6A_2OmeA_pseU_2OmeU_2OmeG_mm_hg38_chr22_view_compare || die "${testname} Comparison failed"
+[ "$(wc -l < test/tmp/rna_m5C_2OmeC_inosine_m6A_2OmeA_pseU_2OmeU_2OmeG_mm_hg38_chr22_view_compare/missing_in_file1.tsv)" -gt 1 ] && die "${testname} minimod view missing records compared to modkit extract full"
+[ "$(wc -l < test/tmp/rna_m5C_2OmeC_inosine_m6A_2OmeA_pseU_2OmeU_2OmeG_mm_hg38_chr22_view_compare/missing_in_file2.tsv)" -gt 1 ]&& die "${testname} modkit extract full missing records compared to minimod view"
+[ "$(wc -l < test/tmp/rna_m5C_2OmeC_inosine_m6A_2OmeA_pseU_2OmeU_2OmeG_mm_hg38_chr22_view_compare/large_prob_diff.tsv)" -gt 1 ] && die "${testname} Records with large prob diff between minimod view and modkit extract full"
+echo -e "${GREEN}${testname} passed!${NC}\n"
+
+testname="view * rna_m5C_2OmeC_inosine_m6A_2OmeA_pseU_2OmeU_2OmeG_mm_hg38_chr22.bam"
+echo -e "${BLUE}${testname}${NC}"
+ex  ./minimod view  --skip-supplementary -c '*' test/tmp/genome_chr22.fa test/data/rna_m5C_2OmeC_inosine_m6A_2OmeA_pseU_2OmeU_2OmeG_mm_hg38_chr22.bam > test/tmp/rna_m5C_2OmeC_inosine_m6A_2OmeA_pseU_2OmeU_2OmeG_mm_hg38_chr22.mm.view.all.all.tsv || die "${testname} Running the tool failed"
+# /install/modkit-v0.5.1/modkit extract full --kmer-size 1 --mapped-only --force --reference test/tmp/genome_chr22.fa test/data/rna_m5C_2OmeC_inosine_m6A_2OmeA_pseU_2OmeU_2OmeG_mm_hg38_chr22.bam test/expected/rna_m5C_2OmeC_inosine_m6A_2OmeA_pseU_2OmeU_2OmeG_mm_hg38_chr22.mk.extract.bed
+test/compare_view_mkbed_mmtsv.sh -y test/expected/rna_m5C_2OmeC_inosine_m6A_2OmeA_pseU_2OmeU_2OmeG_mm_hg38_chr22.mk.extract.bed test/tmp/rna_m5C_2OmeC_inosine_m6A_2OmeA_pseU_2OmeU_2OmeG_mm_hg38_chr22.mm.view.all.all.tsv test/tmp/rna_m5C_2OmeC_inosine_m6A_2OmeA_pseU_2OmeU_2OmeG_mm_hg38_chr22_view_compare || die "${testname} Comparison failed"
+[ "$(wc -l < test/tmp/rna_m5C_2OmeC_inosine_m6A_2OmeA_pseU_2OmeU_2OmeG_mm_hg38_chr22_view_compare/missing_in_file1.tsv)" -gt 1 ] && die "${testname} minimod view missing records compared to modkit extract full"
+[ "$(wc -l < test/tmp/rna_m5C_2OmeC_inosine_m6A_2OmeA_pseU_2OmeU_2OmeG_mm_hg38_chr22_view_compare/missing_in_file2.tsv)" -gt 1 ]&& die "${testname} modkit extract full missing records compared to minimod view"
+[ "$(wc -l < test/tmp/rna_m5C_2OmeC_inosine_m6A_2OmeA_pseU_2OmeU_2OmeG_mm_hg38_chr22_view_compare/large_prob_diff.tsv)" -gt 1 ] && die "${testname} Records with large prob diff between minimod view and modkit extract full"
+echo -e "${GREEN}${testname} passed!${NC}\n"
+
+
+
+
 
 #************** rna_2OmeG_mm_trans_ENST00000249299.7_no_supps G|19229|.**************
 testname="view 19229[G] rna_2OmeG_mm_trans_ENST00000249299.7_no_supps.bam"
@@ -1050,4 +1075,30 @@ test/compare_view_mkbed_mmtsv.sh -y test/expected/rna_pseU_2OmeU_mm_trans_ENST00
 [ "$(wc -l < test/tmp/rna_pseU_2OmeU_mm_trans_ENST00000249299.7_no_supps_view_compare/missing_in_file1.tsv)" -gt 1 ] && die "${testname} minimod view missing records compared to modkit extract full"
 [ "$(wc -l < test/tmp/rna_pseU_2OmeU_mm_trans_ENST00000249299.7_no_supps_view_compare/missing_in_file2.tsv)" -gt 1 ] && die "${testname} modkit extract full missing records compared to minimod view"
 [ "$(wc -l < test/tmp/rna_pseU_2OmeU_mm_trans_ENST00000249299.7_no_supps_view_compare/large_prob_diff.tsv)" -gt 1 ] && die "${testname} Records with large prob diff between minimod view and modkit extract full"
+echo -e "${GREEN}${testname} passed!${NC}\n"
+
+
+
+
+
+#************** rna_m5C_2OmeC_inosine_m6A_2OmeA_pseU_2OmeU_2OmeG_mm_trans_ENST00000249299.7 A|17596|. C|m|. A|a|. C|19228|. T|19227|. A|69426|. G|19229|. T|17802|. ***************
+testname="view 69426[A] rna_m5C_2OmeC_inosine_m6A_2OmeA_pseU_2OmeU_2OmeG_mm_trans_ENST00000249299.7.bam"
+echo -e "${BLUE}${testname}${NC}"
+ex  ./minimod view  --skip-supplementary -c "69426[A]" test/data/transcript_ENST00000249299.7.fa test/data/rna_m5C_2OmeC_inosine_m6A_2OmeA_pseU_2OmeU_2OmeG_mm_trans_ENST00000249299.7.bam > test/tmp/rna_m5C_2OmeC_inosine_m6A_2OmeA_pseU_2OmeU_2OmeG_mm_trans_ENST00000249299.7.mm.view.69426.A.tsv || die "${testname} Running the tool failed"
+# /install/modkit-v0.5.1/modkit extract full -t 32 --motif A 0 --mapped-only --force --reference test/data/transcript_ENST00000249299.7.fa test/data/rna_m5C_2OmeC_inosine_m6A_2OmeA_pseU_2OmeU_2OmeG_mm_trans_ENST00000249299.7.bam test/expected/rna_m5C_2OmeC_inosine_m6A_2OmeA_pseU_2OmeU_2OmeG_mm_trans_ENST00000249299.7.mk.extract.A.bed
+# awk 'NR==1 || $14=="69426"' test/expected/rna_m5C_2OmeC_inosine_m6A_2OmeA_pseU_2OmeU_2OmeG_mm_trans_ENST00000249299.7.mk.extract.A.bed > test/expected/rna_m5C_2OmeC_inosine_m6A_2OmeA_pseU_2OmeU_2OmeG_mm_trans_ENST00000249299.7.mk.extract.69426.A.bed
+test/compare_view_mkbed_mmtsv.sh -y test/expected/rna_m5C_2OmeC_inosine_m6A_2OmeA_pseU_2OmeU_2OmeG_mm_trans_ENST00000249299.7.mk.extract.69426.A.bed test/tmp/rna_m5C_2OmeC_inosine_m6A_2OmeA_pseU_2OmeU_2OmeG_mm_trans_ENST00000249299.7.mm.view.69426.A.tsv test/tmp/rna_m5C_2OmeC_inosine_m6A_2OmeA_pseU_2OmeU_2OmeG_mm_trans_ENST00000249299.7_view_compare || die "${testname} Comparison failed"
+[ "$(wc -l < test/tmp/rna_m5C_2OmeC_inosine_m6A_2OmeA_pseU_2OmeU_2OmeG_mm_trans_ENST00000249299.7_view_compare/missing_in_file1.tsv)" -gt 1 ] && die "${testname} minimod view missing records compared to modkit extract full"
+[ "$(wc -l < test/tmp/rna_m5C_2OmeC_inosine_m6A_2OmeA_pseU_2OmeU_2OmeG_mm_trans_ENST00000249299.7_view_compare/missing_in_file2.tsv)" -gt 1 ] && die "${testname} modkit extract full missing records compared to minimod view"
+[ "$(wc -l < test/tmp/rna_m5C_2OmeC_inosine_m6A_2OmeA_pseU_2OmeU_2OmeG_mm_trans_ENST00000249299.7_view_compare/large_prob_diff.tsv)" -gt 1 ] && die "${testname} Records with large prob diff between minimod view and modkit extract full"
+echo -e "${GREEN}${testname} passed!${NC}\n"
+
+testname="view * rna_m5C_2OmeC_inosine_m6A_2OmeA_pseU_2OmeU_2OmeG_mm_trans_ENST00000249299.7.bam"
+echo -e "${BLUE}${testname}${NC}"
+ex  ./minimod view  --skip-supplementary -c '*' test/data/transcript_ENST00000249299.7.fa test/data/rna_m5C_2OmeC_inosine_m6A_2OmeA_pseU_2OmeU_2OmeG_mm_trans_ENST00000249299.7.bam > test/tmp/rna_m5C_2OmeC_inosine_m6A_2OmeA_pseU_2OmeU_2OmeG_mm_trans_ENST00000249299.7.mm.view.all.all.tsv || die "${testname} Running the tool failed"
+# /install/modkit-v0.5.1/modkit extract full -t 32 --kmer-size 1 --mapped-only --force --reference test/data/transcript_ENST00000249299.7.fa test/data/rna_m5C_2OmeC_inosine_m6A_2OmeA_pseU_2OmeU_2OmeG_mm_trans_ENST00000249299.7.bam test/expected/rna_m5C_2OmeC_inosine_m6A_2OmeA_pseU_2OmeU_2OmeG_mm_trans_ENST00000249299.7.mk.extract.bed
+test/compare_view_mkbed_mmtsv.sh -y test/expected/rna_m5C_2OmeC_inosine_m6A_2OmeA_pseU_2OmeU_2OmeG_mm_trans_ENST00000249299.7.mk.extract.bed test/tmp/rna_m5C_2OmeC_inosine_m6A_2OmeA_pseU_2OmeU_2OmeG_mm_trans_ENST00000249299.7.mm.view.all.all.tsv test/tmp/rna_m5C_2OmeC_inosine_m6A_2OmeA_pseU_2OmeU_2OmeG_mm_trans_ENST00000249299.7_view_compare || die "${testname} Comparison failed"
+[ "$(wc -l < test/tmp/rna_m5C_2OmeC_inosine_m6A_2OmeA_pseU_2OmeU_2OmeG_mm_trans_ENST00000249299.7_view_compare/missing_in_file1.tsv)" -gt 1 ] && die "${testname} minimod view missing records compared to modkit extract full"
+[ "$(wc -l < test/tmp/rna_m5C_2OmeC_inosine_m6A_2OmeA_pseU_2OmeU_2OmeG_mm_trans_ENST00000249299.7_view_compare/missing_in_file2.tsv)" -gt 1 ] && die "${testname} modkit extract full missing records compared to minimod view"
+[ "$(wc -l < test/tmp/rna_m5C_2OmeC_inosine_m6A_2OmeA_pseU_2OmeU_2OmeG_mm_trans_ENST00000249299.7_view_compare/large_prob_diff.tsv)" -gt 1 ] && die "${testname} Records with large prob diff between minimod view and modkit extract full"
 echo -e "${GREEN}${testname} passed!${NC}\n"
