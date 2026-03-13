@@ -296,18 +296,13 @@ minimod freq -c "*" ref.fa reads.bam
 minimof freq -c "17802[T]" ref.fa reads.bam
 ```
 
-If the context is not specified in square brackets along with modification code, minimod will consider following default contexts.
-
-All possible modification codes are supported by minimod along with default contexts if not specified ([SAMtags: 1.7 Base modifications](https://github.com/samtools/hts-specs/blob/master/SAMtags.pdf))
+If the context is not specified in square brackets along with modification code, minimod will consider following default contexts. Following table is an extension of the modification codes table in ([SAMtags: 1.7 Base modifications](https://github.com/samtools/hts-specs/blob/master/SAMtags.pdf)).
 
 | Unmodified base | Code | Abbreviation | Name | Default context |
 | - | - | - | - | - |
 | C | m | 5mC | 5-Methylcytosine | CG |
 | C | h | 5hmC | 5-Hydroxymethylcytosine | CG |
-| A | a | 6mA | 6-Methyladenine | A |
-| U | 17802 | pseU | Pseudouridine | U
-
-<!-- | C | f | 5fC | 5-Formylcytosine | C |
+| C | f | 5fC | 5-Formylcytosine | C |
 | C | c | 5caC | 5-Carboxylcytosine | C |
 | C | C |  | Ambiguity code; any C mod | C |
 | T | g | 5hmU | 5-Hydroxymethyluracil | T |
@@ -320,7 +315,7 @@ All possible modification codes are supported by minimod along with default cont
 | G | o | 8oxoG | 8-Oxoguanine | G |
 | G | G |  | Ambiguity code; any G mod | G |
 | N | n | Xao | Xanthosine | N |
-| N | N |  | Ambiguity code; any mod | N | -->
+| N | N |  | Ambiguity code; any mod | N |
 
 Note that we have done a lot of testing on 5mc and some limited testing on 6mA and 5hmC. The others are not yet tested.
 
