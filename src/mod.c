@@ -1171,7 +1171,7 @@ void freq_view_single(core_t * core, db_t *db, int32_t bam_i) {
                     continue;
                 }
 
-                ASSERT_MSG(ml_idx<ml_len, "Mod prob index mismatch. ml_idx:%d ml_len:%d\n", ml_idx, ml_len);
+                ASSERT_MSG(ml_idx<ml_len, "read_id:%s mod prob index mismatch. ml_idx:%d ml_len:%d \n", bam_get_qname(record), ml_idx, ml_len);
                 uint8_t mod_prob = ml[ml_idx];
                 ASSERT_MSG(mod_prob <= 255 && mod_prob>=0, "Invalid mod_prob:%d\n", mod_prob);
 
@@ -1197,7 +1197,7 @@ void freq_view_single(core_t * core, db_t *db, int32_t bam_i) {
             }
 
         }
-        ml_start_idx = ml_idx + 1;
+        if(skip_counts_len > 0) ml_start_idx = ml_idx + 1;
 
         // skipped bases
         if (status_flag == '.') {
