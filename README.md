@@ -110,7 +110,7 @@ basic options:
    --haplotypes               output haplotypes [no]
    --verbose INT              verbosity level [4]
    --version                  print version
-   --secondary                output secondary alignments [no]
+   --allow-secondary          allow secondary alignments [no]
    --skip-supplementary       skip supplementary alignments [no]
 ```
 
@@ -165,7 +165,7 @@ basic options:
    --haplotypes               output haplotypes [no]
    --verbose INT              verbosity level [4]
    --version                  print version
-   --secondary                output secondary alignments [no]
+   --allow-secondary          allow output secondary alignments [no]
    --skip-supplementary       skip supplementary alignments [no]
 ```
 

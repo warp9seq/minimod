@@ -8,7 +8,7 @@
 
 - For <=v0.4.0, when non CG contexts were requested, both minimod view and freq were reporting modifications from erroneous contexts. We have fixed and tested this issue from >= v0.5.0.
 
-- For <=v0.4.0, we allowed primary, secondary, supplementary alignments when viewing and calculating frequencies. From >=v0.5.0, we only consider primary and supplementary alignments by default. We introduced --secondary option to enable considering secondary alignments. Minimod still errors out if hard-clipping is found.
+- For <=v0.4.0, we allowed primary, secondary, supplementary alignments when viewing and calculating frequencies. From >=v0.5.0, we only consider primary and supplementary alignments by default. We introduced --allow-secondary option to enable considering secondary alignments. Minimod still errors out if hard-clipping is found.
 
 - For <=v0.4.0, when --insertions option is used, errornous reference positions were included in both freq and view outputs. We have fixed it in >=v0.5.0.
 
@@ -26,7 +26,7 @@ Tool versions we used for comparisons are modkit 0.5.1 and minimod 0.5.0
 
   Modkit by default outputs all modification without matching the read base with reference base when the context is not specified using --cpg or --motif options.
 
-- Minimod by default ignores secondary alignments and uses primary and supplementary alignments. Using --secondary options can allow them secondary alignments. minimod does not require the MN tag to allow non-primary alignments. Further, minimod errors out when hard-clipping is detected. 
+- Minimod by default ignores secondary alignments and uses primary and supplementary alignments. Using --allow-secondary options can allow them secondary alignments. minimod does not require the MN tag to allow non-primary alignments. Further, minimod errors out when hard-clipping is detected. 
 
   Modkit by default extract ignores non-primary alignments and --allow-non-primary option can allow secondary and supplementary alignments if a valid MN tag is found (https://github.com/nanoporetech/modkit/blob/481e3c9e7930f3f499eadf1ef441606f33e6881c/book/src/intro_extract.md#note-on-non-primary-alignments).
 

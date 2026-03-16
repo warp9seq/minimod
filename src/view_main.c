@@ -56,7 +56,7 @@ static struct option long_options[] = {
     {"output",required_argument, 0, 'o'},          //9 output file
     {"insertions",no_argument, 0, 0},              //10 enable modifications in insertions
     {"haplotypes",no_argument, 0, 0},              //11 enable haplotype mode
-    {"secondary",no_argument, 0, 0},               //12 enable secondary alignments
+    {"allow-secondary",no_argument, 0, 0},         //12 enable secondary alignments
     {"include-non-ref",no_argument, 0, 0},         //15 include modifications occuring on non-reference alleles (eg. due to SNPs)
     {"skip-supplementary",no_argument, 0, 0},      //16 skip supplementary alignments
     {0, 0, 0, 0}};
@@ -76,7 +76,7 @@ static inline void print_help_msg(FILE *fp_help, opt_t opt){
     fprintf(fp_help,"   --haplotypes               output haplotypes [%s]\n", (opt.haplotypes?"yes":"no"));
     fprintf(fp_help,"   --verbose INT              verbosity level [%d]\n",(int)get_log_level());
     fprintf(fp_help,"   --version                  print version\n");
-    fprintf(fp_help,"   --secondary                output secondary alignments [%s]\n", (opt.secondary?"yes":"no"));
+    fprintf(fp_help,"   --allow-secondary          allow secondary alignments [%s]\n", (opt.allow_secondary?"yes":"no"));
     // fprintf(fp_help,"   --include-non-ref          include modifications on bases not matching reference (eg. due to SNPs) [%s]\n", (opt.alt_alleles?"yes":"no"));
     fprintf(fp_help,"   --skip-supplementary       skip supplementary alignments [%s]\n", (opt.skip_supplementary?"yes":"no"));
 
@@ -235,7 +235,7 @@ int view_main(int argc, char* argv[]) {
         } else if(c == 0 && longindex == 11){ //haplotypes
             opt.haplotypes = 1;
         } else if(c == 0 && longindex == 12){ //secondary alignments
-            opt.secondary = 1;
+            opt.allow_secondary = 1;
         } else if(c == 0 && longindex == 13){ //include modifications on non-reference alleles
             opt.alt_alleles = 1;
         } else if(c == 0 && longindex == 14){ //skip supplementary alignments

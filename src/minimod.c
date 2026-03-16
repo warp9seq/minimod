@@ -262,7 +262,7 @@ ret_status_t load_db(core_t* core, db_t* db) {
             continue;
         }
 
-        if(!core->opt.secondary && rec->core.flag & BAM_FSECONDARY){
+        if(!core->opt.allow_secondary && rec->core.flag & BAM_FSECONDARY){
             LOG_TRACE("Skipping secondary alignment read %s",bam_get_qname(rec));
             continue;
         }
@@ -500,7 +500,7 @@ void init_opt(opt_t* opt) {
 
     opt->haplotypes = 0;
     opt->insertions = 0;
-    opt->secondary = 0;
+    opt->allow_secondary = 0;
     opt->alt_alleles = 0;
     opt->skip_supplementary = 0;
 
