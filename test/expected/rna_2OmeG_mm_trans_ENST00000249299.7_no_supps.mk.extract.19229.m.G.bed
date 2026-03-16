@@ -1,1 +1,0 @@
-read_id	forward_read_position	ref_position	chrom	mod_strand	ref_strand	ref_mod_strand	fw_soft_clipped_start	fw_soft_clipped_end	alignment_start	alignment_end	read_length	mod_qual	mod_code	base_qual	ref_kmer	query_kmer	canonical_base	modified_primary_base	inferred	flag	motifs
