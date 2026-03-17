@@ -53,6 +53,8 @@ static struct option long_options[] = {
     {"prog-interval",required_argument, 0, 'p'},   //6 progress interval
     {"debug-break",required_argument, 0, 0},       //7 break after processing the first batch (used for debugging)
     {"output",required_argument, 0, 'o'},          //8 output file
+    {"allow-secondary",no_argument, 0, 0},         //9 allow secondary alignments
+    {"skip-supplementary",no_argument, 0, 0},      //10 skip supplementary alignments
     {0, 0, 0, 0}};
 
 
@@ -67,6 +69,8 @@ static inline void print_help_msg(FILE *fp_help, opt_t opt){
     fprintf(fp_help,"   -o FILE                    output file [%s]\n", opt.output_file==NULL?"stdout":opt.output_file);
     fprintf(fp_help,"   --verbose INT              verbosity level [%d]\n",(int)get_log_level());
     fprintf(fp_help,"   --version                  print version\n");
+    fprintf(fp_help,"   --allow-secondary          allow secondary alignments [%s]\n", (opt.allow_secondary?"yes":"no"));
+    fprintf(fp_help,"   --skip-supplementary       skip supplementary alignments [%s]\n", (opt.skip_supplementary?"yes":"no"));
 
     fprintf(fp_help,"\nadvanced options:\n");
     fprintf(fp_help,"   --debug-break INT          break after processing the specified no. of batches\n");
@@ -217,6 +221,10 @@ int summary_main(int argc, char* argv[]) {
             }
             opt.output_file = optarg;
             opt.output_fp = fp;
+        } else if(c == 0 && longindex == 9){ //allow secondary alignments
+            opt.allow_secondary = 1;
+        } else if(c == 0 && longindex == 10){ //skip supplementary alignments
+            opt.skip_supplementary = 1;
         } else {
             print_help_msg(fp_help, opt);
             if(fp_help == stdout){

@@ -490,6 +490,17 @@ echo "Correlation of freq * with modkit pileup: $corr"
 [ "$(echo "$corr < 0.9708" | bc -l)" -eq 1 ] && die "${testname} Correlation of freq * with modkit pileup is less than 0.9708"
 echo -e "${GREEN}${testname} passed!${NC}\n"
 
+testname="summary dna_5mCG_5hmCG_mm_with_secondary_chr22.bam"
+echo -e "${BLUE}${testname}${NC}"
+ex  ./minimod summary test/data/dna_5mCG_5hmCG_mm_with_secondary_chr22.bam > test/tmp/dna_5mCG_5hmCG_mm_with_secondary_chr22_summary.tsv || die "${testname} Running the tool failed"
+ex  ./minimod summary --allow-secondary test/data/dna_5mCG_5hmCG_mm_with_secondary_chr22.bam > test/tmp/dna_5mCG_5hmCG_mm_with_secondary_chr22_summary_sec.tsv || die "${testname} Running the tool failed"
+ex  ./minimod summary --skip-supplementary test/data/dna_5mCG_5hmCG_mm_with_secondary_chr22.bam > test/tmp/dna_5mCG_5hmCG_mm_with_secondary_chr22_summary_nosup.tsv || die "${testname} Running the tool failed"
+ex  ./minimod summary --allow-secondary --skip-supplementary test/data/dna_5mCG_5hmCG_mm_with_secondary_chr22.bam > test/tmp/dna_5mCG_5hmCG_mm_with_secondary_chr22_summar_sec_nosup.tsv || die "${testname} Running the tool failed"
+diff -q test/expected/dna_5mCG_5hmCG_mm_with_secondary_chr22_summary.tsv test/tmp/dna_5mCG_5hmCG_mm_with_secondary_chr22_summary.tsv || die "${testname} Summary output does not match expected"
+diff -q test/expected/dna_5mCG_5hmCG_mm_with_secondary_chr22_summary_sec.tsv test/tmp/dna_5mCG_5hmCG_mm_with_secondary_chr22_summary_sec.tsv || die "${testname} Summary output with --allow-secondary does not match expected"
+diff -q test/expected/dna_5mCG_5hmCG_mm_with_secondary_chr22_summary_nosup.tsv test/tmp/dna_5mCG_5hmCG_mm_with_secondary_chr22_summary_nosup.tsv || die "${testname} Summary output with --skip-supplementary does not match expected"
+diff -q test/expected/dna_5mCG_5hmCG_mm_with_secondary_chr22_summary_sec_nosup.tsv test/tmp/dna_5mCG_5hmCG_mm_with_secondary_chr22_summar_sec_nosup.tsv || die "${testname} Summary output with --allow-secondary and --skip-supplementary does not match expected"
+echo -e "${GREEN}${testname} passed!${NC}\n"
 
 
 
