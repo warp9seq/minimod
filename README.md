@@ -244,6 +244,8 @@ basic options:
    -o FILE                    output file [stdout]
    --verbose INT              verbosity level [4]
    --version                  print version
+   --allow-secondary          allow secondary alignments [no]
+   --skip-supplementary       skip supplementary alignments [no]
 
 advanced options:
    --debug-break INT          break after processing the specified no. of batches
