@@ -476,9 +476,10 @@ testname="freq m[CG] dna_5mCG_5hmCG_mm_chr22.bam"
 echo -e "${BLUE}${testname}${NC}"
 ex  ./minimod freq -b --skip-supplementary test/tmp/genome_chr22.fa test/data/dna_5mCG_5hmCG_mm_chr22.bam > test/tmp/dna_5mCG_5hmCG_mm_chr22.mm.freq.m.CG.bed || die "${testname} Running the tool failed"
 # /install/modkit-v0.5.1/modkit pileup --cpg --region chr22 --reference test/tmp/genome_chr22.fa test/data/dna_5mCG_5hmCG_mm_chr22.bam test/expected/dna_5mCG_5hmCG_mm_chr22.mk.pileup.CG.bed || die "${testname} Running modkit pileup failed"
-corr=`test/compare.py test/expected/dna_5mCG_5hmCG_mm_chr22.mk.pileup.CG.bed test/tmp/dna_5mCG_5hmCG_mm_chr22.mm.freq.m.CG.bed` || die "${testname} Comparison failed"
+awk 'NR==1 || $4=="m"' test/expected/dna_5mCG_5hmCG_mm_chr22.mk.pileup.CG.bed > test/expected/dna_5mCG_5hmCG_mm_chr22.mk.pileup.m.CG.bed
+corr=`test/compare.py test/expected/dna_5mCG_5hmCG_mm_chr22.mk.pileup.m.CG.bed test/tmp/dna_5mCG_5hmCG_mm_chr22.mm.freq.m.CG.bed` || die "${testname} Comparison failed"
 echo "Correlation of freq m[CG] with modkit pileup: $corr"
-[ "$(echo "$corr < 0.955" | bc -l)" -eq 1 ] && die "${testname} Correlation of freq m[CG] with modkit pileup is less than 0.955"
+[ "$(echo "$corr < 0.999" | bc -l)" -eq 1 ] && die "${testname} Correlation of freq m[CG] with modkit pileup is less than 0.999"
 echo -e "${GREEN}${testname} passed!${NC}\n"
 
 testname="freq * dna_5mCG_5hmCG_mm_chr22.bam"
@@ -554,7 +555,8 @@ testname="freq m[C] dna_4mC_5mC_mm_chr22.bam"
 echo -e "${BLUE}${testname}${NC}"
 ex  ./minimod freq --skip-supplementary -b -c m[C] test/tmp/genome_chr22.fa test/data/dna_4mC_5mC_mm_chr22.bam > test/tmp/dna_4mC_5mC_mm_chr22.mm.freq.m.C.bed || die "${testname} Running the tool failed"
 # /install/modkit-v0.5.1/modkit pileup --motif C 0 --region chr22 --reference test/tmp/genome_chr22.fa test/data/dna_4mC_5mC_mm_chr22.bam test/expected/dna_4mC_5mC_mm_chr22.mk.pileup.C.bed || die "${testname} Running modkit pileup failed"
-corr=`test/compare.py test/expected/dna_4mC_5mC_mm_chr22.mk.pileup.C.bed test/tmp/dna_4mC_5mC_mm_chr22.mm.freq.m.C.bed` || die "${testname} Comparison failed"
+awk 'NR==1 || $4=="m"' test/expected/dna_4mC_5mC_mm_chr22.mk.pileup.C.bed > test/expected/dna_4mC_5mC_mm_chr22.mk.pileup.m.C.bed
+corr=`test/compare.py test/expected/dna_4mC_5mC_mm_chr22.mk.pileup.m.C.bed test/tmp/dna_4mC_5mC_mm_chr22.mm.freq.m.C.bed` || die "${testname} Comparison failed"
 echo "Correlation of freq m[C] with modkit pileup: $corr"
 [ "$(echo "$corr < 0.985" | bc -l)" -eq 1 ] && die "${testname} Correlation of freq m[C] with modkit pileup is less than 0.985"
 echo -e "${GREEN}${testname} passed!${NC}\n"
@@ -567,6 +569,27 @@ corr=`test/compare.py test/expected/dna_4mC_5mC_mm_chr22.mk.pileup.bed test/tmp/
 echo "Correlation of freq * with modkit pileup: $corr"
 [ "$(echo "$corr < 0.998" | bc -l)" -eq 1 ] && die "${testname} Correlation of freq * with modkit pileup is less than 0.998"
 echo -e "${GREEN}${testname} passed!${NC}\n"
+
+testname="freq m[CG] dna_4mC_5mC_mm_chr22.bam compare with freq.sh output"
+./minimod view --skip-supplementary -c m[CG] test/tmp/genome_chr22.fa test/data/dna_4mC_5mC_mm_chr22.bam > test/tmp/dna_4mC_5mC_mm_chr22.mm.view.m.CG.tsv || die "Running minimod view failed"
+test/freq.sh m 0.8 test/tmp/dna_4mC_5mC_mm_chr22.mm.view.m.CG.tsv > test/tmp/dna_4mC_5mC_mm_chr22.freqscript.view.m.CG.tsv || die "Running freq.sh on minimod view output failed"
+ex  ./minimod freq --skip-supplementary -b -c m[CG] test/tmp/genome_chr22.fa test/data/dna_4mC_5mC_mm_chr22.bam > test/tmp/dna_4mC_5mC_mm_chr22.mm.freq.m.CG.bed || die "${testname} Running the tool failed"
+test/compare_freq_mmbed_scripttsv.sh -y test/tmp/dna_4mC_5mC_mm_chr22.mm.freq.m.CG.bed test/tmp/dna_4mC_5mC_mm_chr22.freqscript.view.m.CG.tsv test/tmp/dna_4mC_5mC_mm_chr22_freq_compare_script || die "${testname} Comparison of minimod freq output with freq.sh output failed" 
+[ "$(wc -l < test/tmp/dna_4mC_5mC_mm_chr22_freq_compare_script/missing_in_file1.tsv)" -gt 1 ] && die "${testname} minimod freq missing records compared to freq.sh output"
+[ "$(wc -l < test/tmp/dna_4mC_5mC_mm_chr22_freq_compare_script/missing_in_file2.tsv)" -gt 1 ] && die "${testname} freq.sh output missing records compared to minimod freq"
+[ "$(wc -l < test/tmp/dna_4mC_5mC_mm_chr22_freq_compare_script/large_freq_diff.tsv)" -gt 1 ] && die "${testname} Records with large freq diff between minimod freq and freq.sh output"
+echo -e "${GREEN}${testname} passed!${NC}\n"
+
+# testname="freq m[CG] dna_4mC_5mC_mm_chr22.bam using compare_freq_bed_bed.sh"
+# echo -e "${BLUE}${testname}${NC}"
+# ex  ./minimod freq --skip-supplementary -m 0.8828125 -b -c m[CG] test/tmp/genome_chr22.fa test/data/dna_4mC_5mC_mm_chr22.bam > test/tmp/dna_4mC_5mC_mm_chr22.mm.freq.m.CG.bed || die "${testname} Running the tool failed"
+# /install/modkit-v0.5.1/modkit pileup --cpg --region chr22 --reference test/tmp/genome_chr22.fa test/data/dna_4mC_5mC_mm_chr22.bam test/expected/dna_4mC_5mC_mm_chr22.mk.pileup.CG.bed || die "${testname} Running modkit pileup failed"
+# awk 'NR==1 || $4=="m"' test/expected/dna_4mC_5mC_mm_chr22.mk.pileup.CG.bed > test/expected/dna_4mC_5mC_mm_chr22.mk.pileup.m.CG.bed
+# test/compare_freq_bed_bed.sh -y test/expected/dna_4mC_5mC_mm_chr22.mk.pileup.m.CG.bed test/tmp/dna_4mC_5mC_mm_chr22.mm.freq.m.CG.bed test/tmp/dna_4mC_5mC_mm_chr22_freq_compare || die "${testname} Comparison failed"
+# [ "$(wc -l < test/tmp/dna_4mC_5mC_mm_chr22_freq_compare/missing_in_file1.tsv)" -gt 1 ] && die "${testname} minimod freq missing records compared to modkit pileup"
+# [ "$(wc -l < test/tmp/dna_4mC_5mC_mm_chr22_freq_compare/missing_in_file2.tsv)" -gt 1 ] && die "${testname} modkit pileup missing records compared to minimod freq"
+# [ "$(wc -l < test/tmp/dna_4mC_5mC_mm_chr22_freq_compare/large_freq_diff.tsv)" -gt 1 ] && die "${testname} Records with large freq diff between minimod freq and modkit pileup"
+# echo -e "${GREEN}${testname} passed!${NC}\n"
 
 
 
@@ -680,7 +703,8 @@ testname="freq a[A] dna_6mA_mm_chr22.bam"
 echo -e "${BLUE}${testname}${NC}"
 ex  ./minimod freq --skip-supplementary -b -c a[A] test/tmp/genome_chr22.fa test/data/dna_6mA_mm_chr22.bam > test/tmp/dna_6mA_mm_chr22.mm.freq.a.A.bed || die "${testname} Running the tool failed"
 # /install/modkit-v0.5.1/modkit pileup --motif A 0 --region chr22 --reference test/tmp/genome_chr22.fa test/data/dna_6mA_mm_chr22.bam test/expected/dna_6mA_mm_chr22.mk.pileup.A.bed || die "${testname} Running modkit pileup failed"
-corr=`test/compare.py test/expected/dna_6mA_mm_chr22.mk.pileup.A.bed test/tmp/dna_6mA_mm_chr22.mm.freq.a.A.bed` || die "${testname} Comparison failed"
+awk 'NR==1 || $4=="a"' test/expected/dna_6mA_mm_chr22.mk.pileup.A.bed > test/expected/dna_6mA_mm_chr22.mk.pileup.a.A.bed
+corr=`test/compare.py test/expected/dna_6mA_mm_chr22.mk.pileup.a.A.bed test/tmp/dna_6mA_mm_chr22.mm.freq.a.A.bed` || die "${testname} Comparison failed"
 echo "Correlation of freq a[A] with modkit pileup: $corr"
 [ "$(echo "$corr < 0.988" | bc -l)" -eq 1 ] && die "${testname} Correlation of freq a[A] with modkit pileup is less than 0.988"
 echo -e "${GREEN}${testname} passed!${NC}\n"
@@ -844,28 +868,48 @@ test/compare_view_mkbed_mmtsv.sh -y test/expected/rna_m6A_DRACH_mm_hg38_chr22.mk
 [ "$(wc -l < test/tmp/rna_m6A_DRACH_mm_hg38_chr22_view_compare/large_prob_diff.tsv)" -gt 1 ] && die "${testname} Records with large prob diff between minimod view and modkit extract full"
 echo -e "${GREEN}${testname} passed!${NC}\n"
 
-
 testname="freq a[A] rna_m6A_DRACH_mm_hg38_chr22.bam"
 echo -e "${BLUE}${testname}${NC}"
-ex  ./minimod freq --skip-supplementary -b -c "a[A]" test/tmp/genome_chr22.fa test/data/rna_m6A_DRACH_mm_hg38_chr22.bam > test/tmp/rna_m6A_DRACH_mm_hg38_chr22.mm.view.a.A.freq.bed || die "${testname} Running the tool failed"
+ex  ./minimod freq --skip-supplementary -b -c "a[A]" test/tmp/genome_chr22.fa test/data/rna_m6A_DRACH_mm_hg38_chr22.bam > test/tmp/rna_m6A_DRACH_mm_hg38_chr22.mm.a.A.freq.bed || die "${testname} Running the tool failed"
 # /install/modkit-v0.5.1/modkit pileup --motif A 0 --region chr22 --reference test/tmp/genome_chr22.fa test/data/rna_m6A_DRACH_mm_hg38_chr22.bam test/expected/rna_m6A_DRACH_mm_hg38_chr22.mk.pileup.A.bed || die "${testname} Running modkit pileup failed"
-corr=`test/compare.py test/expected/rna_m6A_DRACH_mm_hg38_chr22.mk.pileup.A.bed test/tmp/rna_m6A_DRACH_mm_hg38_chr22.mm.view.a.A.freq.bed` || die "${testname} Correlation comparison failed"
-[ "$(echo "$corr < 0.995" | bc -l)" -eq 1 ] && die "${testname} Correlation between minimod view freq and modkit pileup is less than 0.995: $corr"
+awk 'NR==1 || $4=="a"' test/expected/rna_m6A_DRACH_mm_hg38_chr22.mk.pileup.A.bed > test/expected/rna_m6A_DRACH_mm_hg38_chr22.mk.pileup.a.A.bed
+corr=`test/compare.py test/expected/rna_m6A_DRACH_mm_hg38_chr22.mk.pileup.a.A.bed test/tmp/rna_m6A_DRACH_mm_hg38_chr22.mm.a.A.freq.bed` || die "${testname} Correlation comparison failed"
+[ "$(echo "$corr < 0.995" | bc -l)" -eq 1 ] && die "${testname} Correlation between minimod freq and modkit pileup is less than 0.995: $corr"
 echo "Correlation of freq a[A] with modkit pileup: $corr" 
 echo -e "${GREEN}${testname} passed!${NC}\n"
 
 testname="freq * rna_m6A_DRACH_mm_hg38_chr22.bam"
 echo -e "${BLUE}${testname}${NC}"
-ex  ./minimod freq --skip-supplementary -b -c '*' test/tmp/genome_chr22.fa test/data/rna_m6A_DRACH_mm_hg38_chr22.bam > test/tmp/rna_m6A_DRACH_mm_hg38_chr22.mm.view.all.all.freq.bed || die "${testname} Running the tool failed"
+ex  ./minimod freq --skip-supplementary -b -c '*' test/tmp/genome_chr22.fa test/data/rna_m6A_DRACH_mm_hg38_chr22.bam > test/tmp/rna_m6A_DRACH_mm_hg38_chr22.mm.all.all.freq.bed || die "${testname} Running the tool failed"
 # /install/modkit-v0.5.1/modkit pileup --region chr22 --reference test/tmp/genome_chr22.fa test/data/rna_m6A_DRACH_mm_hg38_chr22.bam test/expected/rna_m6A_DRACH_mm_hg38_chr22.mk.pileup.bed || die "${testname} Running modkit pileup failed"
-corr=`test/compare.py test/expected/rna_m6A_DRACH_mm_hg38_chr22.mk.pileup.bed test/tmp/rna_m6A_DRACH_mm_hg38_chr22.mm.view.all.all.freq.bed` || die "${testname} Correlation comparison failed"
-[ "$(echo "$corr < 0.995" | bc -l)" -eq 1 ] && die "${testname} Correlation between minimod view freq and modkit pileup is less than 0.995: $corr"
+corr=`test/compare.py test/expected/rna_m6A_DRACH_mm_hg38_chr22.mk.pileup.bed test/tmp/rna_m6A_DRACH_mm_hg38_chr22.mm.all.all.freq.bed` || die "${testname} Correlation comparison failed"
+[ "$(echo "$corr < 0.995" | bc -l)" -eq 1 ] && die "${testname} Correlation between minimod freq and modkit pileup is less than 0.995: $corr"
 echo "Correlation of freq * with modkit pileup: $corr"
 echo -e "${GREEN}${testname} passed!${NC}\n"
 
+testname="freq a[A] rna_m6A_DRACH_mm_hg38_chr22.bam using compare_freq_bed_bed.sh"
+echo -e "${BLUE}${testname}${NC}"
+ex  ./minimod freq --skip-supplementary -m 0.966796 -b -c "a[A]" test/tmp/genome_chr22.fa test/data/rna_m6A_DRACH_mm_hg38_chr22.bam > test/tmp/rna_m6A_DRACH_mm_hg38_chr22.mm.a.A.freq.bed || die "${testname} Running the tool failed"
+# /install/modkit-v0.5.1/modkit pileup --motif A 0 --region chr22 --reference test/tmp/genome_chr22.fa test/data/rna_m6A_DRACH_mm_hg38_chr22.bam test/expected/rna_m6A_DRACH_mm_hg38_chr22.mk.pileup.A.bed || die "${testname} Running modkit pileup failed"
+# awk 'NR==1 || $4=="a"' test/expected/rna_m6A_DRACH_mm_hg38_chr22.mk.pileup.A.bed > test/expected/rna_m6A_DRACH_mm_hg38_chr22.mk.pileup.a.A.bed
+test/compare_freq_bed_bed.sh -y test/expected/rna_m6A_DRACH_mm_hg38_chr22.mk.pileup.a.A.bed test/tmp/rna_m6A_DRACH_mm_hg38_chr22.mm.a.A.freq.bed test/tmp/rna_m6A_DRACH_mm_hg38_chr22_freq_compare || die "${testname} Comparison failed"
+[ "$(wc -l < test/tmp/rna_m6A_DRACH_mm_hg38_chr22_freq_compare/missing_in_file1.tsv)" -gt 1 ] && die "${testname} minimod freq missing records compared to modkit pileup"
+[ "$(wc -l < test/tmp/rna_m6A_DRACH_mm_hg38_chr22_freq_compare/missing_in_file2.tsv)" -gt 1 ]&& die "${testname} modkit pileup missing records compared to minimod freq"
+[ "$(wc -l < test/tmp/rna_m6A_DRACH_mm_hg38_chr22_freq_compare/large_freq_diff.tsv)" -gt 1 ] && die "${testname} Records with large freq diff between minimod freq and modkit pileup"
+echo -e "${GREEN}${testname} passed!${NC}\n"
 
+testname="freq a[A] rna_m6A_DRACH_mm_hg38_chr22.bam compare with freq.sh output"
+echo -e "${BLUE}${testname}${NC}"
+ex  ./minimod view --skip-supplementary -c "a[A]" test/tmp/genome_chr22.fa test/data/rna_m6A_DRACH_mm_hg38_chr22.bam > test/tmp/rna_m6A_DRACH_mm_hg38_chr22.mm.view.a.A.tsv || die "${testname} Running minimod view failed"
+test/freq.sh a 0.8 test/tmp/rna_m6A_DRACH_mm_hg38_chr22.mm.view.a.A.tsv > test/tmp/rna_m6A_DRACH_mm_hg38_chr22.freqscript.a.A.tsv || die "${testname} Running freq.sh failed"
+ex  ./minimod freq --skip-supplementary -b -c "a[A]" test/tmp/genome_chr22.fa test/data/rna_m6A_DRACH_mm_hg38_chr22.bam > test/tmp/rna_m6A_DRACH_mm_hg38_chr22.mm.a.A.freq.bed || die "${testname} Running the tool failed"
+test/compare_freq_mmbed_scripttsv.sh -y test/tmp/rna_m6A_DRACH_mm_hg38_chr22.mm.a.A.freq.bed test/tmp/rna_m6A_DRACH_mm_hg38_chr22.freqscript.a.A.tsv test/tmp/rna_m6A_DRACH_mm_hg38_chr22_freq_compare_script || die "${testname} Comparison failed"
+[ "$(wc -l < test/tmp/rna_m6A_DRACH_mm_hg38_chr22_freq_compare_script/missing_in_file1.tsv)" -gt 1 ] && die "${testname} minimod freq missing records compared to freq.sh output"
+[ "$(wc -l < test/tmp/rna_m6A_DRACH_mm_hg38_chr22_freq_compare_script/missing_in_file2.tsv)" -gt 1 ]&& die "${testname} freq.sh output missing records compared to minimod freq"
+[ "$(wc -l < test/tmp/rna_m6A_DRACH_mm_hg38_chr22_freq_compare_script/large_prob_diff.tsv)" -gt 1 ] && die "${testname} Records with large freq diff between minimod freq and freq.sh output"
+echo -e "${GREEN}${testname} passed!${NC}\n"
 
-
+exit 1
 
 #************** rna_pseU_2OmeU_mm_hg38_chr22 T|19227|. T|17802|. ***************
 testname="view 19227[T] rna_pseU_2OmeU_mm_hg38_chr22.bam"

@@ -54,7 +54,7 @@ script_name=$(basename "$0" .sh)
 OUT_MISSING_1="$out_dir/missing_in_file1.tsv" # Keys in file2 but not in file1
 OUT_MISSING_2="$out_dir/missing_in_file2.tsv" # Keys in file1 but not in file2
 OUT_MATCH="$out_dir/in_both.tsv"              # Keys in both with small prob difference
-OUT_LARGE_DIFF="$out_dir/large_prob_diff.tsv" # Keys in both with large prob difference
+OUT_LARGE_DIFF="$out_dir/large_freq_diff.tsv" # Keys in both with large prob difference
 # Remove output files if they already exist to avoid appending to old data. Ask for confirmation.
 if [[ -z "$OVERWRITE" && ( -f "$OUT_MISSING_1" || -f "$OUT_MISSING_2" || -f "$OUT_MATCH" || -f "$OUT_LARGE_DIFF" ) ]]; then
     read -p "Output files already exist. Overwrite? (y/n) " choice

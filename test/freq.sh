@@ -20,17 +20,19 @@ die() {
     exit 1
 }
 
-if [ -z "$1" ]; then
-    die "Usage: $0 minimod_view.tsv"
+if [ -z "$1" ] || [ -z "$2" ] || [ -z "$3" ]; then
+    die "Usage: $0 <mod_code> <thresh> minimod_view.tsv"
 fi
 
-if [ ! -f "$1" ]; then
-    die "File not found: $1"
+MOD_CODE="$1"
+THRESHOLD="$2"
+FILE="$3"
+
+if [ ! -f "$FILE" ]; then
+    die "File not found: $FILE"
 fi
 
-THRESHOLD=0.8
-MOD_CODE="m"
-LOWER_THRESHOLD=$(echo "1 - $THRESHOLD" | bc -l)
+LOWER_THRESHOLD=$(echo "(255.5/256.0) - $THRESHOLD" | bc -l)
 
 declare -A freq_map
 
@@ -61,7 +63,7 @@ declare -A freq_map
 
         freq_map["$key"]="$n_mod:$n_called"
     done
-} < "$1"
+} < "$FILE"
 
 
 echo -e "contig\tref_pos\tstrand\tmod_code\tfrequency"
