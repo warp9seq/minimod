@@ -32,46 +32,46 @@ if [ ! -f "$FILE" ]; then
     die "File not found: $FILE"
 fi
 
-LOWER_THRESHOLD=$(echo "1.0 - $THRESHOLD" | bc -l)
+awk -F'\t' -v mod_code="$MOD_CODE" -v threshold="$THRESHOLD" '
+BEGIN {
+    OFS = "\t"
+    lower_threshold = 1.0 - threshold
+    print "contig", "ref_pos", "strand", "mod_code", "frequency"
+}
 
-declare -A freq_map
+# Skip the header row.
+NR == 1 {
+    next
+}
 
 {
-    # Skip the header line and process the rest.
-    read -r _
-    while IFS=$'\t' read -r ref_contig ref_pos strand read_id read_pos mod_code mod_prob; do
-        if [ -z "$ref_contig" ] || [ "$mod_code" != "$MOD_CODE" ]; then
-            continue
-        fi
+    ref_contig = $1
+    ref_pos = $2
+    strand = $3
+    rec_mod_code = $6
+    mod_prob = $7 + 0
 
-        key="$ref_contig"$'\t'"$ref_pos"$'\t'"$strand"$'\t'"$mod_code"
+    if (ref_contig == "" || rec_mod_code != mod_code) {
+        next
+    }
 
-        if [ -z "${freq_map[$key]}" ]; then
-            freq_map["$key"]="0:0"
-        fi
+    key = ref_contig OFS ref_pos OFS strand OFS rec_mod_code
 
-        IFS=':' read -r n_mod n_called <<< "${freq_map[$key]}"
+    if (mod_prob >= threshold) {
+        n_mod[key]++
+        n_called[key]++
+    } else if (mod_prob <= lower_threshold) {
+        n_called[key]++
+    }
+}
 
-        if (( $(echo "$mod_prob >= $THRESHOLD" | bc -l) )); then
-            n_mod=$((n_mod + 1))
-            n_called=$((n_called + 1))
-        elif (( $(echo "$mod_prob <= $LOWER_THRESHOLD" | bc -l) )); then
-            n_called=$((n_called + 1))
-        else
-            continue
-        fi
-
-        freq_map["$key"]="$n_mod:$n_called"
-    done
-} < "$FILE"
-
-
-echo -e "contig\tref_pos\tstrand\tmod_code\tfrequency"
-for key in "${!freq_map[@]}"; do
-    IFS=':' read -r n_mod n_called <<< "${freq_map[$key]}"
-    if [ "$n_called" -gt 0 ]; then
-        frequency=$(echo "scale=2; $n_mod / $n_called" | bc -l)
-        echo "$key	$frequency"
-    fi
-done
+END {
+    for (key in n_called) {
+        if (n_called[key] > 0) {
+            split(key, fields, OFS)
+            printf "%s\t%s\t%s\t%s\t%.2f\n", fields[1], fields[2], fields[3], fields[4], n_mod[key] / n_called[key]
+        }
+    }
+}
+' "$FILE"
 
