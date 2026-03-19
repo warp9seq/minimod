@@ -95,6 +95,7 @@ awk -F'\t' -v tol="$TOLERANCE" \
 
     # Second pass: process file2 and compare against the `prob` array
     {
+        if (FNR == 1) next
         for (i=1; i<=NF; i++) $i = clean($i)
         # Construct the key from file2 columns in the order that matches file1
         key1 = $1 "\t" $2 "\t" $3 "\t" $4
