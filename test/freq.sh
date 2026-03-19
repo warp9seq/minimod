@@ -55,7 +55,7 @@ declare -A freq_map
         if (( $(echo "$mod_prob >= $THRESHOLD" | bc -l) )); then
             n_mod=$((n_mod + 1))
             n_called=$((n_called + 1))
-        elif (( $(echo "$mod_prob < $LOWER_THRESHOLD" | bc -l) )); then
+        elif (( $(echo "$mod_prob <= $LOWER_THRESHOLD" | bc -l) )); then
             n_called=$((n_called + 1))
         else
             continue

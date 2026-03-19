@@ -1184,7 +1184,7 @@ void freq_view_single(core_t * core, db_t *db, int32_t bam_i) {
                     if(mod_prob_dbl >= thresh){ // modified with mod_code
                         is_called = 1;
                         is_mod = 1;
-                    } else if(mod_prob_dbl <= 255.5/256.0 - thresh){ // not modified with mod_code
+                    } else if(mod_prob_dbl <= 1 - thresh){ // not modified with mod_code
                         is_called = 1;
                     } else { // ambiguous
                         continue;
