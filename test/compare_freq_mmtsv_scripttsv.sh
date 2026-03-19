@@ -86,6 +86,7 @@ awk -F'\t' -v tol="$TOLERANCE" \
     # First pass: read file1 into an associative array `prob`
     # NR==FNR is true only while reading the first file
     NR==FNR {
+        if (FNR == 1) next
         for (i=1; i<=NF; i++) $i = clean($i)
         # Construct the key from the first 6 columns
         key = $1 "\t" $2 "\t" $4 "\t" $8
