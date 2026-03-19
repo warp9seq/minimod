@@ -32,7 +32,7 @@ if [ ! -f "$FILE" ]; then
     die "File not found: $FILE"
 fi
 
-LOWER_THRESHOLD=$(echo "(255.5/256.0) - $THRESHOLD" | bc -l)
+LOWER_THRESHOLD=$(echo "1.0 - $THRESHOLD" | bc -l)
 
 declare -A freq_map
 
