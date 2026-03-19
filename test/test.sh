@@ -575,6 +575,10 @@ testname="freq m[CG] dna_4mC_5mC_mm_chr22.bam compare with freq.sh output"
 test/freq.sh m 0.8 test/tmp/dna_4mC_5mC_mm_chr22.mm.view.m.CG.tsv > test/tmp/dna_4mC_5mC_mm_chr22.freqscript.view.m.CG.tsv || die "Running freq.sh on minimod view output failed"
 ex  ./minimod freq --skip-supplementary -b -c m[CG] test/tmp/genome_chr22.fa test/data/dna_4mC_5mC_mm_chr22.bam > test/tmp/dna_4mC_5mC_mm_chr22.mm.freq.m.CG.bed || die "${testname} Running the tool failed"
 test/compare_freq_mmbed_scripttsv.sh -y test/tmp/dna_4mC_5mC_mm_chr22.mm.freq.m.CG.bed test/tmp/dna_4mC_5mC_mm_chr22.freqscript.view.m.CG.tsv test/tmp/dna_4mC_5mC_mm_chr22_freq_compare_script || die "${testname} Comparison of minimod freq output with freq.sh output failed"
+echo "debug logs"
+wc -l test/tmp/dna_4mC_5mC_mm_chr22_freq_compare_script/missing_in_file1.tsv
+wc -l test/tmp/dna_4mC_5mC_mm_chr22_freq_compare_script/missing_in_file2.tsv
+wc -l test/tmp/dna_4mC_5mC_mm_chr22_freq_compare_script/large_freq_diff.tsv
 [ "$(wc -l < test/tmp/dna_4mC_5mC_mm_chr22_freq_compare_script/missing_in_file1.tsv)" -gt 1 ] && die "${testname} minimod freq missing records compared to freq.sh output"
 [ "$(wc -l < test/tmp/dna_4mC_5mC_mm_chr22_freq_compare_script/missing_in_file2.tsv)" -gt 1 ] && die "${testname} freq.sh output missing records compared to minimod freq"
 [ "$(wc -l < test/tmp/dna_4mC_5mC_mm_chr22_freq_compare_script/large_freq_diff.tsv)" -gt 1 ] && die "${testname} Records with large freq diff between minimod freq and freq.sh output"
