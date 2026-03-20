@@ -123,6 +123,8 @@ When mod+basecalled using a 2-way classification model such as m6A_DRACH (classi
 minimod freq --skip-supplementary -m 0.9 -b -c "a[A]" ref.fa rna_m6A_DRACH.bam > mm_freq_aA.bed
 
 modkit pileup --filter-threshold A:0.9 --motif A 0 --reference ref.fa rna_m6A_DRACH.bam mk_pileup_aA.bed
+
+test/compare_freq_bed_bed.sh mm_freq_aA.bed mk_pileup_aA.bed out_dir
 ```
 
 ## Philosophy
