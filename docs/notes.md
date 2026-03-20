@@ -4,7 +4,7 @@
 
 - From >=v0.5.0, we print a warning if a certain modification and a context is untested.  For versions before this, only m[CG] for DNA (genome) and a[A] for transcriptome were tested.
 
-## Breaking changes from v0.4.0 to v0.5.0
+## Makor changes from v0.4.0 to v0.5.0
 
 - For <=v0.4.0, when non CG contexts were requested, both minimod view and freq were reporting modifications from erroneous contexts. We have fixed and tested this issue from >= v0.5.0.
 
