@@ -113,9 +113,16 @@ When the context and modification type is known
 minimod freq -b -c 'a[A]' --skip-supplementary ref.fa reads.bam > mm_freq_aA.bed
 
 modkit pileup --motif A 0 --reference ref.fa reads.bam mk_pileup_A.bed
-awk 'NR==1 || $4=="a"' mk_extract_A.bed > mk_extract_aA.bed
+awk 'NR==1 || $4=="a"' mk_extract_A.bed > mk_extract_aA.bed # not needed if mod+basecall model is for only type a modifications (ex: m6A_DRACH)
 
 test/compare.py mk_pileup_A mm_freq_aA.bed
+```
+
+When mod+basecalled using a 2-way classification model such as m6A_DRACH (classifies into modified as m6A or canonical A), minimod's and modkit's filtering methods results in same outputs if the modification threshold is matched using -m in minimod or --filter-threshold in modkit.
+```bash
+minimod freq --skip-supplementary -m 0.9 -b -c "a[A]" ref.fa rna_m6A_DRACH.bam > mm_freq_aA.bed
+
+modkit pileup --filter-threshold A:0.9 --motif A 0 --reference ref.fa rna_m6A_DRACH.bam mk_pileup_aA.bed
 ```
 
 ## Philosophy
