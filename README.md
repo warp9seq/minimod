@@ -34,7 +34,7 @@ Minimod reads base modification information encoded under `MM:Z` and `ML:B:C` SA
 
 If you are a Linux user and want to quickly try out download the compiled binaries from the [latest release](https://github.com/warp9seq/minimod/releases). For example:
 ```sh
-VERSION=v0.4.0
+VERSION=v0.5.0
 wget "https://github.com/warp9seq/minimod/releases/download/$VERSION/minimod-$VERSION-x86_64-linux-binaries.tar.gz" && tar xvf minimod-$VERSION-x86_64-linux-binaries.tar.gz && cd minimod-$VERSION/
 ./minimod
 ```
@@ -49,7 +49,7 @@ sudo apt-get install zlib1g-dev  # install zlib development libraries
 ```
 ## Building a release
 ```bash
-VERSION=v0.4.0
+VERSION=v0.5.0
 wget https://github.com/warp9seq/minimod/releases/download/$VERSION/minimod-$VERSION-release.tar.gz
 tar xvf minimod-$VERSION-release.tar.gz
 cd minimod-$VERSION/
