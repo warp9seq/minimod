@@ -33,7 +33,21 @@ Tool versions we used for comparisons are modkit 0.5.1 and minimod 0.5.0
 
 ### Minimod view vs Modkit extract full
 
-Following pair of commands using minimod v0.5.0 and modkit 0.5.1 should give the same output. To compare modkit's extract bed with minimod's view tsv, test/compare_view_mkbed_mmtsv.sh script can be used. Let's assume reads.bam contains mapped and unmapped, primary, secondary and supplementary alignments.
+Following pair of commands using minimod v0.5.0 and modkit 0.5.1 should give the same output. Let's assume reads.bam contains mapped and unmapped, primary, secondary and supplementary alignments.
+
+> **_NOTE:_**<br>
+> ``` test/compare_view_mkbed_mmtsv.sh modkit_extract.bed minimod_view.tsv```script takes modkit's extract bed and minimod's view tsv and creates four files in the out_dir.
+> - **in_both.tsv**            : found in both files and probability difference is <= 0.002
+> - **large_prob_diff.tsv**    : found in both files and probability difference is > 0.002
+> - **missing_in_file1.tsv**   : missing in file1 which is modkit_extract.bed
+> - **missing_in_file2.tsv**   : missing in file2 which is minimod_view.tsv
+>
+> There are similar scripts we provide for view comparison between different file formats.
+> - test/compare_view_mkbed_mmtsv.sh
+> - test/compare_view_mkbed_mkbed.sh
+> - test/compare_view_mmtsv_mmtsv.sh
+
+<br>
 
 When the context and modification type is unknown
 ```bash
@@ -88,7 +102,12 @@ While the default behaviours mentioned [above](#modkit-consistency) are applied 
 
   Modkit pileup uses two-way, three-way base modification calls as explained [here](https://github.com/nanoporetech/modkit/blob/v0.5.1-rc1/book/src/filtering_details.md)
 
-Following pair of commands using minimod v0.5.0 and modkit 0.5.1 should give similar outputs. To compute Pearson correlation coefficient between outputs from modkit's pileup and minimod's freq, test/compare.py Python script can be used. Let's assume reads.bam contains mapped and unmapped, primary, secondary and supplementary alignments.
+Following pair of commands using minimod v0.5.0 and modkit 0.5.1 should give similar outputs. Let's assume reads.bam contains mapped and unmapped, primary, secondary and supplementary alignments.
+
+> **_NOTE:_**<br>
+> ``` compare.py file1.bed file2.bed ``` outputs Pearson correlation coefficient of modification frequencies in two bedmethyl files.
+
+<br>
 
 When the context and modification type is unknown
 ```bash
@@ -98,6 +117,7 @@ modkit pileup --reference ref.fa reads.bam mk_pileup.bed
 
 test/compare.py mk_pileup.bed mm_freq.bed
 ```
+test/compare.py python script compute Pearson correlation coefficient between two bed files.
 
 When the context is known and modification type is unknown
 ```bash
@@ -117,7 +137,14 @@ awk 'NR==1 || $4=="a"' mk_pileup_A.bed > mk_pileup_aA.bed # not needed if mod+ba
 
 test/compare.py mk_pileup_A.bed mm_freq_aA.bed
 ```
+> **_NOTE:_**<br>
+> ``` test/compare_freq_bed_bed.sh modkit_pileup.bed minimod_freq.bed```script takes modkit's pileup bed and minimod's pileup bed and creates four files in the out_dir.
+> - **in_both.tsv**            : found in both files and frequency difference is <= 5%
+> - **large_freq_diff.tsv**    : found in both files and freqency difference is > 5%
+> - **missing_in_file1.tsv**   : missing in file1 which is modkit_pileup.bed
+> - **missing_in_file2.tsv**   : missing in file2 which is minimod_freq.bed
 
+<br>
 When mod+basecalled using a 2-way classification model such as m6A_DRACH (classifies into modified as m6A or canonical A), minimod's and modkit's filtering methods results in same outputs if the modification threshold is matched using -m in minimod or --filter-threshold in modkit.
 ```bash
 minimod freq --skip-supplementary -m 0.9 -b -c "a[A]" ref.fa rna_m6A_DRACH.bam > mm_freq_aA.bed

@@ -28,7 +28,7 @@ done
 shift $((OPTIND -1))
 
 # --- Configuration ---
-TOLERANCE=5 # Define the probability difference tolerance
+TOLERANCE=0.005 # Define the probability difference tolerance
 # --- Argument Check ---
 if [[ $# -ne 3 ]]; then
     usage
