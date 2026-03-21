@@ -602,7 +602,7 @@ echo -e "${GREEN}${testname} passed!${NC}\n"
 
 
 
-#************** dna_5mCG_5hmCG_mm_chr22 C|h|. C|m|. **************
+#************** dna_5mC_5hmC_mm_chr22 C|h|. C|m|. **************
 testname="view m[CG] dna_5mC_5hmC_mm_chr22.bam"
 echo -e "${BLUE}${testname}${NC}"
 ex  ./minimod view --skip-supplementary -c m[CG] test/tmp/genome_chr22.fa test/data/dna_5mC_5hmC_mm_chr22.bam > test/tmp/dna_5mC_5hmC_mm_chr22.mm.view.m.CG.tsv || die "${testname} Running the tool failed"
