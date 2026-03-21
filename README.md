@@ -336,13 +336,13 @@ Note that we have done a lot of testing on 5mC and some limited testing on 6mA a
 | RNA | m5C_2OmeC | hg38 genome | 19228[C], m[C], any[any] |
 | RNA | m6A_DRACH | hg38 genome | a[A], any[any] |
 | RNA | pseU_2OmeU | hg38 genome | 19227[T], 17802[T], any[any] |
-| RNA | m5C_2OmeC_inosine_m6A_2OmeA_pseU_2OmeU_2OmeG | hg38 genome | 17596[A], any[any] |
+| RNA | multiple: m5C_2OmeC, inosine_m6A_2OmeA, pseU_2OmeU, 2OmeG | hg38 genome | 17596[A], any[any] |
 | RNA | 2OmeG | gencode.v40 transcriptome | 19229[G], 19229[any] |
 | RNA | inosine_m6A_2OmeA | gencode.v40 transcriptome | 69426[A], a[A], 17596[A] |
 | RNA | m5C_2OmeC | gencode.v40 transcriptome | 19228[C], m[C], any[any] |
 | RNA | m6A_DRACH | gencode.v40 transcriptome | a[A], any[any] |
 | RNA | pseU_2OmeU | gencode.v40 transcriptome | 19227[T], 17802[T], any[any] |
-| RNA | m5C_2OmeC_inosine_m6A_2OmeA_pseU_2OmeU_2OmeG | gencode.v40 transcriptome | 69426[A], any[any] |
+| RNA | multiple: m5C_2OmeC, inosine_m6A_2OmeA, pseU_2OmeU, 2OmeG | gencode.v40 transcriptome | 69426[A], any[any] |
 
 ### Pacbio
 | DNA/RNA | aligned to | tested modification[context] combinations |
