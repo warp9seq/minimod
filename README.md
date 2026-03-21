@@ -324,6 +324,7 @@ If the context is not specified in square brackets along with modification code,
 Minimod is expected to support standard modifications given in the table above and any other either given as modification code or ChEBI code in MM tag of the BAM record.
 Note that we have done a lot of testing on 5mC and some limited testing on 6mA and 5hmC. The others are not thoroughly tested. Following is a summary of tests we have performed.
 
+### ONT
 | DNA/RNA | mod+base called model | aligned to | tested modification[context] combinations |
 | - | - | - | - |
 | DNA | 5mCG_5hmCG | hg38 genome | m[CG], h[CG], m[C], h[C], m[any], any[any] |
@@ -342,6 +343,11 @@ Note that we have done a lot of testing on 5mC and some limited testing on 6mA a
 | RNA | m6A_DRACH | gencode.v40 transcriptome | a[A], any[any] |
 | RNA | pseU_2OmeU | gencode.v40 transcriptome | 19227[T], 17802[T], any[any] |
 | RNA | m5C_2OmeC_inosine_m6A_2OmeA_pseU_2OmeU_2OmeG | gencode.v40 transcriptome | 69426[A], any[any] |
+
+### Pacbio
+| DNA/RNA | aligned to | tested modification[context] combinations |
+| - | - | - |
+| DNA | hg38 genome | m[CG] |
 
 # Modification threshold
 Base modification threshold can be set for freq tool using -m option.
