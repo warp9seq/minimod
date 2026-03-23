@@ -13,3 +13,5 @@
 - For >=v0.5.0, when a context is provided (ex: -c h[CG]) option, we output modifications where the modified read base matches aligned reference base. However, when the context is * (ex: -c a[*]), this comparison is ignored and modifications at both matched and mismatched positions are output. Note that only the modified base is compared with reference base, not the whole context.
 
 - For >=v0.5.0, we print a warning if a certain modification and a context is untested.  For versions before this, only m[CG] for DNA (genome) and a[A] for transcriptome were tested.
+
+- For <=v0.4.0, minimod view output was not properly sorted when using multiple threads. We have fixed it >=v0.5.0 and now view output is ordered in the same as the order the reads appear in the input BAM file, and for each read, entries are sorted by reference contig, reference position, strand, and modification code.
