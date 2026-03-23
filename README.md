@@ -20,13 +20,13 @@ Minimod reads base modification information encoded under `MM:Z` and `ML:B:C` SA
 - [minimod summary](#minimod-summary)
 - [How skipped bases are handled](#how-skipped-bases-are-handled)
 - [Modification codes and contexts](#modification-codes-and-contexts)
+- [Modification probability](#modification-probability)
 - [Modification threshold](#modification-threshold)
 - [Enable insertions](#enable-insertions)
 - [Enable haplotypes](#enable-haplotypes)
 - [Important !](#important)
   - [Base-calling](#base-calling)
   - [Aligning](#aligning)
-- [Limitations / Future Improvements](#limitations--future-improvements)
 - [Acknowledgement](#acknowledgement)
 
 
@@ -56,6 +56,7 @@ cd minimod-$VERSION/
 scripts/install-hts.sh  # download and compile the htslib
 make
 ```
+> Major changes between releases are listed in [docs/changes.md](docs/changes.md)
 
 # Usage
 Usage information can be printed using ```minimod -h``` command.
@@ -89,6 +90,7 @@ minimod summary reads.bam > summary.tsv
 ```
 - See [how modification codes can be specified?](#modification-codes-and-contexts)
 - See [how threshold is used in minimod?](#modification-threshold)
+- See [how minimod is consistent with other tools?](docs/notes.md)
 
 # minimod view
 ```bash
@@ -114,7 +116,7 @@ basic options:
    --skip-supplementary       skip supplementary alignments [no]
 ```
 
-- See [how to consider inserted modified bases?](#modified-bases-in-insertions)
+- See [how to consider inserted modified bases?](#enable-insertions)
 
 **Sample mods.tsv output**
 The output is ordered in the same as reads appear in the input BAM file, and for each read, entries are sorted by reference contig, reference position, strand, and modification code.
@@ -276,7 +278,9 @@ Status flag describes how skipped bases should be interpreted by downstream tool
 - **?** : there is no information about the modification status of skipped bases
 
 # How skipped bases are handled
-Modified base positions are encoded in MM tag as a series of integers each indicating how many bases to be skipped before the next modified base. If skipped bases should be considered low probability it is encoded as C+m. in MM tag. If the skipped bases are unknown it is encoded as C+m? in MM tag. Minimod output each low probability skipped base as separate row in the output with mod_prob value equals to 0. Minimod does not include unknown modifications in the output.
+Modified base positions are encoded in MM tag as a series of integers each indicating how many bases to be skipped before the next modified base. For an example, if the MM tag starts with **C+m.**, the skipped bases should be considered to have low probability. Otherwise, if the MM tag starts with **C+m?**,  the probability of skipped bases are unknown. 
+
+Minimod ignores skipped bases with unknown probability while considering each skipped bases with low probability to have mod_prob value of 0.001953125. This value is derived from (N+0.5)/256 where N equals to 0 as explained [Modification probability](#modification-probability) section.
 
 # Modification codes and contexts
 Base modification codes and contexts can be set for both view and freq tool using -c option to take only specific base modifications found in a given contexts. The context should match in the reference and bases in unmatching contexts are ignored.
@@ -285,9 +289,10 @@ Here are the possible context formats.
 - **m[CG]** : type m modifications in CG context. the modified read base should match the corresponding reference base. the whole context may not match between read sequence and reference sequence.
 - **m** : same as **m[CG]**.
 - **a[A]** : same as **a**. type a modifications in A context. modified read base should match the corresponding reference base.
-- **a[*]** : type a modifications regardless of the context in reference or read sequences.
+- **a[*]** : type a modifications regardless of the context in reference or read sequences. no modified read base to reference base matching.
 - **\*[CG]** : all types of modifications in CG context. the modified read base should match the corresponding reference base. the whole context may not match between read sequence and reference sequence.
 - **17802[T]** : pseU modifications in T context (modification code is given as ChEBI code). the modified read base should match the corresponding reference base. the whole context may not match between read sequence and reference sequence.
+- **\*** :  any type of modifications in any context. no modified read base to reference base matching. 
 
 Here are some example commands.
 ```bash
@@ -322,32 +327,41 @@ If the context is not specified in square brackets along with modification code,
 ## Supported and tested modifications
 
 Minimod is expected to support standard modifications given in the table above and any other either given as modification code or ChEBI code in MM tag of the BAM record.
-Note that we have done a lot of testing on 5mC and some limited testing on 6mA and 5hmC. The others are not thoroughly tested. Following is a summary of tests we have performed.
+Note that we have done whole genome testing on 5mC and 6mA and some limited testing 5hmC. The others are only tested using small scale datasets. Following is a summary of tests we have performed. * is the wild card for both modification type and context in minimod.
 
 ### ONT
 | DNA/RNA | mod+base called model | aligned to | tested modification[context] combinations |
 | - | - | - | - |
-| DNA | 5mCG_5hmCG | hg38 genome | m[CG], h[CG], m[C], h[C], m[any], any[any] |
-| DNA | 4mC_5mC | hg38 genome | m[CG], m[C], 21839[C], any[any] |
-| DNA | 5mC_5hmC | hg38 genome | m[CG], h[CG], m[C], h[C], m[any], any[any] |
-| DNA | 6mA | hg38 genome | a[A], a[any], any[any] |
-| RNA | 2OmeG | hg38 genome | 19229[G], 19229[any], any[any] |
-| RNA | inosine_m6A_2OmeA | hg38 genome | 69426[A], a[A], 17596[A], any[any] |
-| RNA | m5C_2OmeC | hg38 genome | 19228[C], m[C], any[any] |
-| RNA | m6A_DRACH | hg38 genome | a[A], any[any] |
-| RNA | pseU_2OmeU | hg38 genome | 19227[T], 17802[T], any[any] |
-| RNA | multiple: m5C_2OmeC, inosine_m6A_2OmeA, pseU_2OmeU, 2OmeG | hg38 genome | 17596[A], any[any] |
-| RNA | 2OmeG | gencode.v40 transcriptome | 19229[G], 19229[any] |
+| DNA | 5mCG_5hmCG | hg38 genome | m[CG], h[CG], m[C], h[C], m[\*], \*[\*] |
+| DNA | 4mC_5mC | hg38 genome | m[CG], m[C], 21839[C], \*[\*] |
+| DNA | 5mC_5hmC | hg38 genome | m[CG], h[CG], m[C], h[C], m[\*], \*[\*] |
+| DNA | 6mA | hg38 genome | a[A], a[\*], \*[\*] |
+| RNA | 2OmeG | hg38 genome | 19229[G], 19229[\*], \*[\*] |
+| RNA | inosine_m6A_2OmeA | hg38 genome | 69426[A], a[A], 17596[A], \*[\*] |
+| RNA | m5C_2OmeC | hg38 genome | 19228[C], m[C], \*[\*] |
+| RNA | m6A_DRACH | hg38 genome | a[A], \*[\*] |
+| RNA | pseU_2OmeU | hg38 genome | 19227[T], 17802[T], \*[\*] |
+| RNA | multiple: m5C_2OmeC, inosine_m6A_2OmeA, pseU_2OmeU, 2OmeG | hg38 genome | 17596[A], \*[\*] |
+| RNA | 2OmeG | gencode.v40 transcriptome | 19229[G], 19229[\*] |
 | RNA | inosine_m6A_2OmeA | gencode.v40 transcriptome | 69426[A], a[A], 17596[A] |
-| RNA | m5C_2OmeC | gencode.v40 transcriptome | 19228[C], m[C], any[any] |
-| RNA | m6A_DRACH | gencode.v40 transcriptome | a[A], any[any] |
-| RNA | pseU_2OmeU | gencode.v40 transcriptome | 19227[T], 17802[T], any[any] |
-| RNA | multiple: m5C_2OmeC, inosine_m6A_2OmeA, pseU_2OmeU, 2OmeG | gencode.v40 transcriptome | 69426[A], any[any] |
+| RNA | m5C_2OmeC | gencode.v40 transcriptome | 19228[C], m[C], \*[\*] |
+| RNA | m6A_DRACH | gencode.v40 transcriptome | a[A], \*[\*] |
+| RNA | pseU_2OmeU | gencode.v40 transcriptome | 19227[T], 17802[T], \*[\*] |
+| RNA | multiple: m5C_2OmeC, inosine_m6A_2OmeA, pseU_2OmeU, 2OmeG | gencode.v40 transcriptome | 69426[A], \*[\*] |
 
 ### Pacbio
 | DNA/RNA | aligned to | tested modification[context] combinations |
 | - | - | - |
 | DNA | hg38 genome | m[CG] |
+
+
+> Note: Be mindful when working with modification types and context combinations that we have not tested and please feel free to open an [issue](https://github.com/warp9seq/minimod/issues), if you experience any problem.
+
+# Modification probability
+According to [SAMtags: 1.7 Base modifications: ML](https://github.com/samtools/hts-specs/blob/master/SAMtags.pdf), modifcation probabilities given in ML tag is a 8-bit unsigned integer. It maps 0.0 to 1.0 continuous probability range to discrete integers range 0-255. A discrete value N represents a continuous probability range N/256 to (N+1)/256. Therefore, as it is reasonable to choose the mid point of that range, Minimod computes the continuous probability, p when the 9-bit unsigned interger is N as follows.
+
+$p=(N+0.5)/256 $ 
+
 
 # Modification threshold
 Base modification threshold can be set for freq tool using -m option.
