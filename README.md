@@ -330,6 +330,7 @@ Minimod is expected to support standard modifications given in the table above a
 Note that we have done whole genome testing on 5mC and 6mA and some limited testing 5hmC. The others are only tested using small scale datasets. Following is a summary of tests we have performed. * is the wild card for both modification type and context in minimod.
 
 ### ONT
+
 | DNA/RNA | mod+base called model | aligned to | tested modification[context] combinations |
 | - | - | - | - |
 | DNA | 5mCG_5hmCG | hg38 genome | m[CG], h[CG], m[C], h[C], m[\*], \*[\*] |
@@ -350,6 +351,7 @@ Note that we have done whole genome testing on 5mC and 6mA and some limited test
 | RNA | multiple: m5C_2OmeC, inosine_m6A_2OmeA, pseU_2OmeU, 2OmeG | gencode.v40 transcriptome | 69426[A], \*[\*] |
 
 ### Pacbio
+
 | DNA/RNA | aligned to | tested modification[context] combinations |
 | - | - | - |
 | DNA | hg38 genome | m[CG] |
