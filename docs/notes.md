@@ -49,7 +49,7 @@ test/compare_view_mkbed_mmtsv.sh mk_extract_A.bed mm_view_A.tsv out_dir
 ```bash
 # alternative way to filter context from modkit output using awk instead of using --motif A 0 
 modkit extract full --mapped-only --kmer-size 1 --reference ref.fa reads.bam mk_extract.bed
-awk -F '\t' 'function c(b){b=toupper(b);return b=="A"?"T":b=="T"?"A":b=="C"?"G":b=="G"?"C":b} NR==1 || $16=="A" && ($21==16 ? toupper($16)==c($17) : toupper($16)==toupper($17))' mk_extract.bed > mk_extract_A.bed
+awk -F '\t' 'function c(b){b=toupper(b);return b=="A"?"T":b=="T"?"A":b=="C"?"G":b=="G"?"C":b} NR==1 || ( $21==16 ? c($16)=="A" && toupper($16)==c($17) : toupper($16)=="A" && toupper($16)==toupper($17) )' mk_extract.bed > mk_extract_A.bed
 ```
 
 When the context and modification type is known
@@ -66,7 +66,7 @@ test/compare_view_mkbed_mmtsv.sh mk_extract_aA.bed mm_view_aA.tsv out_dir
 # alternative way to filter context from modkit output using awk instead of using --motif A 0 
 modkit extract full --mapped-only --kmer-size 1 --reference ref.fa reads.bam mk_extract.bed
 awk 'NR==1 || $14=="a"' mk_extract.bed > mk_extract_a.bed
-awk -F '\t' 'function c(b){b=toupper(b);return b=="A"?"T":b=="T"?"A":b=="C"?"G":b=="G"?"C":b} NR==1 || $16=="A" && ($21==16 ? toupper($16)==c($17) : toupper($16)==toupper($17))' mk_extract_a.bed > mk_extract_aA.bed
+awk -F '\t' 'function c(b){b=toupper(b);return b=="A"?"T":b=="T"?"A":b=="C"?"G":b=="G"?"C":b} NR==1 || ( $21==16 ? c($16)=="A" && toupper($16)==c($17) : toupper($16)=="A" && toupper($16)==toupper($17) )' mk_extract_a.bed > mk_extract_aA.bed
 ```
 
 ## Minimod freq vs Modkit pileup
