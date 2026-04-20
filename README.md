@@ -216,17 +216,17 @@ chr22	19982787	19982788	m	1	+	19982787	19982788	255,0,0	1	0.000000
 
 | Field    | Type | Definition    |
 |----------|-------------|-------------|
-| 1. contig | str | chromosome |
+| 1. contig | str | reference contig/chromosome name |
 | 2. start | int | position (0-based, inclusive) of the base |
 | 3. end   | int | position (0-based, not inclusive) of the base |
 | 4. mod_code | char | base modification code as in [SAMtags: 1.7 Base modifications](https://github.com/samtools/hts-specs/blob/master/SAMtags.pdf) |
-| 5. n_mod | int | number of reads with base modification |
+| 5. n_mod | int | number of reads called for base modification |
 | 6. strand | char | strand (+/-) of the read |
-| 7. start | int | = field 2 |
-| 8. end   | int | = field 3 |
+| 7. start | int | = field 2 (for compatibility) |
+| 8. end   | int | = field 3 (for compatibility) |
 | 9. color | str | always 255,0,0 (for compatibility) |
-| 10. n_mod | int | = field 5 |
-| 11. freq | float | n_mod/n_called ratio |
+| 10. n_mod | int | = field 5 (for compatibility) |
+| 11. freq | float | n_mod/n_called as a percentage |
 
 # minimod summary
 
