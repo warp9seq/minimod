@@ -228,12 +228,15 @@ void load_ref_contexts(int n_mod_codes, char ** mod_contexts) {
     free(rev_mod_contexts);
 }
 
-void destroy_ref_forward() {
+void destroy_ref_wo_context() {
     khiter_t k;
     for (k = kh_begin(ref_map); k != kh_end(ref_map); ++k) {
         if (kh_exist(ref_map, k)) {
+            char * ref_name = (char *) kh_key(ref_map, k);
+            free(ref_name);
             ref_t * ref = kh_value(ref_map, k);
             free(ref->forward);
+            free(ref);
         }
     }
 }

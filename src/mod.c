@@ -56,7 +56,7 @@ SOFTWARE.
 #define THRESH_UINT8_TO_DBL(x) ((double)( (x + 0.5) / 256.0 )) // convert uint8 threshold to double with 0.5/256 added for proper rounding
 
 // zero-allocation comparator
-int cmp_key_fast(const char *key_a, const char *key_b) {
+static int cmp_key_fast(const char *key_a, const char *key_b) {
     // find the first tab (end of the contig string)
     const char *tab_a = strchr(key_a, '\t');
     const char *tab_b = strchr(key_b, '\t');
@@ -425,7 +425,7 @@ void warn_untested_cases(opt_t * opt) {
     }
 }
 
-char* make_key(const char *chrom, int pos, uint16_t ins_offset, char * mod_code, char strand, int haplotype){
+static char* make_key(const char *chrom, int pos, uint16_t ins_offset, char * mod_code, char strand, int haplotype){
     int start_strlen = snprintf(NULL, 0, "%d", pos);
     int offset_strlen = snprintf(NULL, 0, "%d", ins_offset);
     int mod_code_strlen = strlen(mod_code);
@@ -438,7 +438,7 @@ char* make_key(const char *chrom, int pos, uint16_t ins_offset, char * mod_code,
     return key;
 }
 
-void decode_key(char *key, char **chrom, int *pos, uint16_t * ins_offset, char **mod_code, char *strand, int *haplotype){
+static void decode_key(char *key, char **chrom, int *pos, uint16_t * ins_offset, char **mod_code, char *strand, int *haplotype){
     char* token = strtok(key, "\t");
     *chrom = calloc(strlen(token)+1, sizeof(char));
     MALLOC_CHK(*chrom);
@@ -547,7 +547,7 @@ void print_view_header(core_t* core) {
     char * common = "ref_contig\tref_pos\tstrand\tread_id\tread_pos\tmod_code\tmod_prob";
     char * ins_offset = "";
     char * haplotype = "";
-    if(core->opt.insertions){
+    if(core->opt.insertions == 1){
         ins_offset = "\tins_offset";
     }
     if(core->opt.haplotypes){
@@ -880,7 +880,7 @@ static void get_aln(core_t * core, db_t *db, bam_hdr_t *hdr, bam1_t *record, int
     }
 }
 
-static void update_freq_map(khash_t(freqm) *freq_map, const char *tname, int ref_pos, int ins_offset, char *mod_code, char strand, int haplotype, int is_called, int is_mod) {
+void update_freq_map(khash_t(freqm) *freq_map, const char *tname, int ref_pos, int ins_offset, char *mod_code, char strand, int haplotype, int is_called, int is_mod) {
     char * key = make_key(tname, ref_pos, ins_offset, mod_code, strand, haplotype);
     khiter_t k = kh_get(freqm, freq_map, key);
     if (k == kh_end(freq_map)) { // not found, add
@@ -928,7 +928,7 @@ static void update_freq_map(khash_t(freqm) *freq_map, const char *tname, int ref
     }
 }
 
-static void add_view_entry(khash_t(viewm) *view_map, const char *tname, int ref_pos, int ins_offset, char *mod_code, char strand, int haplotype, uint8_t mod_prob, int read_pos) {
+void add_view_entry(khash_t(viewm) *view_map, const char *tname, int ref_pos, int ins_offset, char *mod_code, char strand, int haplotype, uint8_t mod_prob, int read_pos) {
 
     char *key = make_key(tname, ref_pos, ins_offset, mod_code, strand, haplotype);
     khiter_t k = kh_get(viewm, view_map, key);
@@ -1399,7 +1399,7 @@ void print_summary_output(core_t* core, db_t* db) {
     }
 }
 
-char* make_key_summary(char mod_base, char * mod_code, char status_flag) {
+static char* make_key_summary(char mod_base, char * mod_code, char status_flag) {
     int mod_code_strlen = strlen(mod_code);
     int key_strlen = mod_code_strlen + 5;
 

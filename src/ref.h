@@ -44,6 +44,6 @@ int has_chr(const char * chr);
 void destroy_ref(int n_mod_codes);
 ref_t * get_ref(const char * chr);
 void load_ref_contexts(int n_mod_codes, char ** mod_contexts);
-void destroy_ref_forward();
+void destroy_ref_wo_context();
 
 #endif

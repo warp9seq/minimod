@@ -28,41 +28,27 @@ SOFTWARE.
 
 ******************************************************************************/
 
-#ifndef PULSE_H
-#define PULSE_H
+#ifndef VARMOD_H
+#define VARMOD_H
 
 #include "minimod.h"
 
 typedef struct {
     char *key;
-    freq_t *freq;
-} freq_kv_t;
+    varfreq_t *freq;
+} varfreq_kv_t;
 
 typedef struct {
     char *key;
-    view_t *view;
-} view_kv_t;
+    varview_t *view;
+} varview_kv_t;
 
-uint16_t *get_mod_tag(bam1_t *record, char *tag, uint32_t *len_ptr);
-const char *get_mm_tag_ptr(bam1_t *record);
-uint8_t *get_ml_tag(bam1_t *record, uint32_t *len_ptr);
-void freq_view_single(core_t * core, db_t *db, int32_t bam_i);
-void summary_single(core_t * core, db_t *db, int32_t bam_i);
-void merge_freq_maps(core_t* core, db_t* db);
-void print_freq_header(core_t * core);
-void print_freq_output(core_t* core);
-void print_view_header(core_t* core);
-void print_view_output(core_t* core, db_t* db);
-void print_summary_header(core_t* core);
-void print_summary_output(core_t* core, db_t* db);
-void destroy_freq_map(khash_t(freqm)* freq_map);
-void parse_mod_codes(opt_t *opt);
-void parse_mod_threshes(opt_t * opt);
-void warn_untested_cases(opt_t * opt);
-void print_view_options(opt_t *opt);
-void load_var_map(const char* vcf_file, khash_t(varm)* var_map);
+
+void varviewfreq_single(core_t * core, db_t *db, int32_t bam_i);
 void destroy_var_map(khash_t(varm)* var_map);
-void update_freq_map(khash_t(freqm) *freq_map, const char *tname, int ref_pos, int ins_offset, char *mod_code, char strand, int haplotype, int is_called, int is_mod);
-void add_view_entry(khash_t(viewm) *view_map, const char *tname, int ref_pos, int ins_offset, char *mod_code, char strand, int haplotype, uint8_t mod_prob, int read_pos);
+void load_var_map(const char* vcf_file, khash_t(varm)* var_map);
+void warn_untested_cases_var(opt_t * opt);
+void print_varview_header(core_t* core);
+void print_varview_output(core_t* core, db_t* db);
 
 #endif

@@ -42,12 +42,14 @@ SOFTWARE.
 int view_main(int argc, char* argv[]);
 int freq_main(int argc, char* argv[]);
 int summary_main(int argc, char* argv[]);
+int varview_main(int argc, char* argv[]);
 
 int print_usage(FILE *fp_help){
 
     fprintf(fp_help,"Usage: minimod <command> [options]\n\n");
     fprintf(fp_help,"command:\n");
     fprintf(fp_help,"         view       view base modifications\n");
+    fprintf(fp_help,"         varview    variant-aware view base modifications\n");
     fprintf(fp_help,"         freq       output base modification frequencies\n");
     fprintf(fp_help,"         summary    output summary\n");
 
@@ -71,6 +73,8 @@ int main(int argc, char* argv[]){
         return print_usage(stderr);
     } else if (strcmp(argv[1],"view")==0){
         ret=view_main(argc-1, argv+1);
+    } else if (strcmp(argv[1],"varview")==0){
+        ret=varview_main(argc-1, argv+1);
     } else if (strcmp(argv[1],"mod-freq")==0){
         WARNING("%s","mod-freq is deprecated. Use freq instead");
         ret=freq_main(argc-1, argv+1);

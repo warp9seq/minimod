@@ -12,11 +12,13 @@ OBJ = $(BUILD_DIR)/main.o \
       $(BUILD_DIR)/view_main.o \
 	  $(BUILD_DIR)/freq_main.o \
 	  $(BUILD_DIR)/summary_main.o \
+	  $(BUILD_DIR)/varview_main.o \
       $(BUILD_DIR)/thread.o \
 	  $(BUILD_DIR)/misc.o \
 	  $(BUILD_DIR)/misc_p.o \
 	  $(BUILD_DIR)/error.o \
 	  $(BUILD_DIR)/mod.o \
+	  $(BUILD_DIR)/varmod.o \
 	  $(BUILD_DIR)/ref.o
 
 ifdef asan
@@ -57,6 +59,12 @@ $(BUILD_DIR)/error.o: src/error.c src/error.h
 	$(CC) $(CFLAGS) $(CPPFLAGS) $< -c -o $@
 
 $(BUILD_DIR)/mod.o: src/mod.c src/mod.h
+	$(CC) $(CFLAGS) $(CPPFLAGS) $< -c -o $@
+
+$(BUILD_DIR)/varmod.o: src/varmod.c src/varmod.h
+	$(CC) $(CFLAGS) $(CPPFLAGS) $< -c -o $@
+
+$(BUILD_DIR)/varview_main.o: src/varview_main.c src/error.h src/minimod.h src/varmod.h
 	$(CC) $(CFLAGS) $(CPPFLAGS) $< -c -o $@
 
 $(BUILD_DIR)/ref.o: src/ref.c src/kseq.h src/error.h

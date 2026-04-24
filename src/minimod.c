@@ -39,6 +39,7 @@ SOFTWARE.
 
 #include "minimod.h"
 #include "mod.h"
+#include "varmod.h"
 #include "misc.h"
 #include "error.h"
 #include "khash.h"
@@ -131,6 +132,9 @@ core_t* init_core(opt_t opt,double realtime0) {
 
     if (opt.subtool == FREQ) {
         core->freq_map = kh_init(freqm);
+    } else if (opt.subtool == VARVIEW) {
+        core->var_map = kh_init(varm);
+        core->varview_map = kh_init(varviewm);
     }
     
     return core;
@@ -155,6 +159,8 @@ void free_core(core_t* core,opt_t opt) {
 
     if (opt.subtool == FREQ) {
         destroy_freq_map(core->freq_map);
+    } else if(opt.subtool == VARVIEW) {
+        destroy_var_map(core->var_map);
     }
 
     free(core);
@@ -183,7 +189,7 @@ db_t* init_db(core_t* core) {
     db->aln = (int**)(malloc(sizeof(int*) * db->cap_bam_recs));
     MALLOC_CHK(db->aln);
 
-    if(core->opt.insertions) {
+    if(core->opt.insertions || core->opt.subtool == VARVIEW) {
         db->ins = (int**)(malloc(sizeof(int*) * db->cap_bam_recs));
         MALLOC_CHK(db->ins);
         db->ins_offset = (int**)(malloc(sizeof(int*) * db->cap_bam_recs));
@@ -206,6 +212,9 @@ db_t* init_db(core_t* core) {
     } else if (core->opt.subtool == VIEW) {
         db->view_maps = (khash_t(viewm)**)(malloc(sizeof(khash_t(viewm)*) * db->cap_bam_recs));
         MALLOC_CHK(db->view_maps);
+    } else if (core->opt.subtool == VARVIEW) {
+        db->varview_maps = (khash_t(varviewm)**)(malloc(sizeof(khash_t(varviewm)*) * db->cap_bam_recs));
+        MALLOC_CHK(db->varview_maps);
     } else if (core->opt.subtool == SUMMARY) {
         db->summary_maps = (khash_t(summarym)**)(malloc(sizeof(khash_t(summarym)*) * db->cap_bam_recs));
         MALLOC_CHK(db->summary_maps);
@@ -292,7 +301,7 @@ ret_status_t load_db(core_t* core, db_t* db) {
         db->aln[i] = (int*)malloc(sizeof(int)*rec->core.l_qseq);
         MALLOC_CHK(db->aln[i]);
 
-        if(core->opt.insertions) {
+        if(core->opt.insertions || core->opt.subtool == VARVIEW) {
             db->ins[i] = (int*)malloc(sizeof(int)*rec->core.l_qseq);
             MALLOC_CHK(db->ins[i]);
             db->ins_offset[i] = (int*)malloc(sizeof(int)*rec->core.l_qseq);
@@ -316,6 +325,8 @@ ret_status_t load_db(core_t* core, db_t* db) {
             db->freq_maps[i] = kh_init(freqm);
         } else if (core->opt.subtool == VIEW) {
             db->view_maps[i] = kh_init(viewm);
+        } else if (core->opt.subtool == VARVIEW) {
+            db->varview_maps[i] = kh_init(varviewm);
         } else if (core->opt.subtool == SUMMARY) {
             db->summary_maps[i] = kh_init(summarym);
         }
@@ -337,6 +348,8 @@ void work_per_single_read(core_t* core,db_t* db, int32_t i){
         freq_view_single(core, db, i);
     } else if (core->opt.subtool == SUMMARY) {
         summary_single(core, db, i);
+    } else if (core->opt.subtool == VARVIEW) {
+        varviewfreq_single(core, db, i);
     }
     
 }
@@ -359,6 +372,8 @@ void output_db(core_t* core, db_t* db) {
         print_view_output(core, db);
     } else if (core->opt.subtool == SUMMARY) {
         print_summary_output(core, db);
+    } else if(core->opt.subtool == VARVIEW) {
+        print_varview_output(core, db);
     }
 
     core->total_reads += db->total_reads;
@@ -399,7 +414,7 @@ void free_db_tmp(core_t* core, db_t* db) {
     for (i = 0; i < db->n_bam_recs; i++) {        
         free(db->ml[i]);
         free(db->aln[i]);
-        if(core->opt.insertions) {
+        if(core->opt.insertions || core->opt.subtool == VARVIEW) {
             free(db->ins[i]);
             free(db->ins_offset[i]);
         }
@@ -429,6 +444,16 @@ void free_db_tmp(core_t* core, db_t* db) {
                 }
             }
             kh_destroy(viewm, db->view_maps[i]);
+        } else if (core->opt.subtool == VARVIEW) {
+            for (khiter_t k = kh_begin(db->varview_maps[i]); k != kh_end(db->varview_maps[i]); ++k) {
+                if (kh_exist(db->varview_maps[i], k)) {
+                    varview_t *varview = kh_value(db->varview_maps[i], k);
+                    char * key = (char*) kh_key(db->varview_maps[i], k);
+                    free(key);
+                    free(varview);
+                }
+            }
+            kh_destroy(varviewm, db->varview_maps[i]);
         } else if (core->opt.subtool == SUMMARY) {
             for (khiter_t k = kh_begin(db->summary_map[i]); k != kh_end(db->summary_maps[i]); ++k) {
                 if (kh_exist(db->summary_maps[i], k)) {
@@ -460,6 +485,8 @@ void free_db(core_t* core, db_t* db) {
         free(db->freq_maps);
     } else if (core->opt.subtool == VIEW) {
         free(db->view_maps);
+    } else if (core->opt.subtool == VARVIEW) {
+        free(db->varview_maps);
     } else if (core->opt.subtool == SUMMARY) {
         free(db->summary_maps);
     }
@@ -472,7 +499,7 @@ void free_db(core_t* core, db_t* db) {
     free(db->mm);
     free(db->ml);
     free(db->aln);
-    if(core->opt.insertions) {
+    if(core->opt.insertions || core->opt.subtool == VARVIEW) {
         free(db->ins);
         free(db->ins_offset);
     }

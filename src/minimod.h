@@ -77,6 +77,31 @@ typedef struct {
     int read_pos; //read position of the base
 } view_t;
 
+typedef struct {
+    int start; //start position of the variant region
+    int ref_len; //length of the reference allele
+    int alt_len; //length of the alternative allele
+    char ref_allele[50];
+    char alt_allele[50];
+} var_t;
+
+typedef struct {
+    var_t *vars; //array of variants in the contig
+    int vars_len; //number of variants in the contig
+    int vars_cap; //capacity of the variants array
+} vars_t;
+
+typedef struct {
+    uint32_t n_called;
+    uint32_t n_mod;
+} varfreq_t;
+
+typedef struct {
+    uint8_t mod_prob; //modification probability (0-255)
+    int read_pos; //read position of the base
+    var_t var; //variant information
+} varview_t;
+
 /* frequency map */
 KHASH_MAP_INIT_STR(freqm, freq_t *);
 
@@ -86,7 +111,16 @@ KHASH_MAP_INIT_STR(viewm, view_t *);
 /* summary map */
 KHASH_MAP_INIT_STR(summarym, int);
 
-enum subtool {VIEW=0, FREQ=1, SUMMARY=2};
+/* variant map */
+KHASH_MAP_INIT_STR(varm, vars_t *);
+
+/* frequency map */
+KHASH_MAP_INIT_STR(varfreqm, varfreq_t *);
+
+/* view map */
+KHASH_MAP_INIT_STR(varviewm, varview_t *);
+
+enum subtool {VIEW=0, FREQ=1, SUMMARY=2, VARVIEW=3};
 
 /* user specified options */
 typedef struct {
@@ -109,7 +143,7 @@ typedef struct {
     FILE* output_fp;
     int progress_interval;
 
-    uint8_t subtool; //0:view, 1:freq, 2:summary
+    enum subtool subtool; //0:view, 1:freq, 2:summary, 3:varview
 
     uint8_t n_mods;
     uint8_t insertions; //is insertions enabled, add ins column to the output
@@ -153,6 +187,9 @@ typedef struct {
     khash_t(viewm)** view_maps; // view map per record, only for VIEW subtool
     khash_t(summarym)** summary_maps; // summary map per record, only for SUMMARY subtool
 
+    khash_t(varfreqm)** varfreq_maps; // frequency map per record, only for VARFREQ subtool
+    khash_t(varviewm)** varview_maps; // view map per record, only for VARVIEW subtool
+
 } db_t;
 
 
@@ -193,6 +230,9 @@ typedef struct {
     uint64_t processed_bytes; //total number of bytes processed
 
     khash_t(freqm)* freq_map;
+    khash_t(varm)* var_map;
+    khash_t(varfreqm)* varfreq_map;
+    khash_t(varviewm)* varview_map;
 
 } core_t;
 
