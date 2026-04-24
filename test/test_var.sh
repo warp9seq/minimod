@@ -43,8 +43,8 @@ fi
 
 testname="varview test"
 echo -e "${BLUE}${testname}${NC}"
-ex ./minimod varview /genome/hg38noAlt.fa test/data/example-ont.bam test/data/example-ont-clair.vcf > test/tmp/example-ont_varview.tsv || die "${testname} failed"
+ex ./minimod varview /genome/hg38noAlt.fa test/data/example-ont.bam test/data/example-ont-clair.vcf > test/tmp/example-ont_varview.bed || die "${testname} failed"
 
-echo "test/tmp/example-ont_varview.tsv"
+echo "test/tmp/example-ont_varview.bed"
 
 

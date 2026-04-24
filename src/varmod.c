@@ -110,22 +110,23 @@ static void decode_key(char *key, char **chrom, int *pos, uint16_t * ins_offset,
 }
 
 
-void find_cg_contexts_in_sequence(const char* seq, int seq_len, int** offsets, int* offsets_len, int* offsets_cap) {
-    *offsets_len = 0;
-    *offsets_cap = 16;
-    *offsets = (int*)malloc(sizeof(int) * (*offsets_cap));
-    MALLOC_CHK(*offsets);
-    
+int * find_cg_contexts_in_sequence(const char* seq, int seq_len, int* offsets_len) {
+    int offsets_cap = 2;
+    int * offsets = (int*)malloc(sizeof(int) * offsets_cap);
+    MALLOC_CHK(offsets);
+    int offsets_len_local = 0;
     for(int i = 0; i < seq_len - 1; i++) {
         if((seq[i] == 'C' || seq[i] == 'c') && (seq[i+1] == 'G' || seq[i+1] == 'g')) {
-            if(*offsets_len >= *offsets_cap) {
-                *offsets_cap *= 2;
-                *offsets = (int*)realloc(*offsets, sizeof(int) * (*offsets_cap));
-                MALLOC_CHK(*offsets);
+            if(offsets_len_local >= offsets_cap) {
+                offsets_cap *= 2;
+                offsets = (int*)realloc(offsets, sizeof(int) * offsets_cap);
+                MALLOC_CHK(offsets);
             }
-            (*offsets)[(*offsets_len)++] = i;
+            offsets[offsets_len_local++] = i;
         }
     }
+    *offsets_len = offsets_len_local;
+    return offsets;
 }
 
 void load_var_map(const char* vcf_file, khash_t(varm)* var_map) {
@@ -152,11 +153,19 @@ void load_var_map(const char* vcf_file, khash_t(varm)* var_map) {
         //     fprintf(stderr, "%s ", rec->d.allele[i]);
         // }
         // fprintf(stderr, "\n");
+
+        if(rec->pos == 19990184) {
+            fprintf(stderr, "Debug breakpoint: variant at %s:%d\n", bcf_hdr_id2name(vcf_hdr, rec->rid), rec->pos);
+        }
         
         const char *contig = bcf_hdr_id2name(vcf_hdr, rec->rid);
         int32_t pos = rec->pos;
         const char *ref_allele = rec->d.allele[0];
         int ref_len = strlen(ref_allele);
+
+        ref_t *ref = get_ref(contig);
+        ASSERT_MSG(ref != NULL, "Contig %s not found in reference provided\n", contig);
+        const char *ref_seq = ref->forward;
     
         char * contig_dup = (malloc(sizeof(char) * (strlen(contig) + 1)));
         MALLOC_CHK(contig_dup);
@@ -190,12 +199,18 @@ void load_var_map(const char* vcf_file, khash_t(varm)* var_map) {
             var_t var;
             var.start = pos;
             strcpy(var.ref_allele, ref_allele);
-            var.ref_len = ref_allele[0] == '.' ? 0 : strlen(ref_allele);
+            var.ref_len = ref_allele[0] == '.' ? 0 : ref_len;
             strcpy(var.alt_allele, alt_allele);
             var.alt_len = alt_allele[0] == '.' ? 0 : strlen(alt_allele);
             // TODO: Refer vcf spec. and handle indels at terminal positions of the contig.
+
+            // fprintf(stderr, "Variant: %s:%d %s -> %s site_str:%s\n", contig, pos, ref_allele, alt_allele, site_str);
+
             vars->vars[vars->vars_len++] = var;
 
+            if(rec->pos == 19990184) {
+                fprintf(stderr, "Debug breakpoint: added variant at %s:%d %s -> %s\n", contig, pos, ref_allele, alt_allele);
+            }
         }
     }
     
@@ -409,6 +424,9 @@ void varviewfreq_single(core_t * core, db_t *db, int32_t bam_i) {
     int haplotype = core->opt.haplotypes ? get_hp_tag(record) : -1;
     int * aln_pairs = db->aln[bam_i];
 
+    ref_t *ref = get_ref(tname);
+    ASSERT_MSG(ref != NULL, "Contig %s not found in reference provided\n", tname);
+
     // get the aligned positions and insertions
     get_aln(core, db, hdr, record, bam_i);
     
@@ -612,15 +630,33 @@ void varviewfreq_single(core_t * core, db_t *db, int32_t bam_i) {
                     for(int v=0; v<vars->vars_len; v++) {
                         var = vars->vars[v];
 
+                        if(ref_pos == 19990184) {
+                            fprintf(stderr, "Debug breakpoint: checking variant at %s:%d ref_len:%d alt_len:%d for read %s at ref_pos:%d ins_pos:%d ins_offset:%d\n", tname, var.start, var.ref_len, var.alt_len, bam_get_qname(record), ref_pos, ins_start + ins_offset, ins_offset);
+                        }
+
                         int ins_pos = ins_start + ins_offset;
                         int var_end = var.start + var.alt_len;
                         if(ref_pos == -1 && ins_pos != -1 && ins_pos >= var.start && ins_pos < var_end) {
                             is_in_context = 1;
                             break;
-                        } else if(ref_pos != -1 && ref_pos >= var.start && ref_pos < var_end) {
+                        } else if(ref_pos != -1 && ref_pos == var.start) {
                             is_in_context = 1;
+                            if(ref_pos == 19990184) {
+                                fprintf(stderr, "Read %s at ref_pos:%d is in context of variant at %s:%d ref_len:%d alt_len:%d\n", bam_get_qname(record), ref_pos, tname, var.start, var.ref_len, var.alt_len);
+                            }
                             break;
                         }
+
+
+                        // create site string = base before REF + ALT + base after REF
+                        char *site_str = (char*)malloc(sizeof(char) * (var.ref_len + var.alt_len + 2));
+                        MALLOC_CHK(site_str);
+
+                        snprintf(site_str, var.ref_len + var.alt_len + 2, "%c%s%c", ref->forward[var.start-1], var.alt_allele[0]== '.' ? "" : var.alt_allele, ref->forward[var.start + var.ref_len]);
+
+                        int n_cg_offsets = 0;
+                        int * cg_offsets = find_cg_contexts_in_sequence(site_str, strlen(site_str), &n_cg_offsets);
+                        free(site_str);
                         
                         // if(var.alt_len > var.ref_len) { // insertion
                         //     fprintf(stderr, "Checking var at %s:%d ref_len:%d alt_len:%d for read %s at ref_pos:%d ins_pos:%d ins_offset:%d\n", tname, var.start, var.ref_len, var.alt_len, bam_get_qname(record), ref_pos, ins_start + ins_offset, ins_offset);
@@ -746,7 +782,7 @@ void varviewfreq_single(core_t * core, db_t *db, int32_t bam_i) {
                                 if(skip_ref_pos == -1 && ins_pos != -1 && ins_pos >= var.start && ins_pos < var_end) {
                                     skip_is_in_context = 1;
                                     break;
-                                } else if(skip_ref_pos != -1 && skip_ref_pos >= var.start && skip_ref_pos < var_end) {
+                                } else if(skip_ref_pos != -1 && skip_ref_pos == var.start) {
                                     skip_is_in_context = 1;
                                     break;
                                 }
@@ -845,7 +881,7 @@ void varviewfreq_single(core_t * core, db_t *db, int32_t bam_i) {
                                 if(skip_ref_pos == -1 && ins_pos != -1 && ins_pos >= var.start && ins_pos < var_end) {
                                     skip_is_in_context = 1;
                                     break;
-                                } else if(skip_ref_pos != -1 && skip_ref_pos >= var.start && skip_ref_pos < var_end) {
+                                } else if(skip_ref_pos != -1 && skip_ref_pos == var.start) {
                                     skip_is_in_context = 1;
                                     break;
                                 }
@@ -926,7 +962,6 @@ void print_varview_header(core_t* core) {
 
 void print_varview_output(core_t* core, db_t* db) {
     FILE *out_fp = core->opt.output_fp;
-    int do_insertions = core->opt.subtool == VARVIEW;
     int do_haplotypes = core->opt.haplotypes == 1;
 
     int is_bed = true;
@@ -972,15 +1007,12 @@ void print_varview_output(core_t* core, db_t* db) {
             char * key = sorted_arr[j].key;
             decode_key(key, &tname, &ref_pos, &ins_offset, &mod_code, &strand, &haplotype);
 
-            fprintf(out_fp, "%s\t%d\t%c\t%s\t%d\t%s\t%f", tname, ref_pos, strand, qname, varview->read_pos, mod_code, THRESH_UINT8_TO_DBL(varview->mod_prob));
-            if(do_insertions){
-                fprintf(out_fp, "\t%d", db->ins_offset[i][varview->read_pos]);
+            if(is_bed) {
+                // contig \t start \t end \t mod_code \t mod_prob \t strand \t start \t end \t 255,255,0,0 \t ins_offset \t 1 \t ins_offset \t qname \t read_pos \t ref_allele \t alt_allele
+                fprintf(out_fp, "%s\t%d\t%d\t%s\t%f\t%c\t%d\t%d\t255,255,0,0\t%d\t1\t%d\t%s\t%d\t%s\t%s\n", tname, ref_pos, ref_pos+1, mod_code, THRESH_UINT8_TO_DBL(varview->mod_prob), strand, ref_pos, ref_pos+1, ins_offset, ins_offset, qname, varview->read_pos, varview->var.ref_allele, varview->var.alt_allele);
+            } else {
+                fprintf(out_fp, "%s\t%d\t%c\t%s\t%d\t%s\t%f\t%d\t%s\t%s\n", tname, ref_pos, strand, qname, varview->read_pos, mod_code, THRESH_UINT8_TO_DBL(varview->mod_prob), db->ins_offset[i][varview->read_pos], varview->var.ref_allele, varview->var.alt_allele);
             }
-            if(do_haplotypes){
-                fprintf(out_fp, "\t%d", haplotype);
-            }
-            fprintf(out_fp, "%s\t%s", varview->var.ref_allele, varview->var.alt_allele);
-            fputc('\n', out_fp);
             free(tname);
             free(mod_code);
         }
