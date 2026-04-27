@@ -122,7 +122,28 @@ int * find_cg_contexts_in_sequence(const char* seq, int seq_len, int* offsets_le
                 offsets = (int*)realloc(offsets, sizeof(int) * offsets_cap);
                 MALLOC_CHK(offsets);
             }
-            offsets[offsets_len_local++] = i;
+            offsets[offsets_len_local++] = i; // C
+            offsets[offsets_len_local++] = i + 1; // G
+
+        }
+    }
+    *offsets_len = offsets_len_local;
+    return offsets;
+}
+
+int * find_cg_contexts_in_reverse_sequence(const char* seq, int seq_len, int* offsets_len) {
+    int offsets_cap = 2;
+    int * offsets = (int*)malloc(sizeof(int) * offsets_cap);
+    MALLOC_CHK(offsets);
+    int offsets_len_local = 0;
+    for(int i = seq_len - 1; i > 0; i--) {
+        if((seq[i] == 'G' || seq[i] == 'g') && (seq[i-1] == 'C' || seq[i-1] == 'c')) {
+            if(offsets_len_local >= offsets_cap) {
+                offsets_cap *= 2;
+                offsets = (int*)realloc(offsets, sizeof(int) * offsets_cap);
+                MALLOC_CHK(offsets);
+            }
+            offsets[offsets_len_local++] = seq_len - i - 1; // convert to reverse position
         }
     }
     *offsets_len = offsets_len_local;
@@ -154,13 +175,10 @@ void load_var_map(const char* vcf_file, khash_t(varm)* var_map) {
         // }
         // fprintf(stderr, "\n");
 
-        if(rec->pos == 19990184) {
-            fprintf(stderr, "Debug breakpoint: variant at %s:%d\n", bcf_hdr_id2name(vcf_hdr, rec->rid), rec->pos);
-        }
         
         const char *contig = bcf_hdr_id2name(vcf_hdr, rec->rid);
         int32_t pos = rec->pos;
-        const char *ref_allele = rec->d.allele[0];
+        char * ref_allele = rec->d.allele[0];
         int ref_len = strlen(ref_allele);
 
         ref_t *ref = get_ref(contig);
@@ -189,7 +207,22 @@ void load_var_map(const char* vcf_file, khash_t(varm)* var_map) {
         }
         
         for(int i = 1; i < rec->n_allele; i++) {
-            const char *alt_allele = rec->d.allele[i];
+            char * alt_allele = rec->d.allele[i];
+            int alt_len = strlen(alt_allele);
+
+            char * before_site = (char*)malloc(sizeof(char) * (ref_len + 2));
+            MALLOC_CHK(before_site);
+
+            snprintf(before_site, ref_len + 3, "%c%s%c", ref_seq[pos-1], ref_allele[0]== '.' ? "" : ref_allele, ref_seq[pos + ref_len]);
+
+            // create site string = base before REF + ALT + base after REF
+            char *after_site = (char*)malloc(sizeof(char) * (alt_len + 2));
+            MALLOC_CHK(after_site);
+
+            snprintf(after_site, alt_len + 3, "%c%s%c", ref->forward[pos-1], alt_allele[0]== '.' ? "" : alt_allele, ref->forward[pos + ref_len]);
+
+            int n_cg_offsets = 0;
+            int * cg_offsets = find_cg_contexts_in_sequence(after_site, strlen(after_site), &n_cg_offsets);
 
             if(vars->vars_len >= vars->vars_cap) {
                 vars->vars_cap *= 2;
@@ -197,21 +230,26 @@ void load_var_map(const char* vcf_file, khash_t(varm)* var_map) {
                 MALLOC_CHK(vars->vars);
             }
             var_t var;
-            var.start = pos;
+            var.pos = pos;
+            var.cg_offsets_len = n_cg_offsets;
+            var.cg_offsets = cg_offsets;
+            var.ref_allele = (char*)malloc(sizeof(char) * (ref_len + 1));
+            MALLOC_CHK(var.ref_allele);
             strcpy(var.ref_allele, ref_allele);
-            var.ref_len = ref_allele[0] == '.' ? 0 : ref_len;
+            var.alt_allele = (char*)malloc(sizeof(char) * (alt_len + 1));
+            MALLOC_CHK(var.alt_allele);
             strcpy(var.alt_allele, alt_allele);
-            var.alt_len = alt_allele[0] == '.' ? 0 : strlen(alt_allele);
-            // TODO: Refer vcf spec. and handle indels at terminal positions of the contig.
-
-            // fprintf(stderr, "Variant: %s:%d %s -> %s site_str:%s\n", contig, pos, ref_allele, alt_allele, site_str);
-
+            var.before_site = before_site;
+            var.after_site = after_site;
             vars->vars[vars->vars_len++] = var;
 
-            if(rec->pos == 19990184) {
-                fprintf(stderr, "Debug breakpoint: added variant at %s:%d %s -> %s\n", contig, pos, ref_allele, alt_allele);
-            }
+
+            // TODO: Refer vcf spec. and handle indels at terminal positions of the contig.
+
+            // free(site_str);
+
         }
+
     }
     
     bcf_destroy(rec);
@@ -227,6 +265,13 @@ void destroy_var_map(khash_t(varm)* var_map) {
             char * key = (char*) kh_key(var_map, k);
             vars_t *vars = kh_value(var_map, k);
             free(key);
+            for (int i = 0; i < vars->vars_len; i++) {
+                free(vars->vars[i].before_site);
+                free(vars->vars[i].after_site);
+                free(vars->vars[i].ref_allele);
+                free(vars->vars[i].alt_allele);
+                free(vars->vars[i].cg_offsets);
+            }
             free(vars->vars);
             free(vars);
         }
@@ -630,78 +675,42 @@ void varviewfreq_single(core_t * core, db_t *db, int32_t bam_i) {
                     for(int v=0; v<vars->vars_len; v++) {
                         var = vars->vars[v];
 
-                        if(ref_pos == 19990184) {
-                            fprintf(stderr, "Debug breakpoint: checking variant at %s:%d ref_len:%d alt_len:%d for read %s at ref_pos:%d ins_pos:%d ins_offset:%d\n", tname, var.start, var.ref_len, var.alt_len, bam_get_qname(record), ref_pos, ins_start + ins_offset, ins_offset);
-                        }
-
-                        int ins_pos = ins_start + ins_offset;
-                        int var_end = var.start + var.alt_len;
-                        if(ref_pos == -1 && ins_pos != -1 && ins_pos >= var.start && ins_pos < var_end) {
-                            is_in_context = 1;
-                            break;
-                        } else if(ref_pos != -1 && ref_pos == var.start) {
-                            is_in_context = 1;
-                            if(ref_pos == 19990184) {
-                                fprintf(stderr, "Read %s at ref_pos:%d is in context of variant at %s:%d ref_len:%d alt_len:%d\n", bam_get_qname(record), ref_pos, tname, var.start, var.ref_len, var.alt_len);
+                        for(int o=0; o<var.cg_offsets_len; o++) {
+                            if(ref_pos == -1 && ins_start!=-1 && ins_start + ins_offset == var.pos - 1 + var.cg_offsets[o]) {
+                                uint8_t mod_prob = ml[ml_idx];
+                                add_varview_entry(db->varview_maps[bam_i], tname, ref_pos==-1?ins_start:ref_pos, ins_offset, mod_code, strand, haplotype, mod_prob, fastq_read_pos, var);
+                            } else if (ref_pos !=-1 && (ref_pos == var.pos || ref_pos == var.pos - 1 || ref_pos == var.pos + 1)) {
+                                uint8_t mod_prob = ml[ml_idx];
+                                add_varview_entry(db->varview_maps[bam_i], tname, ref_pos==-1?ins_start:ref_pos, ins_offset, mod_code, strand, haplotype, mod_prob, fastq_read_pos, var);
                             }
-                            break;
                         }
-
-
-                        // create site string = base before REF + ALT + base after REF
-                        char *site_str = (char*)malloc(sizeof(char) * (var.ref_len + var.alt_len + 2));
-                        MALLOC_CHK(site_str);
-
-                        snprintf(site_str, var.ref_len + var.alt_len + 2, "%c%s%c", ref->forward[var.start-1], var.alt_allele[0]== '.' ? "" : var.alt_allele, ref->forward[var.start + var.ref_len]);
-
-                        int n_cg_offsets = 0;
-                        int * cg_offsets = find_cg_contexts_in_sequence(site_str, strlen(site_str), &n_cg_offsets);
-                        free(site_str);
-                        
-                        // if(var.alt_len > var.ref_len) { // insertion
-                        //     fprintf(stderr, "Checking var at %s:%d ref_len:%d alt_len:%d for read %s at ref_pos:%d ins_pos:%d ins_offset:%d\n", tname, var.start, var.ref_len, var.alt_len, bam_get_qname(record), ref_pos, ins_start + ins_offset, ins_offset);
-                        //     int ins_pos = ins_start + ins_offset;
-                        //     int var_end = var.start + var.alt_len;
-                        //     if(ref_pos == -1 && ins_pos >= var.start && ins_pos < var_end) {
-                        //         is_in_context = 1;
-                        //         break;
-                        //     }
-                        // } else if(var.alt_len < var.ref_len) { // deletion
-                        //     break; // currently not handling deletions
-                        // } else { // SNP
-                        //     break; // currently not handling SNPs
-                        // }
                     }
                 }
 
-                if (is_in_context) { // in context and mod_base matches reference
-                } else {
-                    continue;
-                }
 
-                ASSERT_MSG(ml_idx<ml_len, "read_id:%s mod prob index mismatch. ml_idx:%d ml_len:%d \n", bam_get_qname(record), ml_idx, ml_len);
-                uint8_t mod_prob = ml[ml_idx];
-                ASSERT_MSG(mod_prob <= 255 && mod_prob>=0, "Invalid mod_prob:%d\n", mod_prob);
+                // ASSERT_MSG(ml_idx<ml_len, "read_id:%s mod prob index mismatch. ml_idx:%d ml_len:%d \n", bam_get_qname(record), ml_idx, ml_len);
+                // uint8_t mod_prob = ml[ml_idx];
+                // ASSERT_MSG(mod_prob <= 255 && mod_prob>=0, "Invalid mod_prob:%d\n", mod_prob);
 
                 
-                if(core->opt.subtool == FREQ) {
-                    uint8_t is_mod = 0, is_called = 0;
-                    double thresh = req_mod->thresh;
-                    double mod_prob_dbl = THRESH_UINT8_TO_DBL(mod_prob);
+                // if(core->opt.subtool == FREQ) {
+                //     uint8_t is_mod = 0, is_called = 0;
+                //     double thresh = req_mod->thresh;
+                //     double mod_prob_dbl = THRESH_UINT8_TO_DBL(mod_prob);
                     
-                    if(mod_prob_dbl >= thresh){ // modified with mod_code
-                        is_called = 1;
-                        is_mod = 1;
-                    } else if(mod_prob_dbl <= 1 - thresh){ // not modified with mod_code
-                        is_called = 1;
-                    } else { // ambiguous
-                        continue;
-                    }
+                //     if(mod_prob_dbl >= thresh){ // modified with mod_code
+                //         is_called = 1;
+                //         is_mod = 1;
+                //     } else if(mod_prob_dbl <= 1 - thresh){ // not modified with mod_code
+                //         is_called = 1;
+                //     } else { // ambiguous
+                //         continue;
+                //     }
                     
-                    update_varfreq_map(db->varfreq_maps[bam_i], tname, ref_pos==-1?ins_start:ref_pos, ins_offset, mod_code, strand, haplotype, is_called, is_mod);
-                } else if (core->opt.subtool == VARVIEW) {
-                    add_varview_entry(db->varview_maps[bam_i], tname, ref_pos==-1?ins_start:ref_pos, ins_offset, mod_code, strand, haplotype, mod_prob, fastq_read_pos, var);
-                }
+                //     update_varfreq_map(db->varfreq_maps[bam_i], tname, ref_pos==-1?ins_start:ref_pos, ins_offset, mod_code, strand, haplotype, is_called, is_mod);
+                // } else if (core->opt.subtool == VARVIEW) {
+                //     add_varview_entry(db->varview_maps[bam_i], tname, ref_pos==-1?ins_start:ref_pos, ins_offset, mod_code, strand, haplotype, mod_prob, fastq_read_pos, var);
+                // }
             }
 
         }
@@ -777,41 +786,28 @@ void varviewfreq_single(core_t * core, db_t *db, int32_t bam_i) {
                             vars_t *vars = kh_value(core->var_map, ck);
                             for(int v=0; v<vars->vars_len; v++) {
                                 var = vars->vars[v];
-                                int ins_pos = ins_start + ins_offset;
-                                int var_end = var.start + var.alt_len;
-                                if(skip_ref_pos == -1 && ins_pos != -1 && ins_pos >= var.start && ins_pos < var_end) {
-                                    skip_is_in_context = 1;
-                                    break;
-                                } else if(skip_ref_pos != -1 && skip_ref_pos == var.start) {
-                                    skip_is_in_context = 1;
-                                    break;
+                                for(int o=0; o<var.cg_offsets_len; o++) {
+                                    if(skip_ref_pos == -1 && ins_start!=-1 && ins_start + ins_offset == var.pos - 1 + var.cg_offsets[o]) {
+                                        add_varview_entry(db->varview_maps[bam_i], tname, skip_ref_pos==-1?ins_start:skip_ref_pos, ins_offset, mod_code, strand, haplotype, 0, skip_fastq_read_pos, var);
+                                    } else if (skip_ref_pos !=-1 && (skip_ref_pos == var.pos || skip_ref_pos == var.pos - 1 || skip_ref_pos == var.pos + 1)) {
+                                        add_varview_entry(db->varview_maps[bam_i], tname, skip_ref_pos==-1?ins_start:skip_ref_pos, ins_offset, mod_code, strand, haplotype, 0, skip_fastq_read_pos, var);
+                                        break;
+                                    }
                                 }
-                                // if(var.alt_len > var.ref_len) { // insertion
-                                //     int ins_pos = ins_start + ins_offset;
-                                //     int var_end = var.start + var.alt_len;
-                                //     if(skip_ref_pos == -1 && ins_pos >= var.start && ins_pos < var_end) {
-                                //         skip_is_in_context = 1;
-                                //         break;
-                                //     }
-                                // } else if(var.alt_len < var.ref_len) { // deletion
-                                //     break; // currently not handling deletions
-                                // } else { // SNP
-                                //     break; // currently not handling SNPs
-                                // }
                             }
                         }
 
-                        if (skip_is_in_context) { // in context and mod_base matches reference
-                        } else {
-                            continue;
-                        }
+                        // if (skip_is_in_context) { // in context and mod_base matches reference
+                        // } else {
+                        //     continue;
+                        // }
 
-                        if(core->opt.subtool == FREQ) {
-                            uint8_t is_mod = 0, is_called = 1; // skipped bases are called as unmodified
-                            update_varfreq_map(db->varfreq_maps[bam_i], tname, skip_ref_pos==-1?ins_start:skip_ref_pos, ins_offset, mod_code, strand, haplotype, is_called, is_mod);
-                        } else if (core->opt.subtool == VARVIEW) {
-                            add_varview_entry(db->varview_maps[bam_i], tname, skip_ref_pos==-1?ins_start:skip_ref_pos, ins_offset, mod_code, strand, haplotype, 0, skip_fastq_read_pos, var);
-                        }
+                        // if(core->opt.subtool == FREQ) {
+                        //     uint8_t is_mod = 0, is_called = 1; // skipped bases are called as unmodified
+                        //     update_varfreq_map(db->varfreq_maps[bam_i], tname, skip_ref_pos==-1?ins_start:skip_ref_pos, ins_offset, mod_code, strand, haplotype, is_called, is_mod);
+                        // } else if (core->opt.subtool == VARVIEW) {
+                        //     add_varview_entry(db->varview_maps[bam_i], tname, skip_ref_pos==-1?ins_start:skip_ref_pos, ins_offset, mod_code, strand, haplotype, 0, skip_fastq_read_pos, var);
+                        // }
                     }
                 }
                 prev_skip_base_rank = skip_base_rank;
@@ -876,42 +872,29 @@ void varviewfreq_single(core_t * core, db_t *db, int32_t bam_i) {
                         for(int v=0; v<vars->vars_len; v++) {
                             for(int v=0; v<vars->vars_len; v++) {
                                 var = vars->vars[v];
-                                int ins_pos = ins_start + ins_offset;
-                                int var_end = var.start + var.alt_len;
-                                if(skip_ref_pos == -1 && ins_pos != -1 && ins_pos >= var.start && ins_pos < var_end) {
-                                    skip_is_in_context = 1;
-                                    break;
-                                } else if(skip_ref_pos != -1 && skip_ref_pos == var.start) {
-                                    skip_is_in_context = 1;
-                                    break;
+                                for(int o=0; o<var.cg_offsets_len; o++) {
+                                    if(skip_ref_pos == -1 && ins_start!=-1 && ins_start + ins_offset == var.pos - 1 + var.cg_offsets[o]) {
+                                        add_varview_entry(db->varview_maps[bam_i], tname, skip_ref_pos==-1?ins_start:skip_ref_pos, ins_offset, mod_code, strand, haplotype, 0, skip_fastq_read_pos, var);
+                                    } else if (skip_ref_pos !=-1 && (skip_ref_pos == var.pos || skip_ref_pos == var.pos - 1 || skip_ref_pos == var.pos + 1)) {
+                                        add_varview_entry(db->varview_maps[bam_i], tname, skip_ref_pos==-1?ins_start:skip_ref_pos, ins_offset, mod_code, strand, haplotype, 0, skip_fastq_read_pos, var);
+                                    }
                                 }
-                                // if(var.alt_len > var.ref_len) { // insertion
-                                //     int ins_pos = ins_start + ins_offset;
-                                //     int var_end = var.start + var.alt_len;
-                                //     if(skip_ref_pos == -1 && ins_pos >= var.start && ins_pos < var_end) {
-                                //         skip_is_in_context = 1;
-                                //         break;
-                                //     }
-                                // } else if(var.alt_len < var.ref_len) { // deletion
-                                //     break; // currently not handling deletions
-                                // } else { // SNP
-                                //     break; // currently not handling SNPs
-                                // }
+                                if(skip_is_in_context) break;
                             }
                         }
                     }
 
-                    if (skip_is_in_context) { // in context and mod_base matches reference
-                    } else {
-                        continue;
-                    }
+                    // if (skip_is_in_context) { // in context and mod_base matches reference
+                    // } else {
+                    //     continue;
+                    // }
 
-                    if(core->opt.subtool == FREQ) {
-                        uint8_t is_mod = 0, is_called = 1; // skipped bases are called as unmodified
-                        update_varfreq_map(db->varfreq_maps[bam_i], tname, skip_ref_pos==-1?ins_start:skip_ref_pos, ins_offset, mod_code, strand, haplotype, is_called, is_mod);
-                    } else if (core->opt.subtool == VARVIEW) {
-                        add_varview_entry(db->varview_maps[bam_i], tname, skip_ref_pos==-1?ins_start:skip_ref_pos, ins_offset, mod_code, strand, haplotype, 0, skip_fastq_read_pos, var);
-                    }
+                    // if(core->opt.subtool == FREQ) {
+                    //     uint8_t is_mod = 0, is_called = 1; // skipped bases are called as unmodified
+                    //     update_varfreq_map(db->varfreq_maps[bam_i], tname, skip_ref_pos==-1?ins_start:skip_ref_pos, ins_offset, mod_code, strand, haplotype, is_called, is_mod);
+                    // } else if (core->opt.subtool == VARVIEW) {
+                    //     add_varview_entry(db->varview_maps[bam_i], tname, skip_ref_pos==-1?ins_start:skip_ref_pos, ins_offset, mod_code, strand, haplotype, 0, skip_fastq_read_pos, var);
+                    // }
                 }
             }
         
@@ -1009,7 +992,22 @@ void print_varview_output(core_t* core, db_t* db) {
 
             if(is_bed) {
                 // contig \t start \t end \t mod_code \t mod_prob \t strand \t start \t end \t 255,255,0,0 \t ins_offset \t 1 \t ins_offset \t qname \t read_pos \t ref_allele \t alt_allele
-                fprintf(out_fp, "%s\t%d\t%d\t%s\t%f\t%c\t%d\t%d\t255,255,0,0\t%d\t1\t%d\t%s\t%d\t%s\t%s\n", tname, ref_pos, ref_pos+1, mod_code, THRESH_UINT8_TO_DBL(varview->mod_prob), strand, ref_pos, ref_pos+1, ins_offset, ins_offset, qname, varview->read_pos, varview->var.ref_allele, varview->var.alt_allele);
+                fprintf(out_fp, "%s\t%d\t%d\t%s\t%f\t%c\t%d\t%d\t255,255,0,0\t%d\t1\t%d\t%s\t%d\t%s\t%s", tname, ref_pos, ref_pos+1, mod_code, THRESH_UINT8_TO_DBL(varview->mod_prob), strand, ref_pos, ref_pos+1, ins_offset, ins_offset, qname, varview->read_pos, varview->var.ref_allele, varview->var.alt_allele);
+
+                //print var.before_site
+                fprintf(out_fp, "\t%s\t", varview->var.before_site);
+
+                // print var.after_site
+                fprintf(out_fp, "%s\t", varview->var.after_site);
+
+                // print var.cg_offsets comma separated
+                if(varview->var.cg_offsets_len > 0) {
+                    fprintf(out_fp, "\t%d\t", varview->var.cg_offsets_len);
+                    for(int o=0; o<varview->var.cg_offsets_len; o++) {
+                        fprintf(out_fp, "%d,", varview->var.cg_offsets[o]);
+                    }
+                }
+                fprintf(out_fp, "\n");
             } else {
                 fprintf(out_fp, "%s\t%d\t%c\t%s\t%d\t%s\t%f\t%d\t%s\t%s\n", tname, ref_pos, strand, qname, varview->read_pos, mod_code, THRESH_UINT8_TO_DBL(varview->mod_prob), db->ins_offset[i][varview->read_pos], varview->var.ref_allele, varview->var.alt_allele);
             }

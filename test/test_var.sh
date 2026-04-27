@@ -43,8 +43,7 @@ fi
 
 testname="varview test"
 echo -e "${BLUE}${testname}${NC}"
-ex ./minimod varview /genome/hg38noAlt.fa test/data/example-ont.bam test/data/example-ont-clair.vcf > test/tmp/example-ont_varview.bed || die "${testname} failed"
-
-echo "test/tmp/example-ont_varview.bed"
+ex ./minimod varview -c "m,h" /genome/hg38noAlt.fa test/data/example-ont.bam test/data/example-ont-clair.vcf > test/tmp/example-ont.mm.varview.bed || die "${testname} failed"
+diff -q test/tmp/example-ont.mm.varview.bed test/expected/example-ont.mm.varview.bed || die "${testname} failed: output does not match expected output"
 
 

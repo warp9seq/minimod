@@ -78,11 +78,13 @@ typedef struct {
 } view_t;
 
 typedef struct {
-    int start; //start position of the variant region
-    int ref_len; //length of the reference allele
-    int alt_len; //length of the alternative allele
-    char ref_allele[50];
-    char alt_allele[50];
+    int pos; //start position of the variant region
+    int cg_offsets_len; //length of the cg_offsets array
+    int *cg_offsets; //array of offsets of C/G bases in the variant region,
+    char * ref_allele; //reference allele
+    char * alt_allele; //alternative allele
+    char * before_site;
+    char * after_site;
 } var_t;
 
 typedef struct {

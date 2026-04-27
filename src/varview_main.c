@@ -455,7 +455,7 @@ int varview_main(int argc, char* argv[]) {
 
 #endif
 
-
+    destroy_var_map(core->var_map);
 
     destroy_ref_wo_context(opt.n_mods);
 

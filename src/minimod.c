@@ -159,8 +159,6 @@ void free_core(core_t* core,opt_t opt) {
 
     if (opt.subtool == FREQ) {
         destroy_freq_map(core->freq_map);
-    } else if(opt.subtool == VARVIEW) {
-        destroy_var_map(core->var_map);
     }
 
     free(core);
