@@ -50,5 +50,9 @@ void load_var_map(const char* vcf_file, khash_t(varm)* var_map);
 void warn_untested_cases_var(opt_t * opt);
 void print_varview_header(core_t* core);
 void print_varview_output(core_t* core, db_t* db);
+void merge_varfreq_maps(core_t* core, db_t* db);
+void destroy_varfreq_map(khash_t(varfreqm)* varfreq_map);
+void print_varfreq_header(core_t* core);
+void print_varfreq_output(core_t* core);
 
 #endif

@@ -43,6 +43,7 @@ int view_main(int argc, char* argv[]);
 int freq_main(int argc, char* argv[]);
 int summary_main(int argc, char* argv[]);
 int varview_main(int argc, char* argv[]);
+int varfreq_main(int argc, char* argv[]);
 
 int print_usage(FILE *fp_help){
 
@@ -51,6 +52,7 @@ int print_usage(FILE *fp_help){
     fprintf(fp_help,"         view       view base modifications\n");
     fprintf(fp_help,"         varview    variant-aware view base modifications\n");
     fprintf(fp_help,"         freq       output base modification frequencies\n");
+    fprintf(fp_help,"         varfreq    variant-aware modification frequencies\n");
     fprintf(fp_help,"         summary    output summary\n");
 
     if(fp_help==stderr){
@@ -75,6 +77,8 @@ int main(int argc, char* argv[]){
         ret=view_main(argc-1, argv+1);
     } else if (strcmp(argv[1],"varview")==0){
         ret=varview_main(argc-1, argv+1);
+    } else if (strcmp(argv[1],"varfreq")==0){
+        ret=varfreq_main(argc-1, argv+1);
     } else if (strcmp(argv[1],"mod-freq")==0){
         WARNING("%s","mod-freq is deprecated. Use freq instead");
         ret=freq_main(argc-1, argv+1);

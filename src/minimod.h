@@ -97,6 +97,8 @@ typedef struct {
 typedef struct {
     uint32_t n_called;
     uint32_t n_mod;
+    const char *ref_allele;
+    const char *alt_allele;
 } varfreq_t;
 
 typedef struct {
@@ -123,7 +125,7 @@ KHASH_MAP_INIT_STR(varfreqm, varfreq_t *);
 /* view map */
 KHASH_MAP_INIT_STR(varviewm, varview_t *);
 
-enum subtool {VIEW=0, FREQ=1, SUMMARY=2, VARVIEW=3};
+enum subtool {VIEW=0, FREQ=1, SUMMARY=2, VARVIEW=3, VARFREQ=4};
 
 /* user specified options */
 typedef struct {

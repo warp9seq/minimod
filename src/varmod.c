@@ -394,7 +394,7 @@ static void get_aln(core_t * core, db_t *db, bam_hdr_t *hdr, bam1_t *record, int
 }
 
 
-void update_varfreq_map(khash_t(varfreqm) *varfreq_map, const char *tname, int ref_pos, int ins_offset, char *mod_code, char strand, int haplotype, int is_called, int is_mod) {
+void update_varfreq_map(khash_t(varfreqm) *varfreq_map, const char *tname, int ref_pos, int ins_offset, char *mod_code, char strand, int haplotype, int is_called, int is_mod, const char *ref_allele, const char *alt_allele) {
     char * key = make_key(tname, ref_pos, ins_offset, mod_code, strand, haplotype);
     khiter_t k = kh_get(varfreqm, varfreq_map, key);
     if (k == kh_end(varfreq_map)) { // not found, add
@@ -402,6 +402,8 @@ void update_varfreq_map(khash_t(varfreqm) *varfreq_map, const char *tname, int r
         MALLOC_CHK(varfreq);
         varfreq->n_called = is_called;
         varfreq->n_mod = is_mod;
+        varfreq->ref_allele = ref_allele;
+        varfreq->alt_allele = alt_allele;
         int ret;
         k = kh_put(varfreqm, varfreq_map, key, &ret);
         kh_value(varfreq_map, k) = varfreq;
@@ -418,26 +420,28 @@ void update_varfreq_map(khash_t(varfreqm) *varfreq_map, const char *tname, int r
     }
 
     if(haplotype != -1) {
-        char * key = make_key(tname, ref_pos, ins_offset, mod_code, strand, -1); // aggregate all haplotypes
-        khiter_t k = kh_get(varfreqm, varfreq_map, key);
-        if (k == kh_end(varfreq_map)) { // not found, add
+        char * key2 = make_key(tname, ref_pos, ins_offset, mod_code, strand, -1); // aggregate all haplotypes
+        khiter_t k2 = kh_get(varfreqm, varfreq_map, key2);
+        if (k2 == kh_end(varfreq_map)) { // not found, add
             varfreq_t * varfreq = (varfreq_t *)malloc(sizeof(varfreq_t));
             MALLOC_CHK(varfreq);
             varfreq->n_called = is_called;
             varfreq->n_mod = is_mod;
+            varfreq->ref_allele = ref_allele;
+            varfreq->alt_allele = alt_allele;
             int ret;
-            k = kh_put(varfreqm, varfreq_map, key, &ret);
-            kh_value(varfreq_map, k) = varfreq;
+            k2 = kh_put(varfreqm, varfreq_map, key2, &ret);
+            kh_value(varfreq_map, k2) = varfreq;
         } else { // found, update
-            varfreq_t * varfreq = kh_value(varfreq_map, k);
+            varfreq_t * varfreq = kh_value(varfreq_map, k2);
             varfreq->n_called += is_called;
             varfreq->n_mod += is_mod;
             // check if varfreq->n_called overflows
             if(varfreq->n_called == 0){
-                ERROR("n_called overflowed for key %s. Please report this issue.", key);
+                ERROR("n_called overflowed for key %s. Please report this issue.", key2);
                 exit(EXIT_FAILURE);
             }
-            free(key);
+            free(key2);
         }
     }
 }
@@ -472,7 +476,7 @@ void varviewfreq_single(core_t * core, db_t *db, int32_t bam_i) {
     uint32_t seq_len = record->core.l_qseq;
     char strand = rev ? '-' : '+';
     const char *mm_string = db->mm[bam_i];
-    uint32_t ml_len = db->ml_lens[bam_i];
+    // uint32_t ml_len = db->ml_lens[bam_i];
     uint8_t *ml = db->ml[bam_i];
     int haplotype = core->opt.haplotypes ? get_hp_tag(record) : -1;
     int * aln_pairs = db->aln[bam_i];
@@ -674,7 +678,7 @@ void varviewfreq_single(core_t * core, db_t *db, int32_t bam_i) {
 
                 modcodem_t *req_mod = kh_value(core->opt.modcodes_map, mk);
 
-                int is_in_context = 0;
+                // int is_in_context = 0;
                 var_t var;
                 khint_t ck = kh_get(varm, core->var_map, tname);
                 if(ck != kh_end(core->var_map)) {
@@ -687,41 +691,36 @@ void varviewfreq_single(core_t * core, db_t *db, int32_t bam_i) {
                         for(int o=0; o<var.cg_offsets_len; o++) {
                             if(ref_pos == -1 && ins_start!=-1 && var.cg_offsets[o] > var.ref_len && var.cg_offsets[o] <= alt_len && ins_start + ins_offset == var.pos - 1 + var.cg_offsets[o]) {
                                 uint8_t mod_prob = ml[ml_idx];
-                                add_varview_entry(db->varview_maps[bam_i], tname, ins_start, ins_offset, mod_code, strand, haplotype, mod_prob, fastq_read_pos, var);
+                                if(core->opt.subtool == VARVIEW) {
+                                    add_varview_entry(db->varview_maps[bam_i], tname, ins_start, ins_offset, mod_code, strand, haplotype, mod_prob, fastq_read_pos, var);
+                                } else { // VARFREQ
+                                    double mod_prob_dbl = THRESH_UINT8_TO_DBL(mod_prob);
+                                    double thresh = req_mod->thresh;
+                                    int is_called = 0, is_mod = 0;
+                                    if(mod_prob_dbl >= thresh){ is_called = 1; is_mod = 1; }
+                                    else if(mod_prob_dbl <= 1 - thresh){ is_called = 1; }
+                                    else break;
+                                    update_varfreq_map(db->varfreq_maps[bam_i], tname, ins_start, ins_offset, mod_code, strand, haplotype, is_called, is_mod, var.ref_allele, var.alt_allele);
+                                }
                                 break;
                             } else if (ref_pos != -1 && ref_pos == var.pos - 1 + var.cg_offsets[o]) {
                                 uint8_t mod_prob = ml[ml_idx];
-                                add_varview_entry(db->varview_maps[bam_i], tname, ref_pos, ins_offset, mod_code, strand, haplotype, mod_prob, fastq_read_pos, var);
+                                if(core->opt.subtool == VARVIEW) {
+                                    add_varview_entry(db->varview_maps[bam_i], tname, ref_pos, ins_offset, mod_code, strand, haplotype, mod_prob, fastq_read_pos, var);
+                                } else { // VARFREQ
+                                    double mod_prob_dbl = THRESH_UINT8_TO_DBL(mod_prob);
+                                    double thresh = req_mod->thresh;
+                                    int is_called = 0, is_mod = 0;
+                                    if(mod_prob_dbl >= thresh){ is_called = 1; is_mod = 1; }
+                                    else if(mod_prob_dbl <= 1 - thresh){ is_called = 1; }
+                                    else break;
+                                    update_varfreq_map(db->varfreq_maps[bam_i], tname, ref_pos, ins_offset, mod_code, strand, haplotype, is_called, is_mod, var.ref_allele, var.alt_allele);
+                                }
                                 break;
                             }
                         }
                     }
                 }
-
-
-                // ASSERT_MSG(ml_idx<ml_len, "read_id:%s mod prob index mismatch. ml_idx:%d ml_len:%d \n", bam_get_qname(record), ml_idx, ml_len);
-                // uint8_t mod_prob = ml[ml_idx];
-                // ASSERT_MSG(mod_prob <= 255 && mod_prob>=0, "Invalid mod_prob:%d\n", mod_prob);
-
-                
-                // if(core->opt.subtool == FREQ) {
-                //     uint8_t is_mod = 0, is_called = 0;
-                //     double thresh = req_mod->thresh;
-                //     double mod_prob_dbl = THRESH_UINT8_TO_DBL(mod_prob);
-                    
-                //     if(mod_prob_dbl >= thresh){ // modified with mod_code
-                //         is_called = 1;
-                //         is_mod = 1;
-                //     } else if(mod_prob_dbl <= 1 - thresh){ // not modified with mod_code
-                //         is_called = 1;
-                //     } else { // ambiguous
-                //         continue;
-                //     }
-                    
-                //     update_varfreq_map(db->varfreq_maps[bam_i], tname, ref_pos==-1?ins_start:ref_pos, ins_offset, mod_code, strand, haplotype, is_called, is_mod);
-                // } else if (core->opt.subtool == VARVIEW) {
-                //     add_varview_entry(db->varview_maps[bam_i], tname, ref_pos==-1?ins_start:ref_pos, ins_offset, mod_code, strand, haplotype, mod_prob, fastq_read_pos, var);
-                // }
             }
 
         }
@@ -790,7 +789,6 @@ void varviewfreq_single(core_t * core, db_t *db, int32_t bam_i) {
                             }
                         }
 
-                        int skip_is_in_context = 0;
                         var_t var;
                         khint_t ck = kh_get(varm, core->var_map, tname);
                         if(ck != kh_end(core->var_map)) {
@@ -800,27 +798,23 @@ void varviewfreq_single(core_t * core, db_t *db, int32_t bam_i) {
                                 int alt_len = strlen(var.alt_allele);
                                 for(int o=0; o<var.cg_offsets_len; o++) {
                                     if(skip_ref_pos == -1 && ins_start!=-1 && var.cg_offsets[o] > var.ref_len && var.cg_offsets[o] <= alt_len && ins_start + ins_offset == var.pos - 1 + var.cg_offsets[o]) {
-                                        add_varview_entry(db->varview_maps[bam_i], tname, ins_start, ins_offset, mod_code, strand, haplotype, 0, skip_fastq_read_pos, var);
+                                        if(core->opt.subtool == VARVIEW) {
+                                            add_varview_entry(db->varview_maps[bam_i], tname, ins_start, ins_offset, mod_code, strand, haplotype, 0, skip_fastq_read_pos, var);
+                                        } else {
+                                            update_varfreq_map(db->varfreq_maps[bam_i], tname, ins_start, ins_offset, mod_code, strand, haplotype, 1, 0, var.ref_allele, var.alt_allele);
+                                        }
                                         break;
                                     } else if (skip_ref_pos != -1 && skip_ref_pos == var.pos - 1 + var.cg_offsets[o]) {
-                                        add_varview_entry(db->varview_maps[bam_i], tname, skip_ref_pos, ins_offset, mod_code, strand, haplotype, 0, skip_fastq_read_pos, var);
+                                        if(core->opt.subtool == VARVIEW) {
+                                            add_varview_entry(db->varview_maps[bam_i], tname, skip_ref_pos, ins_offset, mod_code, strand, haplotype, 0, skip_fastq_read_pos, var);
+                                        } else {
+                                            update_varfreq_map(db->varfreq_maps[bam_i], tname, skip_ref_pos, ins_offset, mod_code, strand, haplotype, 1, 0, var.ref_allele, var.alt_allele);
+                                        }
                                         break;
                                     }
                                 }
                             }
                         }
-
-                        // if (skip_is_in_context) { // in context and mod_base matches reference
-                        // } else {
-                        //     continue;
-                        // }
-
-                        // if(core->opt.subtool == FREQ) {
-                        //     uint8_t is_mod = 0, is_called = 1; // skipped bases are called as unmodified
-                        //     update_varfreq_map(db->varfreq_maps[bam_i], tname, skip_ref_pos==-1?ins_start:skip_ref_pos, ins_offset, mod_code, strand, haplotype, is_called, is_mod);
-                        // } else if (core->opt.subtool == VARVIEW) {
-                        //     add_varview_entry(db->varview_maps[bam_i], tname, skip_ref_pos==-1?ins_start:skip_ref_pos, ins_offset, mod_code, strand, haplotype, 0, skip_fastq_read_pos, var);
-                        // }
                     }
                 }
                 prev_skip_base_rank = skip_base_rank;
@@ -876,41 +870,36 @@ void varviewfreq_single(core_t * core, db_t *db, int32_t bam_i) {
                         }
                     }
 
-                    int skip_is_in_context = 0;
                     var_t var;
                     khint_t ck = kh_get(varm, core->var_map, tname);
                     if(ck != kh_end(core->var_map)) {
                         vars_t *vars = kh_value(core->var_map, ck);
-                        
+
                         for(int v=0; v<vars->vars_len; v++) {
                             var = vars->vars[v];
                             int alt_len = strlen(var.alt_allele);
                             for(int o=0; o<var.cg_offsets_len; o++) {
                                 if(skip_ref_pos == -1 && ins_start!=-1 && var.cg_offsets[o] > var.ref_len && var.cg_offsets[o] <= alt_len && ins_start + ins_offset == var.pos - 1 + var.cg_offsets[o]) {
-                                    add_varview_entry(db->varview_maps[bam_i], tname, ins_start, ins_offset, mod_code, strand, haplotype, 0, skip_fastq_read_pos, var);
+                                    if(core->opt.subtool == VARVIEW) {
+                                        add_varview_entry(db->varview_maps[bam_i], tname, ins_start, ins_offset, mod_code, strand, haplotype, 0, skip_fastq_read_pos, var);
+                                    } else {
+                                        update_varfreq_map(db->varfreq_maps[bam_i], tname, ins_start, ins_offset, mod_code, strand, haplotype, 1, 0, var.ref_allele, var.alt_allele);
+                                    }
                                     break;
                                 } else if (skip_ref_pos != -1 && skip_ref_pos == var.pos - 1 + var.cg_offsets[o]) {
-                                    add_varview_entry(db->varview_maps[bam_i], tname, skip_ref_pos, ins_offset, mod_code, strand, haplotype, 0, skip_fastq_read_pos, var);
+                                    if(core->opt.subtool == VARVIEW) {
+                                        add_varview_entry(db->varview_maps[bam_i], tname, skip_ref_pos, ins_offset, mod_code, strand, haplotype, 0, skip_fastq_read_pos, var);
+                                    } else {
+                                        update_varfreq_map(db->varfreq_maps[bam_i], tname, skip_ref_pos, ins_offset, mod_code, strand, haplotype, 1, 0, var.ref_allele, var.alt_allele);
+                                    }
                                     break;
                                 }
                             }
                         }
                     }
-
-                    // if (skip_is_in_context) { // in context and mod_base matches reference
-                    // } else {
-                    //     continue;
-                    // }
-
-                    // if(core->opt.subtool == FREQ) {
-                    //     uint8_t is_mod = 0, is_called = 1; // skipped bases are called as unmodified
-                    //     update_varfreq_map(db->varfreq_maps[bam_i], tname, skip_ref_pos==-1?ins_start:skip_ref_pos, ins_offset, mod_code, strand, haplotype, is_called, is_mod);
-                    // } else if (core->opt.subtool == VARVIEW) {
-                    //     add_varview_entry(db->varview_maps[bam_i], tname, skip_ref_pos==-1?ins_start:skip_ref_pos, ins_offset, mod_code, strand, haplotype, 0, skip_fastq_read_pos, var);
-                    // }
                 }
             }
-        
+
         }
         
     }
@@ -956,7 +945,7 @@ void print_varview_header(core_t* core) {
 
 void print_varview_output(core_t* core, db_t* db) {
     FILE *out_fp = core->opt.output_fp;
-    int do_haplotypes = core->opt.haplotypes == 1;
+    // int do_haplotypes = core->opt.haplotypes == 1;
 
     int is_bed = true;
 
@@ -1030,4 +1019,111 @@ void print_varview_output(core_t* core, db_t* db) {
     if (sorted_arr) {
         free(sorted_arr);
     }
+}
+
+void merge_varfreq_maps(core_t* core, db_t* db) {
+    khash_t(varfreqm) *core_map = core->varfreq_map;
+
+    for (int i = 0; i < db->n_bam_recs; i++) {
+        khash_t(varfreqm) *rec_map = db->varfreq_maps[i];
+
+        if (kh_size(rec_map) == 0) continue;
+
+        for (khint_t k = kh_begin(rec_map); k != kh_end(rec_map); ++k) {
+            if (kh_exist(rec_map, k)) {
+                char *key = (char *) kh_key(rec_map, k);
+                varfreq_t *db_varfreq = kh_value(rec_map, k);
+
+                int ret;
+                khint_t core_k = kh_put(varfreqm, core_map, key, &ret);
+
+                if (ret == 0) {
+                    varfreq_t *core_varfreq = kh_value(core_map, core_k);
+                    core_varfreq->n_called += db_varfreq->n_called;
+                    core_varfreq->n_mod += db_varfreq->n_mod;
+                } else {
+                    kh_value(core_map, core_k) = db_varfreq;
+                    kh_del(varfreqm, rec_map, k);
+                }
+            }
+        }
+    }
+}
+
+void destroy_varfreq_map(khash_t(varfreqm)* varfreq_map) {
+    for (khint_t k = kh_begin(varfreq_map); k != kh_end(varfreq_map); k++) {
+        if (kh_exist(varfreq_map, k)) {
+            free((char *) kh_key(varfreq_map, k));
+            free(kh_value(varfreq_map, k));
+        }
+    }
+    kh_destroy(varfreqm, varfreq_map);
+}
+
+void print_varfreq_header(core_t* core) {
+    char * common = "contig\tstart\tend\tstrand\tn_called\tn_mod\tfreq\tmod_code\tref_allele\talt_allele";
+    char * ins_str = "";
+    char * hp_str = "";
+    if(core->opt.insertions) ins_str = "\tins_offset";
+    if(core->opt.haplotypes) hp_str = "\thaplotype";
+    fprintf(core->opt.output_fp, "%s%s%s\n", common, ins_str, hp_str);
+}
+
+void print_varfreq_output(core_t* core) {
+    khash_t(varfreqm) *varfreq_map = core->varfreq_map;
+    khint_t map_size = kh_size(varfreq_map);
+
+    if (map_size == 0) return;
+
+    double sort_start = realtime();
+    varfreq_kv_t *sorted_arr = (varfreq_kv_t *)malloc(sizeof(varfreq_kv_t) * map_size);
+    MALLOC_CHK(sorted_arr);
+    int size = 0;
+    for (khint_t k = kh_begin(varfreq_map); k != kh_end(varfreq_map); k++) {
+        if (kh_exist(varfreq_map, k)) {
+            sorted_arr[size].key = (char *)kh_key(varfreq_map, k);
+            sorted_arr[size].freq = kh_value(varfreq_map, k);
+            size++;
+        }
+    }
+    ks_introsort_varfreq(size, sorted_arr);
+    core->sort_time = realtime() - sort_start;
+
+    double output_start = realtime();
+
+    FILE *out_fp = core->opt.output_fp;
+    int do_insertions = core->opt.insertions;
+    int do_haplotypes = core->opt.haplotypes;
+
+    for (int i = 0; i < size; i++) {
+        varfreq_t *varfreq = sorted_arr[i].freq;
+        double freq_value = (double)varfreq->n_mod / varfreq->n_called;
+        char *contig = NULL;
+        int ref_pos;
+        uint16_t ins_offset;
+        char *mod_code;
+        char strand;
+        int haplotype;
+        decode_key(sorted_arr[i].key, &contig, &ref_pos, &ins_offset, &mod_code, &strand, &haplotype);
+
+        fprintf(out_fp, "%s\t%d\t%d\t%c\t%d\t%d\t%f\t%s\t%s\t%s",
+            contig, ref_pos, ref_pos + 1, strand,
+            varfreq->n_called, varfreq->n_mod, freq_value, mod_code,
+            varfreq->ref_allele ? varfreq->ref_allele : ".",
+            varfreq->alt_allele ? varfreq->alt_allele : ".");
+
+        if(do_insertions) fprintf(out_fp, "\t%d", ins_offset);
+        if(do_haplotypes) {
+            if(haplotype == -1) fputs("\t*", out_fp);
+            else fprintf(out_fp, "\t%d", haplotype);
+        }
+        fputc('\n', out_fp);
+        free(contig);
+        free(mod_code);
+    }
+
+    if(out_fp != stdout) fclose(out_fp);
+
+    free(sorted_arr);
+    core->output_time += realtime() - output_start;
 }
