@@ -43,22 +43,27 @@ fi
 
 testname="varview example-ont"
 echo -e "${BLUE}${testname}${NC}"
-ex ./minimod varview -c "m,h" /genome/hg38noAlt.fa test/data/example-ont.bam test/data/example-ont-clair.vcf > test/tmp/example-ont.mm.varview.bed || die "${testname} failed"
+ex ./minimod varview -c "m,h" /genome/hg38noAlt.fa test/data/example-ont.bam test/data/example-ont-clair.vcf > test/tmp/example-ont.mm.varview.tsv || die "${testname} failed"
+diff -q test/tmp/example-ont.mm.varview.tsv test/expected/example-ont.mm.varview.tsv || die "${testname} failed: output does not match expected output"
+
+testname="varview -b example-ont"
+echo -e "${BLUE}${testname}${NC}"
+ex ./minimod varview -b -c "m,h" /genome/hg38noAlt.fa test/data/example-ont.bam test/data/example-ont-clair.vcf > test/tmp/example-ont.mm.varview.bed || die "${testname} failed"
 diff -q test/tmp/example-ont.mm.varview.bed test/expected/example-ont.mm.varview.bed || die "${testname} failed: output does not match expected output"
 
 testname="varview dna_4mC_5mC_mm_chr22"
 echo -e "${BLUE}${testname}${NC}"
-ex ./minimod varview -c "m,h" /genome/hg38noAlt.fa test/data/dna_4mC_5mC_mm_chr22.bam test/data/dna_4mC_5mC_mm_chr22.vcf > test/tmp/dna_4mC_5mC_mm_chr22.mm.varview.bed || die "${testname} failed"
+ex ./minimod varview -b -c "m,h" /genome/hg38noAlt.fa test/data/dna_4mC_5mC_mm_chr22.bam test/data/dna_4mC_5mC_mm_chr22.vcf > test/tmp/dna_4mC_5mC_mm_chr22.mm.varview.bed || die "${testname} failed"
 diff -q test/tmp/dna_4mC_5mC_mm_chr22.mm.varview.bed test/expected/dna_4mC_5mC_mm_chr22.mm.varview.bed || die "${testname} failed: output does not match expected output"
 
 testname="varview dna_5mCG_5hmCG_mm_chr22"
 echo -e "${BLUE}${testname}${NC}"
-ex ./minimod varview -c "m,h" /genome/hg38noAlt.fa test/data/dna_5mCG_5hmCG_mm_chr22.bam test/data/dna_5mCG_5hmCG_mm_chr22.vcf > test/tmp/dna_5mCG_5hmCG_mm_chr22.mm.varview.bed || die "${testname} failed"
+ex ./minimod varview -b -c "m,h" /genome/hg38noAlt.fa test/data/dna_5mCG_5hmCG_mm_chr22.bam test/data/dna_5mCG_5hmCG_mm_chr22.vcf > test/tmp/dna_5mCG_5hmCG_mm_chr22.mm.varview.bed || die "${testname} failed"
 diff -q test/tmp/dna_5mCG_5hmCG_mm_chr22.mm.varview.bed test/expected/dna_5mCG_5hmCG_mm_chr22.mm.varview.bed || die "${testname} failed: output does not match expected output"
 
 testname="varview dna_5mC_5hmC_mm_chr22"
 echo -e "${BLUE}${testname}${NC}"
-ex ./minimod varview -c "m,h" /genome/hg38noAlt.fa test/data/dna_5mC_5hmC_mm_chr22.bam test/data/dna_5mC_5hmC_mm_chr22.vcf > test/tmp/dna_5mC_5hmC_mm_chr22.mm.varview.bed || die "${testname} failed"
+ex ./minimod varview -b -c "m,h" /genome/hg38noAlt.fa test/data/dna_5mC_5hmC_mm_chr22.bam test/data/dna_5mC_5hmC_mm_chr22.vcf > test/tmp/dna_5mC_5hmC_mm_chr22.mm.varview.bed || die "${testname} failed"
 diff -q test/tmp/dna_5mC_5hmC_mm_chr22.mm.varview.bed test/expected/dna_5mC_5hmC_mm_chr22.mm.varview.bed || die "${testname} failed: output does not match expected output"
 
 # varfreq tests

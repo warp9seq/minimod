@@ -933,21 +933,20 @@ void warn_untested_cases_var(opt_t * opt) {
 }
 
 void print_varview_header(core_t* core) {
+    if(core->opt.bedmethyl_out) return;
     char * common = "ref_contig\tref_pos\tstrand\tread_id\tread_pos\tmod_code\tmod_prob\tins_offset\tref_allele\talt_allele";
-    char * ins_offset = "";
     char * haplotype = "";
     if(core->opt.haplotypes){
         haplotype = "\thaplotype";
     }
-
-    fprintf(core->opt.output_fp, "%s%s%s\n", common, ins_offset, haplotype);
+    fprintf(core->opt.output_fp, "%s%s\n", common, haplotype);
 }
 
 void print_varview_output(core_t* core, db_t* db) {
     FILE *out_fp = core->opt.output_fp;
     // int do_haplotypes = core->opt.haplotypes == 1;
 
-    int is_bed = true;
+    int is_bed = core->opt.bedmethyl_out;
 
     // Reusable buffer
     int max_arr_capacity = 0;

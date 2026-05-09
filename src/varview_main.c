@@ -57,12 +57,14 @@ static struct option long_options[] = {
     {"haplotypes",no_argument, 0, 0},              //11 enable haplotype mode
     {"allow-secondary",no_argument, 0, 0},         //12 enable secondary alignments
     {"skip-supplementary",no_argument, 0, 0},      //13 skip supplementary alignments
+    {"bedmethyl", no_argument, 0, 'b'},            //14 output in bedMethyl format
     {0, 0, 0, 0}};
 
 
 static inline void print_help_msg(FILE *fp_help, opt_t opt){
-    fprintf(fp_help,"Usage: minimod view ref.fa reads.bam\n");
+    fprintf(fp_help,"Usage: minimod varview ref.fa reads.bam variants.vcf\n");
     fprintf(fp_help,"\nbasic options:\n");
+    fprintf(fp_help,"   -b                         output in bedMethyl format [%s]\n", (opt.bedmethyl_out?"yes":"not set"));
     fprintf(fp_help,"   -c STR                     modification code(s) (eg. m, h or mh or as ChEBI) [%s]\n", opt.mod_codes_str==NULL?"m":opt.mod_codes_str);
     fprintf(fp_help,"   -t INT                     number of processing threads [%d]\n",opt.num_thread);
     fprintf(fp_help,"   -K INT                     batch size (max number of reads loaded at once) [%d]\n",opt.batch_size);
@@ -160,7 +162,7 @@ int varview_main(int argc, char* argv[]) {
 
     double realtime0 = realtime();
 
-    const char* optstring = "c:t:B:K:v:p:o:hV";
+    const char* optstring = "c:t:B:K:v:p:o:hVb";
 
     int longindex = 0;
     int32_t c = -1;
@@ -215,6 +217,8 @@ int varview_main(int argc, char* argv[]) {
             fp_help = stdout;
         } else if (c=='c') {
             opt.mod_codes_str = optarg;
+        } else if (c=='b'){
+            opt.bedmethyl_out = 1;
         } else if(c == 0 && longindex == 8){
             opt.debug_break = atoi(optarg);
         } else if(c == 0 && longindex == 9){
@@ -312,7 +316,7 @@ int varview_main(int argc, char* argv[]) {
 
     int32_t counter=0;
 
-    // print_varview_header(core);
+    print_varview_header(core);
 
 #ifdef IO_PROC_NO_INTERLEAVE
     double realtime_prog = realtime();
