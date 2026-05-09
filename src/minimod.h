@@ -79,6 +79,7 @@ typedef struct {
 
 typedef struct {
     int pos; //start position of the variant region
+    int ref_len; //length of the reference allele
     int cg_offsets_len; //length of the cg_offsets array
     int *cg_offsets; //array of offsets of C/G bases in the variant region,
     char * ref_allele; //reference allele

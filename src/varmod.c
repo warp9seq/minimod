@@ -179,6 +179,10 @@ void load_var_map(const char* vcf_file, khash_t(varm)* var_map) {
         const char *contig = bcf_hdr_id2name(vcf_hdr, rec->rid);
         int32_t pos = rec->pos;
         char * ref_allele = rec->d.allele[0];
+        if(ref_allele[0] == '.') {
+            ERROR("Invalid VCF record at %s:%d: REF allele is '.'\n", contig, pos + 1);
+            exit(EXIT_FAILURE);
+        }
         int ref_len = strlen(ref_allele);
 
         ref_t *ref = get_ref(contig);
@@ -208,19 +212,21 @@ void load_var_map(const char* vcf_file, khash_t(varm)* var_map) {
         
         for(int i = 1; i < rec->n_allele; i++) {
             char * alt_allele = rec->d.allele[i];
+            if(alt_allele[0] == '.') continue; // reference call, no variant
+
             int alt_len = strlen(alt_allele);
 
             char * before_site = (char*)malloc(sizeof(char) * (ref_len + 3));
             MALLOC_CHK(before_site);
 
             char prev_base = (pos > 0) ? ref_seq[pos-1] : 'N';
-            snprintf(before_site, ref_len + 3, "%c%s%c", prev_base, ref_allele[0]== '.' ? "" : ref_allele, ref_seq[pos + ref_len]);
+            snprintf(before_site, ref_len + 3, "%c%s%c", prev_base, ref_allele, ref_seq[pos + ref_len]);
 
             // create site string = base before REF + ALT + base after REF
             char *after_site = (char*)malloc(sizeof(char) * (alt_len + 3));
             MALLOC_CHK(after_site);
 
-            snprintf(after_site, alt_len + 3, "%c%s%c", prev_base, alt_allele[0]== '.' ? "" : alt_allele, ref->forward[pos + ref_len]);
+            snprintf(after_site, alt_len + 3, "%c%s%c", prev_base, alt_allele, ref->forward[pos + ref_len]);
 
             int n_cg_offsets = 0;
             int * cg_offsets = find_cg_contexts_in_sequence(after_site, strlen(after_site), &n_cg_offsets);
@@ -232,6 +238,7 @@ void load_var_map(const char* vcf_file, khash_t(varm)* var_map) {
             }
             var_t var;
             var.pos = pos;
+            var.ref_len = ref_len;
             var.cg_offsets_len = n_cg_offsets;
             var.cg_offsets = cg_offsets;
             var.ref_allele = (char*)malloc(sizeof(char) * (ref_len + 1));
@@ -676,10 +683,11 @@ void varviewfreq_single(core_t * core, db_t *db, int32_t bam_i) {
                     for(int v=0; v<vars->vars_len; v++) {
                         var = vars->vars[v];
 
+                        int alt_len = strlen(var.alt_allele);
                         for(int o=0; o<var.cg_offsets_len; o++) {
-                            if(ref_pos == -1 && ins_start!=-1 && ins_start + ins_offset == var.pos - 1 + var.cg_offsets[o]) {
+                            if(ref_pos == -1 && ins_start!=-1 && var.cg_offsets[o] > var.ref_len && var.cg_offsets[o] <= alt_len && ins_start + ins_offset == var.pos - 1 + var.cg_offsets[o]) {
                                 uint8_t mod_prob = ml[ml_idx];
-                                add_varview_entry(db->varview_maps[bam_i], tname, ref_pos==-1?ins_start:ref_pos, ins_offset, mod_code, strand, haplotype, mod_prob, fastq_read_pos, var);
+                                add_varview_entry(db->varview_maps[bam_i], tname, ins_start, ins_offset, mod_code, strand, haplotype, mod_prob, fastq_read_pos, var);
                                 break;
                             } else if (ref_pos != -1 && ref_pos == var.pos - 1 + var.cg_offsets[o]) {
                                 uint8_t mod_prob = ml[ml_idx];
@@ -789,9 +797,10 @@ void varviewfreq_single(core_t * core, db_t *db, int32_t bam_i) {
                             vars_t *vars = kh_value(core->var_map, ck);
                             for(int v=0; v<vars->vars_len; v++) {
                                 var = vars->vars[v];
+                                int alt_len = strlen(var.alt_allele);
                                 for(int o=0; o<var.cg_offsets_len; o++) {
-                                    if(skip_ref_pos == -1 && ins_start!=-1 && ins_start + ins_offset == var.pos - 1 + var.cg_offsets[o]) {
-                                        add_varview_entry(db->varview_maps[bam_i], tname, skip_ref_pos==-1?ins_start:skip_ref_pos, ins_offset, mod_code, strand, haplotype, 0, skip_fastq_read_pos, var);
+                                    if(skip_ref_pos == -1 && ins_start!=-1 && var.cg_offsets[o] > var.ref_len && var.cg_offsets[o] <= alt_len && ins_start + ins_offset == var.pos - 1 + var.cg_offsets[o]) {
+                                        add_varview_entry(db->varview_maps[bam_i], tname, ins_start, ins_offset, mod_code, strand, haplotype, 0, skip_fastq_read_pos, var);
                                         break;
                                     } else if (skip_ref_pos != -1 && skip_ref_pos == var.pos - 1 + var.cg_offsets[o]) {
                                         add_varview_entry(db->varview_maps[bam_i], tname, skip_ref_pos, ins_offset, mod_code, strand, haplotype, 0, skip_fastq_read_pos, var);
@@ -875,9 +884,10 @@ void varviewfreq_single(core_t * core, db_t *db, int32_t bam_i) {
                         
                         for(int v=0; v<vars->vars_len; v++) {
                             var = vars->vars[v];
+                            int alt_len = strlen(var.alt_allele);
                             for(int o=0; o<var.cg_offsets_len; o++) {
-                                if(skip_ref_pos == -1 && ins_start!=-1 && ins_start + ins_offset == var.pos - 1 + var.cg_offsets[o]) {
-                                    add_varview_entry(db->varview_maps[bam_i], tname, skip_ref_pos==-1?ins_start:skip_ref_pos, ins_offset, mod_code, strand, haplotype, 0, skip_fastq_read_pos, var);
+                                if(skip_ref_pos == -1 && ins_start!=-1 && var.cg_offsets[o] > var.ref_len && var.cg_offsets[o] <= alt_len && ins_start + ins_offset == var.pos - 1 + var.cg_offsets[o]) {
+                                    add_varview_entry(db->varview_maps[bam_i], tname, ins_start, ins_offset, mod_code, strand, haplotype, 0, skip_fastq_read_pos, var);
                                     break;
                                 } else if (skip_ref_pos != -1 && skip_ref_pos == var.pos - 1 + var.cg_offsets[o]) {
                                     add_varview_entry(db->varview_maps[bam_i], tname, skip_ref_pos, ins_offset, mod_code, strand, haplotype, 0, skip_fastq_read_pos, var);
@@ -993,7 +1003,7 @@ void print_varview_output(core_t* core, db_t* db) {
 
             if(is_bed) {
                 // contig \t start \t end \t mod_code \t mod_prob \t strand \t start \t end \t 255,255,0,0 \t ins_offset \t 1 \t ins_offset \t qname \t read_pos \t ref_allele \t alt_allele
-                fprintf(out_fp, "%s\t%d\t%d\t%s\t%f\t%c\t%d\t%d\t255,255,0,0\t%d\t1\t%d\t%s\t%d\t%s\t%s", tname, ref_pos, ref_pos+1, mod_code, THRESH_UINT8_TO_DBL(varview->mod_prob), strand, ref_pos, ref_pos+1, ins_offset, ins_offset, qname, varview->read_pos, varview->var.ref_allele, varview->var.alt_allele);
+                fprintf(out_fp, "%s\t%d\t%d\t%s\t%f\t%c\t%d\t%d\t255,0,0\t%d\t1\t%d\t%s\t%d\t%s\t%s", tname, ref_pos, ref_pos+1, mod_code, THRESH_UINT8_TO_DBL(varview->mod_prob), strand, ref_pos, ref_pos+1, ins_offset, ins_offset, qname, varview->read_pos, varview->var.ref_allele, varview->var.alt_allele);
 
                 //print var.before_site
                 fprintf(out_fp, "\t%s\t", varview->var.before_site);
