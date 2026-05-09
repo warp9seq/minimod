@@ -83,3 +83,8 @@ echo -e "${BLUE}${testname}${NC}"
 ex ./minimod varfreq -c "m,h" /genome/hg38noAlt.fa test/data/dna_5mC_5hmC_mm_chr22.bam test/data/dna_5mC_5hmC_mm_chr22.vcf > test/tmp/dna_5mC_5hmC_mm_chr22.mm.varfreq.tsv || die "${testname} failed"
 diff -q test/tmp/dna_5mC_5hmC_mm_chr22.mm.varfreq.tsv test/expected/dna_5mC_5hmC_mm_chr22.mm.varfreq.tsv || die "${testname} failed: output does not match expected output"
 
+testname="varfreq -b example-ont"
+echo -e "${BLUE}${testname}${NC}"
+ex ./minimod varfreq -b -c "m,h" /genome/hg38noAlt.fa test/data/example-ont.bam test/data/example-ont-clair.vcf > test/tmp/example-ont.mm.varfreq.bedmethyl || die "${testname} failed"
+diff -q test/tmp/example-ont.mm.varfreq.bedmethyl test/expected/example-ont.mm.varfreq.bedmethyl || die "${testname} failed: output does not match expected output"
+

@@ -1061,6 +1061,7 @@ void destroy_varfreq_map(khash_t(varfreqm)* varfreq_map) {
 }
 
 void print_varfreq_header(core_t* core) {
+    if(core->opt.bedmethyl_out) return;
     char * common = "contig\tstart\tend\tstrand\tn_called\tn_mod\tfreq\tmod_code\tref_allele\talt_allele";
     char * ins_str = "";
     char * hp_str = "";
@@ -1095,31 +1096,50 @@ void print_varfreq_output(core_t* core) {
     int do_insertions = core->opt.insertions;
     int do_haplotypes = core->opt.haplotypes;
 
-    for (int i = 0; i < size; i++) {
-        varfreq_t *varfreq = sorted_arr[i].freq;
-        double freq_value = (double)varfreq->n_mod / varfreq->n_called;
-        char *contig = NULL;
-        int ref_pos;
-        uint16_t ins_offset;
-        char *mod_code;
-        char strand;
-        int haplotype;
-        decode_key(sorted_arr[i].key, &contig, &ref_pos, &ins_offset, &mod_code, &strand, &haplotype);
-
-        fprintf(out_fp, "%s\t%d\t%d\t%c\t%d\t%d\t%f\t%s\t%s\t%s",
-            contig, ref_pos, ref_pos + 1, strand,
-            varfreq->n_called, varfreq->n_mod, freq_value, mod_code,
-            varfreq->ref_allele ? varfreq->ref_allele : ".",
-            varfreq->alt_allele ? varfreq->alt_allele : ".");
-
-        if(do_insertions) fprintf(out_fp, "\t%d", ins_offset);
-        if(do_haplotypes) {
-            if(haplotype == -1) fputs("\t*", out_fp);
-            else fprintf(out_fp, "\t%d", haplotype);
+    if(core->opt.bedmethyl_out) {
+        for (int i = 0; i < size; i++) {
+            varfreq_t *varfreq = sorted_arr[i].freq;
+            double freq_value = (double)varfreq->n_mod*100/varfreq->n_called;
+            char *contig = NULL;
+            int ref_pos;
+            uint16_t ins_offset;
+            char *mod_code;
+            char strand;
+            int haplotype;
+            decode_key(sorted_arr[i].key, &contig, &ref_pos, &ins_offset, &mod_code, &strand, &haplotype);
+            int end = ref_pos+1;
+            fprintf(out_fp, "%s\t%d\t%d\t%s\t%d\t%c\t%d\t%d\t255,0,0\t%d\t%f\n",
+                contig, ref_pos, end, mod_code, varfreq->n_called, strand, ref_pos, end, varfreq->n_called, freq_value);
+            free(contig);
+            free(mod_code);
         }
-        fputc('\n', out_fp);
-        free(contig);
-        free(mod_code);
+    } else {
+        for (int i = 0; i < size; i++) {
+            varfreq_t *varfreq = sorted_arr[i].freq;
+            double freq_value = (double)varfreq->n_mod / varfreq->n_called;
+            char *contig = NULL;
+            int ref_pos;
+            uint16_t ins_offset;
+            char *mod_code;
+            char strand;
+            int haplotype;
+            decode_key(sorted_arr[i].key, &contig, &ref_pos, &ins_offset, &mod_code, &strand, &haplotype);
+
+            fprintf(out_fp, "%s\t%d\t%d\t%c\t%d\t%d\t%f\t%s\t%s\t%s",
+                contig, ref_pos, ref_pos + 1, strand,
+                varfreq->n_called, varfreq->n_mod, freq_value, mod_code,
+                varfreq->ref_allele ? varfreq->ref_allele : ".",
+                varfreq->alt_allele ? varfreq->alt_allele : ".");
+
+            if(do_insertions) fprintf(out_fp, "\t%d", ins_offset);
+            if(do_haplotypes) {
+                if(haplotype == -1) fputs("\t*", out_fp);
+                else fprintf(out_fp, "\t%d", haplotype);
+            }
+            fputc('\n', out_fp);
+            free(contig);
+            free(mod_code);
+        }
     }
 
     if(out_fp != stdout) fclose(out_fp);

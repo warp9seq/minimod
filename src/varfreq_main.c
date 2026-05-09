@@ -58,12 +58,14 @@ static struct option long_options[] = {
     {"haplotypes",no_argument, 0, 0},              //12 enable haplotype mode
     {"allow-secondary",no_argument, 0, 0},         //13 enable secondary alignments
     {"skip-supplementary",no_argument, 0, 0},      //14 skip supplementary alignments
+    {"bedmethyl", no_argument, 0, 'b'},            //15 output in bedMethyl format
     {0, 0, 0, 0}};
 
 
 static inline void print_help_msg(FILE *fp_help, opt_t opt){
     fprintf(fp_help,"Usage: minimod varfreq ref.fa reads.bam variants.vcf\n");
     fprintf(fp_help,"\nbasic options:\n");
+    fprintf(fp_help,"   -b                         output in bedMethyl format [%s]\n", (opt.bedmethyl_out?"yes":"not set"));
     fprintf(fp_help,"   -c STR                     modification code(s) (eg. m, h or mh or as ChEBI) [%s]\n", opt.mod_codes_str==NULL?"m":opt.mod_codes_str);
     fprintf(fp_help,"   -m FLOAT                   min modification threshold(s). Comma separated values for each modification code given in -c [%s]\n", opt.mod_threshes_str==NULL?"0.8":opt.mod_threshes_str);
     fprintf(fp_help,"   -t INT                     number of processing threads [%d]\n",opt.num_thread);
@@ -154,7 +156,7 @@ int varfreq_main(int argc, char* argv[]) {
 
     double realtime0 = realtime();
 
-    const char* optstring = "m:c:t:B:K:v:p:o:hV";
+    const char* optstring = "m:c:t:B:K:v:p:o:hVb";
 
     int longindex = 0;
     int32_t c = -1;
@@ -213,6 +215,8 @@ int varfreq_main(int argc, char* argv[]) {
             strcpy(opt.mod_threshes_str,optarg);
         } else if (c=='c') {
             opt.mod_codes_str = optarg;
+        } else if (c=='b'){
+            opt.bedmethyl_out = 1;
         } else if(c == 0 && longindex == 9){
             opt.debug_break = atoi(optarg);
         } else if(c == 0 && longindex == 10){
