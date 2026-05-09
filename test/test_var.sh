@@ -41,7 +41,7 @@ if [ ! -f test/tmp/truth.tsv ]; then
 fi
 
 
-testname="varview test"
+testname="varview example-ont"
 echo -e "${BLUE}${testname}${NC}"
 ex ./minimod varview -c "m,h" /genome/hg38noAlt.fa test/data/example-ont.bam test/data/example-ont-clair.vcf > test/tmp/example-ont.mm.varview.bed || die "${testname} failed"
 diff -q test/tmp/example-ont.mm.varview.bed test/expected/example-ont.mm.varview.bed || die "${testname} failed: output does not match expected output"

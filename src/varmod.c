@@ -61,7 +61,7 @@ static int cmp_key_fast(const char *key_a, const char *key_b) {
     int start_a = atoi(tab_a + 1);
     int start_b = atoi(tab_b + 1);
 
-    return start_a - start_b;
+    return (start_a > start_b) - (start_a < start_b);
 }
 
 #define varfreq_kv_lt(a, b) (cmp_key_fast((a).key, (b).key) < 0)
@@ -210,16 +210,17 @@ void load_var_map(const char* vcf_file, khash_t(varm)* var_map) {
             char * alt_allele = rec->d.allele[i];
             int alt_len = strlen(alt_allele);
 
-            char * before_site = (char*)malloc(sizeof(char) * (ref_len + 2));
+            char * before_site = (char*)malloc(sizeof(char) * (ref_len + 3));
             MALLOC_CHK(before_site);
 
-            snprintf(before_site, ref_len + 3, "%c%s%c", ref_seq[pos-1], ref_allele[0]== '.' ? "" : ref_allele, ref_seq[pos + ref_len]);
+            char prev_base = (pos > 0) ? ref_seq[pos-1] : 'N';
+            snprintf(before_site, ref_len + 3, "%c%s%c", prev_base, ref_allele[0]== '.' ? "" : ref_allele, ref_seq[pos + ref_len]);
 
             // create site string = base before REF + ALT + base after REF
-            char *after_site = (char*)malloc(sizeof(char) * (alt_len + 2));
+            char *after_site = (char*)malloc(sizeof(char) * (alt_len + 3));
             MALLOC_CHK(after_site);
 
-            snprintf(after_site, alt_len + 3, "%c%s%c", ref->forward[pos-1], alt_allele[0]== '.' ? "" : alt_allele, ref->forward[pos + ref_len]);
+            snprintf(after_site, alt_len + 3, "%c%s%c", prev_base, alt_allele[0]== '.' ? "" : alt_allele, ref->forward[pos + ref_len]);
 
             int n_cg_offsets = 0;
             int * cg_offsets = find_cg_contexts_in_sequence(after_site, strlen(after_site), &n_cg_offsets);
@@ -398,7 +399,6 @@ void update_varfreq_map(khash_t(varfreqm) *varfreq_map, const char *tname, int r
         k = kh_put(varfreqm, varfreq_map, key, &ret);
         kh_value(varfreq_map, k) = varfreq;
     } else { // found, update
-        free(key);
         varfreq_t * varfreq = kh_value(varfreq_map, k);
         varfreq->n_called += is_called;
         varfreq->n_mod += is_mod;
@@ -407,6 +407,7 @@ void update_varfreq_map(khash_t(varfreqm) *varfreq_map, const char *tname, int r
             ERROR("n_called overflowed for key %s. Please report this issue.", key);
             exit(EXIT_FAILURE);
         }
+        free(key);
     }
 
     if(haplotype != -1) {
@@ -421,7 +422,6 @@ void update_varfreq_map(khash_t(varfreqm) *varfreq_map, const char *tname, int r
             k = kh_put(varfreqm, varfreq_map, key, &ret);
             kh_value(varfreq_map, k) = varfreq;
         } else { // found, update
-            free(key);
             varfreq_t * varfreq = kh_value(varfreq_map, k);
             varfreq->n_called += is_called;
             varfreq->n_mod += is_mod;
@@ -430,6 +430,7 @@ void update_varfreq_map(khash_t(varfreqm) *varfreq_map, const char *tname, int r
                 ERROR("n_called overflowed for key %s. Please report this issue.", key);
                 exit(EXIT_FAILURE);
             }
+            free(key);
         }
     }
 }
@@ -679,9 +680,11 @@ void varviewfreq_single(core_t * core, db_t *db, int32_t bam_i) {
                             if(ref_pos == -1 && ins_start!=-1 && ins_start + ins_offset == var.pos - 1 + var.cg_offsets[o]) {
                                 uint8_t mod_prob = ml[ml_idx];
                                 add_varview_entry(db->varview_maps[bam_i], tname, ref_pos==-1?ins_start:ref_pos, ins_offset, mod_code, strand, haplotype, mod_prob, fastq_read_pos, var);
-                            } else if (ref_pos !=-1 && (ref_pos == var.pos || ref_pos == var.pos - 1 || ref_pos == var.pos + 1)) {
+                                break;
+                            } else if (ref_pos != -1 && ref_pos == var.pos - 1 + var.cg_offsets[o]) {
                                 uint8_t mod_prob = ml[ml_idx];
-                                add_varview_entry(db->varview_maps[bam_i], tname, ref_pos==-1?ins_start:ref_pos, ins_offset, mod_code, strand, haplotype, mod_prob, fastq_read_pos, var);
+                                add_varview_entry(db->varview_maps[bam_i], tname, ref_pos, ins_offset, mod_code, strand, haplotype, mod_prob, fastq_read_pos, var);
+                                break;
                             }
                         }
                     }
@@ -754,8 +757,8 @@ void varviewfreq_single(core_t * core, db_t *db, int32_t bam_i) {
                         continue;
                     }
 
-                    int ins_start = db->ins[bam_i][skip_read_pos];
-                    int ins_offset = db->ins_offset[bam_i][skip_read_pos];
+                    int ins_start = db->ins[bam_i][skip_fastq_read_pos];
+                    int ins_offset = db->ins_offset[bam_i][skip_fastq_read_pos];
 
                     // mod prob per each mod code.
                     for(int m=0; m<mod_codes_len; m++) {
@@ -789,8 +792,9 @@ void varviewfreq_single(core_t * core, db_t *db, int32_t bam_i) {
                                 for(int o=0; o<var.cg_offsets_len; o++) {
                                     if(skip_ref_pos == -1 && ins_start!=-1 && ins_start + ins_offset == var.pos - 1 + var.cg_offsets[o]) {
                                         add_varview_entry(db->varview_maps[bam_i], tname, skip_ref_pos==-1?ins_start:skip_ref_pos, ins_offset, mod_code, strand, haplotype, 0, skip_fastq_read_pos, var);
-                                    } else if (skip_ref_pos !=-1 && (skip_ref_pos == var.pos || skip_ref_pos == var.pos - 1 || skip_ref_pos == var.pos + 1)) {
-                                        add_varview_entry(db->varview_maps[bam_i], tname, skip_ref_pos==-1?ins_start:skip_ref_pos, ins_offset, mod_code, strand, haplotype, 0, skip_fastq_read_pos, var);
+                                        break;
+                                    } else if (skip_ref_pos != -1 && skip_ref_pos == var.pos - 1 + var.cg_offsets[o]) {
+                                        add_varview_entry(db->varview_maps[bam_i], tname, skip_ref_pos, ins_offset, mod_code, strand, haplotype, 0, skip_fastq_read_pos, var);
                                         break;
                                     }
                                 }
@@ -870,16 +874,15 @@ void varviewfreq_single(core_t * core, db_t *db, int32_t bam_i) {
                         vars_t *vars = kh_value(core->var_map, ck);
                         
                         for(int v=0; v<vars->vars_len; v++) {
-                            for(int v=0; v<vars->vars_len; v++) {
-                                var = vars->vars[v];
-                                for(int o=0; o<var.cg_offsets_len; o++) {
-                                    if(skip_ref_pos == -1 && ins_start!=-1 && ins_start + ins_offset == var.pos - 1 + var.cg_offsets[o]) {
-                                        add_varview_entry(db->varview_maps[bam_i], tname, skip_ref_pos==-1?ins_start:skip_ref_pos, ins_offset, mod_code, strand, haplotype, 0, skip_fastq_read_pos, var);
-                                    } else if (skip_ref_pos !=-1 && (skip_ref_pos == var.pos || skip_ref_pos == var.pos - 1 || skip_ref_pos == var.pos + 1)) {
-                                        add_varview_entry(db->varview_maps[bam_i], tname, skip_ref_pos==-1?ins_start:skip_ref_pos, ins_offset, mod_code, strand, haplotype, 0, skip_fastq_read_pos, var);
-                                    }
+                            var = vars->vars[v];
+                            for(int o=0; o<var.cg_offsets_len; o++) {
+                                if(skip_ref_pos == -1 && ins_start!=-1 && ins_start + ins_offset == var.pos - 1 + var.cg_offsets[o]) {
+                                    add_varview_entry(db->varview_maps[bam_i], tname, skip_ref_pos==-1?ins_start:skip_ref_pos, ins_offset, mod_code, strand, haplotype, 0, skip_fastq_read_pos, var);
+                                    break;
+                                } else if (skip_ref_pos != -1 && skip_ref_pos == var.pos - 1 + var.cg_offsets[o]) {
+                                    add_varview_entry(db->varview_maps[bam_i], tname, skip_ref_pos, ins_offset, mod_code, strand, haplotype, 0, skip_fastq_read_pos, var);
+                                    break;
                                 }
-                                if(skip_is_in_context) break;
                             }
                         }
                     }
@@ -906,29 +909,27 @@ void varviewfreq_single(core_t * core, db_t *db, int32_t bam_i) {
 
 void warn_untested_cases_var(opt_t * opt) {
     int n_tested_cases = sizeof(tested_cases) / sizeof(tested_cases[0]);
-    for(int i=0; i < opt->n_mods; i++) {
-        khint_t i;
-        for(i=kh_begin(opt->modcodes_map); i < kh_end(opt->modcodes_map); ++i) {
-            if (!kh_exist(opt->modcodes_map, i)) continue;
-            char * mod_code = (char *) kh_key(opt->modcodes_map, i);
-            char * context = kh_value(opt->modcodes_map, i)->context;
+    khint_t i;
+    for(i=kh_begin(opt->modcodes_map); i < kh_end(opt->modcodes_map); ++i) {
+        if (!kh_exist(opt->modcodes_map, i)) continue;
+        char * mod_code = (char *) kh_key(opt->modcodes_map, i);
+        char * context = kh_value(opt->modcodes_map, i)->context;
 
-            char * mod_code_with_context = (char *)malloc(strlen(mod_code) + strlen(context) + 3); // for null terminator and brackets
-            MALLOC_CHK(mod_code_with_context);
-            snprintf(mod_code_with_context, strlen(mod_code) + strlen(context) + 3, "%s[%s]", mod_code, context);
+        char * mod_code_with_context = (char *)malloc(strlen(mod_code) + strlen(context) + 3); // for null terminator and brackets
+        MALLOC_CHK(mod_code_with_context);
+        snprintf(mod_code_with_context, strlen(mod_code) + strlen(context) + 3, "%s[%s]", mod_code, context);
 
-            int is_tested = false;
-            for(int j=0; j < n_tested_cases; j++){
-                if(strcmp(mod_code_with_context, tested_cases[j]) == 0){
-                    is_tested = true;
-                    break;
-                }
+        int is_tested = false;
+        for(int j=0; j < n_tested_cases; j++){
+            if(strcmp(mod_code_with_context, tested_cases[j]) == 0){
+                is_tested = true;
+                break;
             }
-            if(!is_tested){
-                WARNING("Modification code with context %s has not been tested.", mod_code_with_context);
-            }
-            free(mod_code_with_context);
         }
+        if(!is_tested){
+            WARNING("Modification code with context %s has not been tested.", mod_code_with_context);
+        }
+        free(mod_code_with_context);
     }
 }
 
@@ -1018,9 +1019,5 @@ void print_varview_output(core_t* core, db_t* db) {
 
     if (sorted_arr) {
         free(sorted_arr);
-    }
-
-    if(out_fp != stdout){
-        fclose(out_fp);
     }
 }
