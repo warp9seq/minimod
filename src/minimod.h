@@ -108,6 +108,7 @@ typedef struct {
     uint32_t n_mod;
     const char *ref_allele;
     const char *alt_allele;
+    int var_pos;
 } varfreq_t;
 
 typedef struct {
