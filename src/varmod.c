@@ -70,6 +70,20 @@ static int cmp_key_fast(const char *key_a, const char *key_b) {
 KSORT_INIT(varfreq, varfreq_kv_t, varfreq_kv_lt)
 KSORT_INIT(varview, varview_kv_t, varview_kv_lt)
 
+static int cmp_cg_entry(const void *a, const void *b) {
+    const cg_entry_t *ea = a, *eb = b;
+    return (ea->ref_cg_pos > eb->ref_cg_pos) - (ea->ref_cg_pos < eb->ref_cg_pos);
+}
+
+static inline int lower_bound_cg(cg_entry_t *entries, int len, int pos) {
+    int lo = 0, hi = len;
+    while (lo < hi) {
+        int mid = (lo + hi) >> 1;
+        if (entries[mid].ref_cg_pos < pos) lo = mid + 1;
+        else hi = mid;
+    }
+    return lo;
+}
 
 static const int valid_bases[256] = { ['A'] = 1, ['C'] = 1, ['G'] = 1, ['T'] = 1, ['U'] = 1, ['N'] = 1, ['a'] = 1, ['c'] = 1, ['g'] = 1, ['t'] = 1, ['u'] = 1, ['n'] = 1 };
 static const int valid_strands[256] = { ['+'] = 1, ['-'] = 1 };
@@ -195,11 +209,12 @@ void load_var_map(const char* vcf_file, khash_t(varm)* var_map) {
         
         int ret;
         khint_t k = kh_put(varm, var_map, contig_dup, &ret);
-        vars_t * vars = kh_value(var_map, k);
-        
+        vars_t * vars;
+
         // already exists
         if(ret == 0) {
             free(contig_dup);
+            vars = kh_value(var_map, k);
         } else {
             vars = (vars_t *)malloc(sizeof(vars_t));
             MALLOC_CHK(vars);
@@ -207,6 +222,10 @@ void load_var_map(const char* vcf_file, khash_t(varm)* var_map) {
             vars->vars_cap = 1;
             vars->vars = (var_t*)malloc(sizeof(var_t) * vars->vars_cap);
             MALLOC_CHK(vars->vars);
+            vars->cg_entries_len = 0;
+            vars->cg_entries_cap = 4;
+            vars->cg_entries = (cg_entry_t*)malloc(sizeof(cg_entry_t) * vars->cg_entries_cap);
+            MALLOC_CHK(vars->cg_entries);
             kh_value(var_map, k) = vars;
         }
         
@@ -251,10 +270,22 @@ void load_var_map(const char* vcf_file, khash_t(varm)* var_map) {
             var.after_site = after_site;
             vars->vars[vars->vars_len++] = var;
 
+            // build CG-position index for O(log N) lookup during processing
+            int var_idx = vars->vars_len - 1;
+            for (int o = 0; o < n_cg_offsets; o++) {
+                int8_t is_ins = (cg_offsets[o] > ref_len && cg_offsets[o] <= alt_len) ? 1 : 0;
+                if (vars->cg_entries_len >= vars->cg_entries_cap) {
+                    vars->cg_entries_cap *= 2;
+                    vars->cg_entries = (cg_entry_t*)realloc(vars->cg_entries, sizeof(cg_entry_t) * vars->cg_entries_cap);
+                    MALLOC_CHK(vars->cg_entries);
+                }
+                vars->cg_entries[vars->cg_entries_len].ref_cg_pos = pos - 1 + cg_offsets[o];
+                vars->cg_entries[vars->cg_entries_len].var_idx = var_idx;
+                vars->cg_entries[vars->cg_entries_len].is_insertion_only = is_ins;
+                vars->cg_entries_len++;
+            }
 
             // TODO: Refer vcf spec. and handle indels at terminal positions of the contig.
-
-            // free(site_str);
 
         }
 
@@ -263,7 +294,14 @@ void load_var_map(const char* vcf_file, khash_t(varm)* var_map) {
     bcf_destroy(rec);
     bcf_hdr_destroy(vcf_hdr);
     hts_close(vcf_fp);
-    
+
+    // sort each contig's CG-position index for binary search during processing
+    for (khint_t k = kh_begin(var_map); k != kh_end(var_map); ++k) {
+        if (kh_exist(var_map, k)) {
+            vars_t *vars = kh_value(var_map, k);
+            qsort(vars->cg_entries, vars->cg_entries_len, sizeof(cg_entry_t), cmp_cg_entry);
+        }
+    }
 }
 
 void destroy_var_map(khash_t(varm)* var_map) {
@@ -281,6 +319,7 @@ void destroy_var_map(khash_t(varm)* var_map) {
                 free(vars->vars[i].cg_offsets);
             }
             free(vars->vars);
+            free(vars->cg_entries);
             free(vars);
         }
     }
@@ -465,8 +504,7 @@ void add_varview_entry(khash_t(varviewm) *varview_map, const char *tname, int re
 }
 
 void varviewfreq_single(core_t * core, db_t *db, int32_t bam_i) {
-   bam1_t *record = db->bam_recs[bam_i];
-    // const char *qname = bam_get_qname(record);
+    bam1_t *record = db->bam_recs[bam_i];
     int8_t rev = bam_is_rev(record);
     bam_hdr_t *hdr = core->bam_hdr;
     int32_t tid = record->core.tid;
@@ -476,30 +514,30 @@ void varviewfreq_single(core_t * core, db_t *db, int32_t bam_i) {
     uint32_t seq_len = record->core.l_qseq;
     char strand = rev ? '-' : '+';
     const char *mm_string = db->mm[bam_i];
-    // uint32_t ml_len = db->ml_lens[bam_i];
     uint8_t *ml = db->ml[bam_i];
     int haplotype = core->opt.haplotypes ? get_hp_tag(record) : -1;
-    int * aln_pairs = db->aln[bam_i];
+    int *aln_pairs = db->aln[bam_i];
 
     ref_t *ref = get_ref(tname);
     ASSERT_MSG(ref != NULL, "Contig %s not found in reference provided\n", tname);
 
-    // get the aligned positions and insertions
     get_aln(core, db, hdr, record, bam_i);
-    
-    // 5 int arrays to keep base pos of A, C, G, T, N bases.
-    // A: 0, C: 1, G: 2, T: 3, U:4, N: 5
-    // so that, nth base of A is at base_pos[0][n] and so on.
+
     int **bases_pos = db->bases_pos[bam_i];
     int bases_pos_lens[N_BASES] = {0};
     memset(db->mod_codes[bam_i], 0, core->opt.n_mods);
 
     int i;
-    for(i=0;i<seq_len;i++){
+    for (i = 0; i < (int)seq_len; i++) {
         int base_char = seq_nt16_str[bam_seqi(seq, i)];
         int idx = base_idx_lookup[(int)base_char];
         bases_pos[idx][bases_pos_lens[idx]++] = i;
     }
+
+    khint_t contig_k = kh_get(varm, core->var_map, tname);
+    vars_t *vars = (contig_k != kh_end(core->var_map)) ? kh_value(core->var_map, contig_k) : NULL;
+    khint_t wc_k = kh_get(modcodesm, core->opt.modcodes_map, WILDCARD_STR);
+    int has_wildcard = (wc_k != kh_end(core->opt.modcodes_map));
 
     int mm_str_len = strlen(mm_string);
     i = 0;
@@ -602,7 +640,7 @@ void varviewfreq_single(core_t * core, db_t *db, int32_t bam_i) {
             }
             skip_count_str[l] = '\0';
             ASSERT_MSG(l > 0, "Invalid skip count:%d.\n", l);
-            sscanf(skip_count_str, "%d", &skip_counts[k]);
+            skip_counts[k] = atoi(skip_count_str);
             ASSERT_MSG(skip_counts[k] >= 0, "Skip count cannot be negative: %d.\n", skip_counts[k]);
             
             k++;
@@ -612,7 +650,21 @@ void varviewfreq_single(core_t * core, db_t *db, int32_t bam_i) {
 
         char mb = rev? base_complement_lookup[(int)modbase] : modbase;
         int idx = base_idx_lookup[(int)mb];
-        
+
+        modcodem_t *req_mods[MOD_CODE_LEN];
+        int req_mod_valid[MOD_CODE_LEN];
+        for (int m = 0; m < mod_codes_len; m++) {
+            char *mc = has_nums ? mod_codes : &mod_codes[m];
+            khint_t mk = has_wildcard ? wc_k : kh_get(modcodesm, core->opt.modcodes_map, mc);
+            if (mk == kh_end(core->opt.modcodes_map)) {
+                req_mod_valid[m] = 0;
+                req_mods[m] = NULL;
+            } else {
+                req_mod_valid[m] = 1;
+                req_mods[m] = kh_value(core->opt.modcodes_map, mk);
+            }
+        }
+
         int ml_idx = ml_start_idx;
         int base_rank = -1; // 0-based rank
         for(int c=0; c<skip_counts_len; c++) {
@@ -621,197 +673,101 @@ void varviewfreq_single(core_t * core, db_t *db, int32_t bam_i) {
             int read_pos;
 
             if (modbase == 'N') {
-                if(rev) {
-                    read_pos = seq_len - base_rank - 1;
-                } else {
-                    read_pos = base_rank;
-                }
+                read_pos = rev ? (int)(seq_len - base_rank - 1) : base_rank;
             } else {
-                if(rev) {
-                    read_pos = bases_pos[idx][bases_pos_lens[idx] - base_rank - 1];
-                } else {
-                    read_pos = bases_pos[idx][base_rank];
-                }
+                read_pos = rev ? bases_pos[idx][bases_pos_lens[idx] - base_rank - 1] : bases_pos[idx][base_rank];
             }
 
-            ASSERT_MSG(read_pos>=0 && read_pos < seq_len, "Read pos cannot exceed seq len. read_pos: %d seq_len: %d\n", read_pos, seq_len);
+            ASSERT_MSG(read_pos >= 0 && read_pos < (int)seq_len, "Read pos cannot exceed seq len. read_pos: %d seq_len: %d\n", read_pos, seq_len);
 
-            int fastq_read_pos = rev ? (seq_len - read_pos -1) : read_pos;
-
+            int fastq_read_pos = rev ? (int)(seq_len - read_pos - 1) : read_pos;
             int ref_pos = aln_pairs[fastq_read_pos];
+            int ins_start = db->ins[bam_i][fastq_read_pos];
+            int ins_offset = db->ins_offset[bam_i][fastq_read_pos];
 
-            if(ref_pos == -1 && db->ins[bam_i][fastq_read_pos] == -1) { // not aligned nor insertion
-                if(mod_codes_len > 0) {
-                    ml_idx = ml_start_idx + c*mod_codes_len + mod_codes_len - 1;
+            if (ref_pos == -1 && ins_start == -1) {
+                if (mod_codes_len > 0) {
+                    ml_idx = ml_start_idx + c * mod_codes_len + mod_codes_len - 1;
                 }
                 continue;
             }
 
-            int ins_start = db->ins[bam_i][fastq_read_pos];
-            int ins_offset = db->ins_offset[bam_i][fastq_read_pos];
+            for (int m = 0; m < mod_codes_len; m++) {
+                ml_idx = ml_start_idx + c * mod_codes_len + m;
 
-            // char out_strand = strand;
-            // if(mod_strand == '-') {
-            //     out_strand = strand == '+' ? '-' : '+';
-            // }
-            
-            // mod prob per each mod code.
-            for(int m=0; m<mod_codes_len; m++) {                
-                ml_idx = ml_start_idx + c*mod_codes_len + m;
+                if (!req_mod_valid[m]) continue;
 
-                // check required mod codes
-                khint_t mk;
+                char *mod_code = has_nums ? mod_codes : &mod_codes[m];
+                modcodem_t *req_mod = req_mods[m];
 
-                mk = kh_get(modcodesm, core->opt.modcodes_map, WILDCARD_STR); // check for wildcard first
-                char * mod_code = NULL;
-                if (has_nums) { // chebi id
-                    mod_code = mod_codes;
-                } else { // not chebi id, need to check for each mod code
-                    mod_code = &(mod_codes[m]);
-                }
-                if (mk != kh_end(core->opt.modcodes_map)) { // wildcard present, all mod codes are required
-                    // do nothing, just proceed
-                } else {
-                    mk = kh_get(modcodesm, core->opt.modcodes_map, mod_code);
-                    if(mk == kh_end(core->opt.modcodes_map)) continue; // mod code not required
-                }
+                if (vars) {
+                    int want_ins = (ref_pos == -1);
+                    int lookup_pos = want_ins ? (ins_start + ins_offset) : ref_pos;
+                    int out_pos = want_ins ? ins_start : ref_pos;
 
-                modcodem_t *req_mod = kh_value(core->opt.modcodes_map, mk);
-
-                // int is_in_context = 0;
-                var_t var;
-                khint_t ck = kh_get(varm, core->var_map, tname);
-                if(ck != kh_end(core->var_map)) {
-                    vars_t *vars = kh_value(core->var_map, ck);
-                    
-                    for(int v=0; v<vars->vars_len; v++) {
-                        var = vars->vars[v];
-
-                        int alt_len = strlen(var.alt_allele);
-                        for(int o=0; o<var.cg_offsets_len; o++) {
-                            if(ref_pos == -1 && ins_start!=-1 && var.cg_offsets[o] > var.ref_len && var.cg_offsets[o] <= alt_len && ins_start + ins_offset == var.pos - 1 + var.cg_offsets[o]) {
-                                uint8_t mod_prob = ml[ml_idx];
-                                if(core->opt.subtool == VARVIEW) {
-                                    add_varview_entry(db->varview_maps[bam_i], tname, ins_start, ins_offset, mod_code, strand, haplotype, mod_prob, fastq_read_pos, var);
-                                } else { // VARFREQ
-                                    double mod_prob_dbl = THRESH_UINT8_TO_DBL(mod_prob);
-                                    double thresh = req_mod->thresh;
-                                    int is_called = 0, is_mod = 0;
-                                    if(mod_prob_dbl >= thresh){ is_called = 1; is_mod = 1; }
-                                    else if(mod_prob_dbl <= 1 - thresh){ is_called = 1; }
-                                    else break;
-                                    update_varfreq_map(db->varfreq_maps[bam_i], tname, ins_start, ins_offset, mod_code, strand, haplotype, is_called, is_mod, var.ref_allele, var.alt_allele);
-                                }
-                                break;
-                            } else if (ref_pos != -1 && ref_pos == var.pos - 1 + var.cg_offsets[o]) {
-                                uint8_t mod_prob = ml[ml_idx];
-                                if(core->opt.subtool == VARVIEW) {
-                                    add_varview_entry(db->varview_maps[bam_i], tname, ref_pos, ins_offset, mod_code, strand, haplotype, mod_prob, fastq_read_pos, var);
-                                } else { // VARFREQ
-                                    double mod_prob_dbl = THRESH_UINT8_TO_DBL(mod_prob);
-                                    double thresh = req_mod->thresh;
-                                    int is_called = 0, is_mod = 0;
-                                    if(mod_prob_dbl >= thresh){ is_called = 1; is_mod = 1; }
-                                    else if(mod_prob_dbl <= 1 - thresh){ is_called = 1; }
-                                    else break;
-                                    update_varfreq_map(db->varfreq_maps[bam_i], tname, ref_pos, ins_offset, mod_code, strand, haplotype, is_called, is_mod, var.ref_allele, var.alt_allele);
-                                }
-                                break;
-                            }
+                    int ei = lower_bound_cg(vars->cg_entries, vars->cg_entries_len, lookup_pos);
+                    for (; ei < vars->cg_entries_len && vars->cg_entries[ei].ref_cg_pos == lookup_pos; ei++) {
+                        if (vars->cg_entries[ei].is_insertion_only != want_ins) continue;
+                        var_t var = vars->vars[vars->cg_entries[ei].var_idx];
+                        uint8_t mod_prob = ml[ml_idx];
+                        if (core->opt.subtool == VARVIEW) {
+                            add_varview_entry(db->varview_maps[bam_i], tname, out_pos, ins_offset, mod_code, strand, haplotype, mod_prob, fastq_read_pos, var);
+                        } else {
+                            double mod_prob_dbl = THRESH_UINT8_TO_DBL(mod_prob);
+                            double thresh = req_mod->thresh;
+                            int is_called = 0, is_mod = 0;
+                            if (mod_prob_dbl >= thresh) { is_called = 1; is_mod = 1; }
+                            else if (mod_prob_dbl <= 1 - thresh) { is_called = 1; }
+                            else continue;
+                            update_varfreq_map(db->varfreq_maps[bam_i], tname, out_pos, ins_offset, mod_code, strand, haplotype, is_called, is_mod, var.ref_allele, var.alt_allele);
                         }
                     }
                 }
             }
-
         }
-        if(skip_counts_len > 0) ml_start_idx = ml_idx + 1;
+        if (skip_counts_len > 0) ml_start_idx = ml_idx + 1;
 
-        
-        // skipped bases
+        // Skipped bases (mod_prob = 0, status_flag == '.')
         if (status_flag == '.') {
-            int skip_base_rank = -1; // 0-based rank
-            int prev_skip_base_rank = -1; 
-            for(int c=0; c<skip_counts_len; c++) {
+            int skip_base_rank = -1;
+            int prev_skip_base_rank = -1;
+            for (int c = 0; c < skip_counts_len; c++) {
                 skip_base_rank += skip_counts[c] + 1;
-            
-                // modification probability is 0 for skipped bases
-                for(int s=prev_skip_base_rank+1; s<skip_base_rank; s++) {
+
+                for (int s = prev_skip_base_rank + 1; s < skip_base_rank; s++) {
                     int skip_read_pos;
                     if (modbase == 'N') {
-                        if(rev) {
-                            skip_read_pos = seq_len - s - 1;
-                        } else {
-                            skip_read_pos = s;
-                        }
+                        skip_read_pos = rev ? (int)(seq_len - s - 1) : s;
                     } else {
-                        if(rev) {
-                            skip_read_pos = bases_pos[idx][bases_pos_lens[idx] - s - 1];
-                        } else {
-                            skip_read_pos = bases_pos[idx][s];
-                        }
+                        skip_read_pos = rev ? bases_pos[idx][bases_pos_lens[idx] - s - 1] : bases_pos[idx][s];
                     }
 
-                    ASSERT_MSG(skip_read_pos>=0 && skip_read_pos < seq_len, "Read pos cannot exceed seq len. read_pos: %d seq_len: %d\n", skip_read_pos, seq_len);
+                    ASSERT_MSG(skip_read_pos >= 0 && skip_read_pos < (int)seq_len, "Read pos cannot exceed seq len. read_pos: %d seq_len: %d\n", skip_read_pos, seq_len);
 
-                    int skip_fastq_read_pos = rev ? (seq_len - skip_read_pos -1) : skip_read_pos;
-
+                    int skip_fastq_read_pos = rev ? (int)(seq_len - skip_read_pos - 1) : skip_read_pos;
                     int skip_ref_pos = aln_pairs[skip_fastq_read_pos];
+                    int skip_ins_start = db->ins[bam_i][skip_fastq_read_pos];
+                    int skip_ins_offset = db->ins_offset[bam_i][skip_fastq_read_pos];
 
-                    if(skip_ref_pos == -1 && db->ins[bam_i][skip_fastq_read_pos] == -1) { // not aligned nor insertion
-                        if(mod_codes_len > 0) {
-                            ml_idx = ml_start_idx + c*mod_codes_len + mod_codes_len - 1;
-                        }
-                        continue;
-                    }
+                    if (skip_ref_pos == -1 && skip_ins_start == -1) continue;
 
-                    int ins_start = db->ins[bam_i][skip_fastq_read_pos];
-                    int ins_offset = db->ins_offset[bam_i][skip_fastq_read_pos];
+                    for (int m = 0; m < mod_codes_len; m++) {
+                        if (!req_mod_valid[m]) continue;
+                        char *mod_code = has_nums ? mod_codes : &mod_codes[m];
 
-                    // mod prob per each mod code.
-                    for(int m=0; m<mod_codes_len; m++) {
+                        if (vars) {
+                            int want_ins = (skip_ref_pos == -1);
+                            int lookup_pos = want_ins ? (skip_ins_start + skip_ins_offset) : skip_ref_pos;
+                            int out_pos = want_ins ? skip_ins_start : skip_ref_pos;
 
-                        // check required mod codes
-                        khint_t mk;
-
-                        mk = kh_get(modcodesm, core->opt.modcodes_map, WILDCARD_STR); // check for wildcard first
-                        char * mod_code = NULL;
-                        if (has_nums) { // chebi id
-                            mod_code = mod_codes;
-                        } else { // not chebi id, need to check for each mod code
-                            mod_code = &(mod_codes[m]);
-                        }
-                        if (mk != kh_end(core->opt.modcodes_map)) { // wildcard present, all mod codes are required
-                            // do nothing, just proceed
-                        } else {
-                            mk = kh_get(modcodesm, core->opt.modcodes_map, mod_code);
-                            if(mk == kh_end(core->opt.modcodes_map)) {
-                                continue; // mod code not required
-                            }
-                        }
-
-                        var_t var;
-                        khint_t ck = kh_get(varm, core->var_map, tname);
-                        if(ck != kh_end(core->var_map)) {
-                            vars_t *vars = kh_value(core->var_map, ck);
-                            for(int v=0; v<vars->vars_len; v++) {
-                                var = vars->vars[v];
-                                int alt_len = strlen(var.alt_allele);
-                                for(int o=0; o<var.cg_offsets_len; o++) {
-                                    if(skip_ref_pos == -1 && ins_start!=-1 && var.cg_offsets[o] > var.ref_len && var.cg_offsets[o] <= alt_len && ins_start + ins_offset == var.pos - 1 + var.cg_offsets[o]) {
-                                        if(core->opt.subtool == VARVIEW) {
-                                            add_varview_entry(db->varview_maps[bam_i], tname, ins_start, ins_offset, mod_code, strand, haplotype, 0, skip_fastq_read_pos, var);
-                                        } else {
-                                            update_varfreq_map(db->varfreq_maps[bam_i], tname, ins_start, ins_offset, mod_code, strand, haplotype, 1, 0, var.ref_allele, var.alt_allele);
-                                        }
-                                        break;
-                                    } else if (skip_ref_pos != -1 && skip_ref_pos == var.pos - 1 + var.cg_offsets[o]) {
-                                        if(core->opt.subtool == VARVIEW) {
-                                            add_varview_entry(db->varview_maps[bam_i], tname, skip_ref_pos, ins_offset, mod_code, strand, haplotype, 0, skip_fastq_read_pos, var);
-                                        } else {
-                                            update_varfreq_map(db->varfreq_maps[bam_i], tname, skip_ref_pos, ins_offset, mod_code, strand, haplotype, 1, 0, var.ref_allele, var.alt_allele);
-                                        }
-                                        break;
-                                    }
+                            int ei = lower_bound_cg(vars->cg_entries, vars->cg_entries_len, lookup_pos);
+                            for (; ei < vars->cg_entries_len && vars->cg_entries[ei].ref_cg_pos == lookup_pos; ei++) {
+                                if (vars->cg_entries[ei].is_insertion_only != want_ins) continue;
+                                var_t var = vars->vars[vars->cg_entries[ei].var_idx];
+                                if (core->opt.subtool == VARVIEW) {
+                                    add_varview_entry(db->varview_maps[bam_i], tname, out_pos, skip_ins_offset, mod_code, strand, haplotype, 0, skip_fastq_read_pos, var);
+                                } else {
+                                    update_varfreq_map(db->varfreq_maps[bam_i], tname, out_pos, skip_ins_offset, mod_code, strand, haplotype, 1, 0, var.ref_allele, var.alt_allele);
                                 }
                             }
                         }
@@ -824,84 +780,43 @@ void varviewfreq_single(core_t * core, db_t *db, int32_t bam_i) {
             for(int s=prev_skip_base_rank+1; s<bases_pos_lens[idx]; s++) {
                 int skip_read_pos;
                 if (modbase == 'N') {
-                    if(rev) {
-                        skip_read_pos = seq_len - s - 1;
-                    } else {
-                        skip_read_pos = s;
-                    }
+                    skip_read_pos = rev ? (int)(seq_len - s - 1) : s;
                 } else {
-                    if(rev) {
-                        skip_read_pos = bases_pos[idx][bases_pos_lens[idx] - s - 1];
-                    } else {
-                        skip_read_pos = bases_pos[idx][s];
-                    }
+                    skip_read_pos = rev ? bases_pos[idx][bases_pos_lens[idx] - s - 1] : bases_pos[idx][s];
                 }
 
-                ASSERT_MSG(skip_read_pos>=0 && skip_read_pos < seq_len, "Read pos cannot exceed seq len. read_pos: %d seq_len: %d\n", skip_read_pos, seq_len);
+                ASSERT_MSG(skip_read_pos >= 0 && skip_read_pos < (int)seq_len, "Read pos cannot exceed seq len. read_pos: %d seq_len: %d\n", skip_read_pos, seq_len);
 
-                int skip_fastq_read_pos = rev ? (seq_len - skip_read_pos -1) : skip_read_pos;
-
+                int skip_fastq_read_pos = rev ? (int)(seq_len - skip_read_pos - 1) : skip_read_pos;
                 int skip_ref_pos = aln_pairs[skip_fastq_read_pos];
-                skip_ref_pos = aln_pairs[skip_fastq_read_pos];
+                int skip_ins_start = db->ins[bam_i][skip_fastq_read_pos];
+                int skip_ins_offset = db->ins_offset[bam_i][skip_fastq_read_pos];
 
+                if (skip_ref_pos == -1 && skip_ins_start == -1) continue;
 
-                int ins_start = db->ins[bam_i][skip_fastq_read_pos];
-                int ins_offset = db->ins_offset[bam_i][skip_fastq_read_pos];
+                for (int m = 0; m < mod_codes_len; m++) {
+                    if (!req_mod_valid[m]) continue;
+                    char *mod_code = has_nums ? mod_codes : &mod_codes[m];
 
-                // mod prob per each mod code.
-                for(int m=0; m<mod_codes_len; m++) {
+                    if (vars) {
+                        int want_ins = (skip_ref_pos == -1);
+                        int lookup_pos = want_ins ? (skip_ins_start + skip_ins_offset) : skip_ref_pos;
+                        int out_pos = want_ins ? skip_ins_start : skip_ref_pos;
 
-                    // check required mod codes
-                    khint_t mk;
-
-                    mk = kh_get(modcodesm, core->opt.modcodes_map, WILDCARD_STR); // check for wildcard first
-                    char * mod_code = NULL;
-                    if (has_nums) { // chebi id
-                        mod_code = mod_codes;
-                    } else { // not chebi id, need to check for each mod code
-                        mod_code = &(mod_codes[m]);
-                    }
-                    if (mk != kh_end(core->opt.modcodes_map)) { // wildcard present, all mod codes are required
-                        // do nothing, just proceed
-                    } else {
-                        mk = kh_get(modcodesm, core->opt.modcodes_map, mod_code);
-                        if(mk == kh_end(core->opt.modcodes_map)) {
-                            continue; // mod code not required
-                        }
-                    }
-
-                    var_t var;
-                    khint_t ck = kh_get(varm, core->var_map, tname);
-                    if(ck != kh_end(core->var_map)) {
-                        vars_t *vars = kh_value(core->var_map, ck);
-
-                        for(int v=0; v<vars->vars_len; v++) {
-                            var = vars->vars[v];
-                            int alt_len = strlen(var.alt_allele);
-                            for(int o=0; o<var.cg_offsets_len; o++) {
-                                if(skip_ref_pos == -1 && ins_start!=-1 && var.cg_offsets[o] > var.ref_len && var.cg_offsets[o] <= alt_len && ins_start + ins_offset == var.pos - 1 + var.cg_offsets[o]) {
-                                    if(core->opt.subtool == VARVIEW) {
-                                        add_varview_entry(db->varview_maps[bam_i], tname, ins_start, ins_offset, mod_code, strand, haplotype, 0, skip_fastq_read_pos, var);
-                                    } else {
-                                        update_varfreq_map(db->varfreq_maps[bam_i], tname, ins_start, ins_offset, mod_code, strand, haplotype, 1, 0, var.ref_allele, var.alt_allele);
-                                    }
-                                    break;
-                                } else if (skip_ref_pos != -1 && skip_ref_pos == var.pos - 1 + var.cg_offsets[o]) {
-                                    if(core->opt.subtool == VARVIEW) {
-                                        add_varview_entry(db->varview_maps[bam_i], tname, skip_ref_pos, ins_offset, mod_code, strand, haplotype, 0, skip_fastq_read_pos, var);
-                                    } else {
-                                        update_varfreq_map(db->varfreq_maps[bam_i], tname, skip_ref_pos, ins_offset, mod_code, strand, haplotype, 1, 0, var.ref_allele, var.alt_allele);
-                                    }
-                                    break;
-                                }
+                        int ei = lower_bound_cg(vars->cg_entries, vars->cg_entries_len, lookup_pos);
+                        for (; ei < vars->cg_entries_len && vars->cg_entries[ei].ref_cg_pos == lookup_pos; ei++) {
+                            if (vars->cg_entries[ei].is_insertion_only != want_ins) continue;
+                            var_t var = vars->vars[vars->cg_entries[ei].var_idx];
+                            if (core->opt.subtool == VARVIEW) {
+                                add_varview_entry(db->varview_maps[bam_i], tname, out_pos, skip_ins_offset, mod_code, strand, haplotype, 0, skip_fastq_read_pos, var);
+                            } else {
+                                update_varfreq_map(db->varfreq_maps[bam_i], tname, out_pos, skip_ins_offset, mod_code, strand, haplotype, 1, 0, var.ref_allele, var.alt_allele);
                             }
                         }
                     }
                 }
             }
-
         }
-        
     }
 }
 
@@ -1107,8 +1022,11 @@ void print_varfreq_output(core_t* core) {
             int haplotype;
             decode_key(sorted_arr[i].key, &contig, &ref_pos, &ins_offset, &mod_code, &strand, &haplotype);
             int end = ref_pos+1;
-            fprintf(out_fp, "%s\t%d\t%d\t%s\t%d\t%c\t%d\t%d\t255,0,0\t%d\t%f\n",
-                contig, ref_pos, end, mod_code, varfreq->n_called, strand, ref_pos, end, varfreq->n_called, freq_value);
+            fprintf(out_fp, "%s\t%d\t%d\t%s\t%d\t%c\t%d\t%d\t255,0,0\t%d\t%f\t%s\t%s\t%d\n",
+                contig, ref_pos, end, mod_code, varfreq->n_called, strand, ref_pos, end, varfreq->n_called, freq_value,
+                varfreq->ref_allele ? varfreq->ref_allele : ".",
+                varfreq->alt_allele ? varfreq->alt_allele : ".",
+                ins_offset);
             free(contig);
             free(mod_code);
         }

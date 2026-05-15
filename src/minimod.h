@@ -89,9 +89,18 @@ typedef struct {
 } var_t;
 
 typedef struct {
+    int ref_cg_pos;       // var.pos - 1 + cg_offsets[o]
+    int var_idx;          // index into vars->vars[]
+    int8_t is_insertion_only; // (cg_offsets[o] > ref_len && cg_offsets[o] <= alt_len)
+} cg_entry_t;
+
+typedef struct {
     var_t *vars; //array of variants in the contig
     int vars_len; //number of variants in the contig
     int vars_cap; //capacity of the variants array
+    cg_entry_t *cg_entries; //sorted array of CG genomic positions for binary search
+    int cg_entries_len;
+    int cg_entries_cap;
 } vars_t;
 
 typedef struct {
