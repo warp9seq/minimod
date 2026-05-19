@@ -53,11 +53,10 @@ static struct option long_options[] = {
     {"prog-interval",required_argument, 0, 'p'},   //7 progress interval
     {"debug-break",required_argument, 0, 0},       //8 break after processing the first batch (used for debugging)
     {"output",required_argument, 0, 'o'},          //9 output file
-    {"insertions",no_argument, 0, 0},              //10 enable modifications in insertions
-    {"haplotypes",no_argument, 0, 0},              //11 enable haplotype mode
-    {"allow-secondary",no_argument, 0, 0},         //12 enable secondary alignments
-    {"skip-supplementary",no_argument, 0, 0},      //13 skip supplementary alignments
-    {"bedmethyl", no_argument, 0, 'b'},            //14 output in bedMethyl format
+    {"haplotypes",no_argument, 0, 0},              //10 enable haplotype mode
+    {"allow-secondary",no_argument, 0, 0},         //11 enable secondary alignments
+    {"skip-supplementary",no_argument, 0, 0},      //12 skip supplementary alignments
+    {"bedmethyl", no_argument, 0, 'b'},            //13 output in bedMethyl format
     {0, 0, 0, 0}};
 
 
@@ -72,7 +71,6 @@ static inline void print_help_msg(FILE *fp_help, opt_t opt){
     fprintf(fp_help,"   -h                         help\n");
     fprintf(fp_help,"   -p INT                     print progress every INT seconds (0: per batch) [%d]\n", opt.progress_interval);
     fprintf(fp_help,"   -o FILE                    output file [%s]\n", opt.output_file==NULL?"stdout":opt.output_file);
-    fprintf(fp_help,"   --insertions               output modifications in insertions [%s]\n", (opt.insertions?"yes":"no"));
     fprintf(fp_help,"   --haplotypes               output haplotypes [%s]\n", (opt.haplotypes?"yes":"no"));
     fprintf(fp_help,"   --verbose INT              verbosity level [%d]\n",(int)get_log_level());
     fprintf(fp_help,"   --version                  print version\n");
@@ -230,12 +228,10 @@ int varview_main(int argc, char* argv[]) {
             opt.output_file = optarg;
             opt.output_fp = fp;
         } else if(c == 0 && longindex == 10){
-            opt.insertions = 1;
-        } else if(c == 0 && longindex == 11){
             opt.haplotypes = 1;
-        } else if(c == 0 && longindex == 12){
+        } else if(c == 0 && longindex == 11){
             opt.allow_secondary = 1;
-        } else if(c == 0 && longindex == 13){
+        } else if(c == 0 && longindex == 12){
             opt.skip_supplementary = 1;
         } else {
             print_help_msg(fp_help, opt);

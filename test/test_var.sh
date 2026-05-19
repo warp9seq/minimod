@@ -105,15 +105,15 @@ ex ./minimod varfreq -b -c "m,h" test/tmp/genome_chr22.fa test/data/hg002_prom_c
 diff -q test/tmp/hg002_prom_chr22_snp_ins_del_multiallele_refcall.mm.varfreq.bed test/expected/hg002_prom_chr22_snp_ins_del_multiallele_refcall.mm.varfreq.bed || die "${testname} failed: output does not match expected output"
 
 
-# HG002 PromethION - insertion with multiple CpG sites (T->TGCCGCGCGCGCAC at chr22:15689408), validates ins_offset per CpG
-testname="varfreq --insertions hg002_prom_chr22_ins_multi_cg"
+# HG002 PromethION - insertion with multiple CpG sites (T->TGCCGCGCGCGCAC at chr22:15689408), validates offset per CpG
+testname="varfreq hg002_prom_chr22_ins_multi_cg"
 echo -e "${BLUE}${testname}${NC}"
-ex ./minimod varfreq --insertions -c "m,h" test/tmp/genome_chr22.fa test/data/hg002_prom_chr22_ins_multi_cg.bam test/data/hg002_prom_chr22_ins_multi_cg.vcf > test/tmp/hg002_prom_chr22_ins_multi_cg.mm.varfreq.tsv || die "${testname} failed"
+ex ./minimod varfreq -c "m,h" test/tmp/genome_chr22.fa test/data/hg002_prom_chr22_ins_multi_cg.bam test/data/hg002_prom_chr22_ins_multi_cg.vcf > test/tmp/hg002_prom_chr22_ins_multi_cg.mm.varfreq.tsv || die "${testname} failed"
 diff -q test/tmp/hg002_prom_chr22_ins_multi_cg.mm.varfreq.tsv test/expected/hg002_prom_chr22_ins_multi_cg.mm.varfreq.tsv || die "${testname} failed: output does not match expected output"
 
-testname="varfreq --insertions -b hg002_prom_chr22_ins_multi_cg"
+testname="varfreq -b hg002_prom_chr22_ins_multi_cg"
 echo -e "${BLUE}${testname}${NC}"
-ex ./minimod varfreq --insertions -b -c "m,h" test/tmp/genome_chr22.fa test/data/hg002_prom_chr22_ins_multi_cg.bam test/data/hg002_prom_chr22_ins_multi_cg.vcf > test/tmp/hg002_prom_chr22_ins_multi_cg.mm.varfreq.bed || die "${testname} failed"
+ex ./minimod varfreq -b -c "m,h" test/tmp/genome_chr22.fa test/data/hg002_prom_chr22_ins_multi_cg.bam test/data/hg002_prom_chr22_ins_multi_cg.vcf > test/tmp/hg002_prom_chr22_ins_multi_cg.mm.varfreq.bed || die "${testname} failed"
 diff -q test/tmp/hg002_prom_chr22_ins_multi_cg.mm.varfreq.bed test/expected/hg002_prom_chr22_ins_multi_cg.mm.varfreq.bed || die "${testname} failed: output does not match expected output"
 
 echo -e "${GREEN}All tests passed!${NC}"

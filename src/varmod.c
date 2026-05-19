@@ -992,11 +992,9 @@ void destroy_varfreq_map(khash_t(varfreqm)* varfreq_map) {
 void print_varfreq_header(core_t* core) {
     if(core->opt.bedmethyl_out) return;
     char * common = "contig\tstart\tend\tstrand\tn_called\tn_mod\tfreq\tmod_code\tvar_pos\tref_allele\talt_allele";
-    char * ins_str = "";
     char * hp_str = "";
-    if(core->opt.insertions) ins_str = "\toffset";
     if(core->opt.haplotypes) hp_str = "\thaplotype";
-    fprintf(core->opt.output_fp, "%s%s%s\n", common, ins_str, hp_str);
+    fprintf(core->opt.output_fp, "%s\toffset%s\n", common, hp_str);
 }
 
 void print_varfreq_output(core_t* core) {
@@ -1022,7 +1020,6 @@ void print_varfreq_output(core_t* core) {
     double output_start = realtime();
 
     FILE *out_fp = core->opt.output_fp;
-    int do_insertions = core->opt.insertions;
     int do_haplotypes = core->opt.haplotypes;
 
     if(core->opt.bedmethyl_out) {
@@ -1065,7 +1062,7 @@ void print_varfreq_output(core_t* core) {
                 varfreq->ref_allele ? varfreq->ref_allele : ".",
                 varfreq->alt_allele ? varfreq->alt_allele : ".");
 
-            if(do_insertions) fprintf(out_fp, "\t%d", OFFSET_TO_INT(ins_offset));
+            fprintf(out_fp, "\t%d", OFFSET_TO_INT(ins_offset));
             if(do_haplotypes) {
                 if(haplotype == -1) fputs("\t*", out_fp);
                 else fprintf(out_fp, "\t%d", haplotype);
