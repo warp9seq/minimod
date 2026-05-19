@@ -40,34 +40,52 @@ extern uint8_t get_hp_tag(bam1_t *record);
 
 
 // zero-allocation comparator
+// key format: chrom\tpos\tstrand\tmod_code\toffset\thaplotype
 static int cmp_key_fast(const char *key_a, const char *key_b) {
-    // find the first tab (end of the contig string)
+    // compare contig
     const char *tab_a = strchr(key_a, '\t');
     const char *tab_b = strchr(key_b, '\t');
-
-    // calculate the length of the contig portions
     size_t len_a = tab_a ? (size_t)(tab_a - key_a) : strlen(key_a);
     size_t len_b = tab_b ? (size_t)(tab_b - key_b) : strlen(key_b);
-
-    // compare the contigs up to the length of the shorter one
     size_t min_len = len_a < len_b ? len_a : len_b;
     int cmp = strncmp(key_a, key_b, min_len);
-
-    // if contigs are different, we have our answer
     if (cmp != 0) return cmp;
-    
-    // if the prefixes match but lengths differ, the shorter one comes first
     if (len_a != len_b) return (len_a < len_b) ? -1 : 1;
-
-    // contigs are exactly identical. compare start positions.
-    // if there is no tab, they are identical strings.
     if (!tab_a || !tab_b) return 0;
 
-    // atoi automatically stops reading when it hits the next tab
-    int start_a = atoi(tab_a + 1);
-    int start_b = atoi(tab_b + 1);
+    // compare pos
+    int pos_a = atoi(tab_a + 1);
+    int pos_b = atoi(tab_b + 1);
+    if (pos_a != pos_b) return (pos_a > pos_b) - (pos_a < pos_b);
 
-    return (start_a > start_b) - (start_a < start_b);
+    // skip to strand
+    const char *p_a = strchr(tab_a + 1, '\t');
+    const char *p_b = strchr(tab_b + 1, '\t');
+    if (!p_a || !p_b) return 0;
+
+    // compare strand (single char)
+    if (p_a[1] != p_b[1]) return (p_a[1] > p_b[1]) - (p_a[1] < p_b[1]);
+
+    // skip to mod_code
+    const char *mc_a = strchr(p_a + 1, '\t');
+    const char *mc_b = strchr(p_b + 1, '\t');
+    if (!mc_a || !mc_b) return 0;
+
+    // compare mod_code (string up to next tab)
+    const char *mc_end_a = strchr(mc_a + 1, '\t');
+    const char *mc_end_b = strchr(mc_b + 1, '\t');
+    size_t mc_len_a = mc_end_a ? (size_t)(mc_end_a - mc_a - 1) : strlen(mc_a + 1);
+    size_t mc_len_b = mc_end_b ? (size_t)(mc_end_b - mc_b - 1) : strlen(mc_b + 1);
+    size_t mc_min = mc_len_a < mc_len_b ? mc_len_a : mc_len_b;
+    cmp = strncmp(mc_a + 1, mc_b + 1, mc_min);
+    if (cmp != 0) return cmp;
+    if (mc_len_a != mc_len_b) return (mc_len_a < mc_len_b) ? -1 : 1;
+
+    // compare offset (numeric, may be negative)
+    if (!mc_end_a || !mc_end_b) return 0;
+    int off_a = atoi(mc_end_a + 1);
+    int off_b = atoi(mc_end_b + 1);
+    return (off_a > off_b) - (off_a < off_b);
 }
 
 #define varfreq_kv_lt(a, b) (cmp_key_fast((a).key, (b).key) < 0)
