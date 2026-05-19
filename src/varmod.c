@@ -31,6 +31,12 @@ extern uint8_t get_hp_tag(bam1_t *record);
 #define THRESH_UINT8_TO_DBL(x) ((double)( (x + 0.5) / 256.0 ))
 #define IS_ALPHA(c) (c >= 'A' && c <= 'Z') || (c >= 'a' && c <= 'z')
 #define IS_DIGIT(c) (c >= '0' && c <= '9')
+// sentinel for offset=-1 (CpG C is one base upstream of the variant); stored as UINT16_MAX in uint16_t
+#define OFFSET_NEG1 UINT16_MAX
+// compute relative offset from variant position; returns OFFSET_NEG1 for the -1 case
+#define REF_OFFSET(ref_pos, var_pos) (((ref_pos) < (var_pos)) ? OFFSET_NEG1 : (uint16_t)((ref_pos) - (var_pos)))
+// convert stored offset to signed int for output
+#define OFFSET_TO_INT(x) ((x) == OFFSET_NEG1 ? -1 : (int)(x))
 
 
 // zero-allocation comparator
@@ -101,7 +107,7 @@ static char* make_key(const char *chrom, int pos, uint16_t ins_offset, char * mo
 
     char* key = (char *)malloc(key_strlen * sizeof(char));
     MALLOC_CHK(key);
-    snprintf(key, key_strlen, "%s\t%d\t%c\t%s\t%u\t%d", chrom, pos, strand, mod_code, ins_offset, haplotype);
+    snprintf(key, key_strlen, "%s\t%d\t%c\t%s\t%d\t%d", chrom, pos, strand, mod_code, OFFSET_TO_INT(ins_offset), haplotype);
     return key;
 }
 
@@ -119,7 +125,8 @@ static void decode_key(char *key, char **chrom, int *pos, uint16_t * ins_offset,
     MALLOC_CHK(*mod_code);
     strcpy(*mod_code, token);
 
-    *ins_offset = strtoul(strtok(NULL, "\t"), NULL, 10);
+    long v = strtol(strtok(NULL, "\t"), NULL, 10);
+    *ins_offset = (v < 0) ? OFFSET_NEG1 : (uint16_t)v;
     *haplotype = atoi(strtok(NULL, "\t"));
 }
 
@@ -713,8 +720,9 @@ void varviewfreq_single(core_t * core, db_t *db, int32_t bam_i) {
                         var_t var = vars->vars[vars->cg_entries[ei].var_idx];
                         if (want_ins && var.pos != ins_start) continue;
                         uint8_t mod_prob = ml[ml_idx];
+                        uint16_t offset = want_ins ? (uint16_t)ins_offset : REF_OFFSET(out_pos, var.pos);
                         if (core->opt.subtool == VARVIEW) {
-                            add_varview_entry(db->varview_maps[bam_i], tname, out_pos, ins_offset, mod_code, strand, haplotype, mod_prob, fastq_read_pos, var);
+                            add_varview_entry(db->varview_maps[bam_i], tname, out_pos, offset, mod_code, strand, haplotype, mod_prob, fastq_read_pos, var);
                         } else {
                             double mod_prob_dbl = THRESH_UINT8_TO_DBL(mod_prob);
                             double thresh = req_mod->thresh;
@@ -722,7 +730,7 @@ void varviewfreq_single(core_t * core, db_t *db, int32_t bam_i) {
                             if (mod_prob_dbl >= thresh) { is_called = 1; is_mod = 1; }
                             else if (mod_prob_dbl <= 1 - thresh) { is_called = 1; }
                             else continue;
-                            update_varfreq_map(db->varfreq_maps[bam_i], tname, out_pos, ins_offset, mod_code, strand, haplotype, is_called, is_mod, var.ref_allele, var.alt_allele, var.pos);
+                            update_varfreq_map(db->varfreq_maps[bam_i], tname, out_pos, offset, mod_code, strand, haplotype, is_called, is_mod, var.ref_allele, var.alt_allele, var.pos);
                         }
                     }
                 }
@@ -768,10 +776,11 @@ void varviewfreq_single(core_t * core, db_t *db, int32_t bam_i) {
                                 if (vars->cg_entries[ei].is_insertion_only != want_ins) continue;
                                 var_t var = vars->vars[vars->cg_entries[ei].var_idx];
                                 if (want_ins && var.pos != skip_ins_start) continue;
+                                uint16_t offset = want_ins ? (uint16_t)skip_ins_offset : REF_OFFSET(out_pos, var.pos);
                                 if (core->opt.subtool == VARVIEW) {
-                                    add_varview_entry(db->varview_maps[bam_i], tname, out_pos, skip_ins_offset, mod_code, strand, haplotype, 0, skip_fastq_read_pos, var);
+                                    add_varview_entry(db->varview_maps[bam_i], tname, out_pos, offset, mod_code, strand, haplotype, 0, skip_fastq_read_pos, var);
                                 } else {
-                                    update_varfreq_map(db->varfreq_maps[bam_i], tname, out_pos, skip_ins_offset, mod_code, strand, haplotype, 1, 0, var.ref_allele, var.alt_allele, var.pos);
+                                    update_varfreq_map(db->varfreq_maps[bam_i], tname, out_pos, offset, mod_code, strand, haplotype, 1, 0, var.ref_allele, var.alt_allele, var.pos);
                                 }
                             }
                         }
@@ -812,10 +821,11 @@ void varviewfreq_single(core_t * core, db_t *db, int32_t bam_i) {
                             if (vars->cg_entries[ei].is_insertion_only != want_ins) continue;
                             var_t var = vars->vars[vars->cg_entries[ei].var_idx];
                             if (want_ins && var.pos != skip_ins_start) continue;
+                            uint16_t offset = want_ins ? (uint16_t)skip_ins_offset : REF_OFFSET(out_pos, var.pos);
                             if (core->opt.subtool == VARVIEW) {
-                                add_varview_entry(db->varview_maps[bam_i], tname, out_pos, skip_ins_offset, mod_code, strand, haplotype, 0, skip_fastq_read_pos, var);
+                                add_varview_entry(db->varview_maps[bam_i], tname, out_pos, offset, mod_code, strand, haplotype, 0, skip_fastq_read_pos, var);
                             } else {
-                                update_varfreq_map(db->varfreq_maps[bam_i], tname, out_pos, skip_ins_offset, mod_code, strand, haplotype, 1, 0, var.ref_allele, var.alt_allele, var.pos);
+                                update_varfreq_map(db->varfreq_maps[bam_i], tname, out_pos, offset, mod_code, strand, haplotype, 1, 0, var.ref_allele, var.alt_allele, var.pos);
                             }
                         }
                     }
@@ -854,7 +864,7 @@ void warn_untested_cases_var(opt_t * opt) {
 
 void print_varview_header(core_t* core) {
     if(core->opt.bedmethyl_out) return;
-    char * common = "ref_contig\tref_pos\tstrand\tread_id\tread_pos\tmod_code\tmod_prob\tins_offset\tvar_pos\tref_allele\talt_allele";
+    char * common = "ref_contig\tref_pos\tstrand\tread_id\tread_pos\tmod_code\tmod_prob\tvar_pos\tref_allele\talt_allele\toffset";
     char * haplotype = "";
     if(core->opt.haplotypes){
         haplotype = "\thaplotype";
@@ -910,8 +920,8 @@ void print_varview_output(core_t* core, db_t* db) {
             decode_key(key, &tname, &ref_pos, &ins_offset, &mod_code, &strand, &haplotype);
 
             if(is_bed) {
-                // contig \t start \t end \t mod_code \t mod_prob \t strand \t start \t end \t 255,255,0,0 \t ins_offset \t 1 \t ins_offset \t qname \t read_pos \t ref_allele \t alt_allele
-                fprintf(out_fp, "%s\t%d\t%d\t%s\t%f\t%c\t%d\t%d\t255,0,0\t%d\t1\t%d\t%s\t%d\t%d\t%s\t%s", tname, ref_pos, ref_pos+1, mod_code, THRESH_UINT8_TO_DBL(varview->mod_prob), strand, ref_pos, ref_pos+1, ins_offset, ins_offset, qname, varview->read_pos, varview->var.pos, varview->var.ref_allele, varview->var.alt_allele);
+                // contig \t start \t end \t mod_code \t mod_prob \t strand \t start \t end \t 255,0,0 \t 1 \t 1 \t 0 \t qname \t read_pos \t var_pos \t ref_allele \t alt_allele \t offset
+                fprintf(out_fp, "%s\t%d\t%d\t%s\t%f\t%c\t%d\t%d\t255,0,0\t1\t1\t0\t%s\t%d\t%d\t%s\t%s\t%d", tname, ref_pos, ref_pos+1, mod_code, THRESH_UINT8_TO_DBL(varview->mod_prob), strand, ref_pos, ref_pos+1, qname, varview->read_pos, varview->var.pos, varview->var.ref_allele, varview->var.alt_allele, OFFSET_TO_INT(ins_offset));
 
                 //print var.before_site
                 fprintf(out_fp, "\t%s\t", varview->var.before_site);
@@ -928,7 +938,7 @@ void print_varview_output(core_t* core, db_t* db) {
                 }
                 fputc('\n', out_fp);
             } else {
-                fprintf(out_fp, "%s\t%d\t%c\t%s\t%d\t%s\t%f\t%d\t%d\t%s\t%s\n", tname, ref_pos, strand, qname, varview->read_pos, mod_code, THRESH_UINT8_TO_DBL(varview->mod_prob), db->ins_offset[i][varview->read_pos], varview->var.pos, varview->var.ref_allele, varview->var.alt_allele);
+                fprintf(out_fp, "%s\t%d\t%c\t%s\t%d\t%s\t%f\t%d\t%s\t%s\t%d\n", tname, ref_pos, strand, qname, varview->read_pos, mod_code, THRESH_UINT8_TO_DBL(varview->mod_prob), varview->var.pos, varview->var.ref_allele, varview->var.alt_allele, OFFSET_TO_INT(ins_offset));
             }
             free(tname);
             free(mod_code);
@@ -984,7 +994,7 @@ void print_varfreq_header(core_t* core) {
     char * common = "contig\tstart\tend\tstrand\tn_called\tn_mod\tfreq\tmod_code\tvar_pos\tref_allele\talt_allele";
     char * ins_str = "";
     char * hp_str = "";
-    if(core->opt.insertions) ins_str = "\tins_offset";
+    if(core->opt.insertions) ins_str = "\toffset";
     if(core->opt.haplotypes) hp_str = "\thaplotype";
     fprintf(core->opt.output_fp, "%s%s%s\n", common, ins_str, hp_str);
 }
@@ -1032,7 +1042,7 @@ void print_varfreq_output(core_t* core) {
                 varfreq->var_pos,
                 varfreq->ref_allele ? varfreq->ref_allele : ".",
                 varfreq->alt_allele ? varfreq->alt_allele : ".",
-                ins_offset);
+                OFFSET_TO_INT(ins_offset));
             free(contig);
             free(mod_code);
         }
@@ -1055,7 +1065,7 @@ void print_varfreq_output(core_t* core) {
                 varfreq->ref_allele ? varfreq->ref_allele : ".",
                 varfreq->alt_allele ? varfreq->alt_allele : ".");
 
-            if(do_insertions) fprintf(out_fp, "\t%d", ins_offset);
+            if(do_insertions) fprintf(out_fp, "\t%d", OFFSET_TO_INT(ins_offset));
             if(do_haplotypes) {
                 if(haplotype == -1) fputs("\t*", out_fp);
                 else fprintf(out_fp, "\t%d", haplotype);
