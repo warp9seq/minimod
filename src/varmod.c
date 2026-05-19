@@ -1040,56 +1040,101 @@ void print_varfreq_output(core_t* core) {
     FILE *out_fp = core->opt.output_fp;
     int do_haplotypes = core->opt.haplotypes;
 
-    if(core->opt.bedmethyl_out) {
-        for (int i = 0; i < size; i++) {
-            varfreq_t *varfreq = sorted_arr[i].freq;
-            double freq_value = (double)varfreq->n_mod*100/varfreq->n_called;
-            char *contig = NULL;
-            int ref_pos;
-            uint16_t ins_offset;
-            char *mod_code;
-            char strand;
-            int haplotype;
+    int is_bed = core->opt.bedmethyl_out;
+    char *agg_chrom = NULL;
+    int agg_pos = -1, agg_haplotype = INT_MIN;
+    char agg_strand = 0;
+    char *agg_mod_code = NULL;
+    uint64_t agg_n_called = 0, agg_n_mod = 0;
+    int agg_count = 0;
+    varfreq_t *agg_ref = NULL;
+
+    for (int i = 0; i <= size; i++) {
+        char *contig = NULL;
+        int ref_pos = 0;
+        uint16_t ins_offset = 0;
+        char *mod_code = NULL;
+        char strand = 0;
+        int haplotype = 0;
+        varfreq_t *varfreq = NULL;
+
+        if (i < size) {
+            varfreq = sorted_arr[i].freq;
             decode_key(sorted_arr[i].key, &contig, &ref_pos, &ins_offset, &mod_code, &strand, &haplotype);
-            int end = ref_pos+1;
+        }
+
+        int is_new_group = (i == size) || !agg_chrom ||
+            strcmp(contig, agg_chrom) != 0 || ref_pos != agg_pos ||
+            strand != agg_strand || strcmp(mod_code, agg_mod_code) != 0 ||
+            haplotype != agg_haplotype;
+
+        if (is_new_group && agg_count >= 2) {
+            double avg_freq = (double)agg_n_mod / agg_n_called;
+            if (is_bed) {
+                int end = agg_pos + 1;
+                fprintf(out_fp, "%s\t%d\t%d\t%s\t%llu\t%c\t%d\t%d\t255,0,0\t%llu\t%f\t%d\t%s\t%s\t*\n",
+                    agg_chrom, agg_pos, end, agg_mod_code,
+                    (unsigned long long)agg_n_called, agg_strand, agg_pos, end,
+                    (unsigned long long)agg_n_called, avg_freq * 100, agg_ref->var_pos,
+                    agg_ref->ref_allele ? agg_ref->ref_allele : ".",
+                    agg_ref->alt_allele ? agg_ref->alt_allele : ".");
+            } else {
+                fprintf(out_fp, "%s\t%d\t%d\t%c\t%llu\t%llu\t%f\t%s\t%d\t%s\t%s\t*",
+                    agg_chrom, agg_pos, agg_pos + 1, agg_strand,
+                    (unsigned long long)agg_n_called, (unsigned long long)agg_n_mod, avg_freq,
+                    agg_mod_code, agg_ref->var_pos,
+                    agg_ref->ref_allele ? agg_ref->ref_allele : ".",
+                    agg_ref->alt_allele ? agg_ref->alt_allele : ".");
+                if (do_haplotypes) {
+                    if (agg_haplotype == -1) fputs("\t*", out_fp);
+                    else fprintf(out_fp, "\t%d", agg_haplotype);
+                }
+                fputc('\n', out_fp);
+            }
+        }
+
+        if (i == size) break;
+
+        if (is_new_group) {
+            free(agg_chrom); agg_chrom = contig; contig = NULL;
+            free(agg_mod_code); agg_mod_code = mod_code; mod_code = NULL;
+            agg_pos = ref_pos; agg_strand = strand; agg_haplotype = haplotype;
+            agg_n_called = 0; agg_n_mod = 0; agg_count = 0; agg_ref = varfreq;
+        }
+        agg_n_called += varfreq->n_called;
+        agg_n_mod += varfreq->n_mod;
+        agg_count++;
+
+        double freq_value = (double)varfreq->n_mod / varfreq->n_called;
+        if (is_bed) {
+            int end = ref_pos + 1;
             fprintf(out_fp, "%s\t%d\t%d\t%s\t%d\t%c\t%d\t%d\t255,0,0\t%d\t%f\t%d\t%s\t%s\t%d\n",
-                contig, ref_pos, end, mod_code, varfreq->n_called, strand, ref_pos, end, varfreq->n_called, freq_value,
+                agg_chrom, ref_pos, end, agg_mod_code, varfreq->n_called, strand, ref_pos, end,
+                varfreq->n_called, freq_value * 100,
                 varfreq->var_pos,
                 varfreq->ref_allele ? varfreq->ref_allele : ".",
                 varfreq->alt_allele ? varfreq->alt_allele : ".",
                 OFFSET_TO_INT(ins_offset));
-            free(contig);
-            free(mod_code);
-        }
-    } else {
-        for (int i = 0; i < size; i++) {
-            varfreq_t *varfreq = sorted_arr[i].freq;
-            double freq_value = (double)varfreq->n_mod / varfreq->n_called;
-            char *contig = NULL;
-            int ref_pos;
-            uint16_t ins_offset;
-            char *mod_code;
-            char strand;
-            int haplotype;
-            decode_key(sorted_arr[i].key, &contig, &ref_pos, &ins_offset, &mod_code, &strand, &haplotype);
-
-            fprintf(out_fp, "%s\t%d\t%d\t%c\t%d\t%d\t%f\t%s\t%d\t%s\t%s",
-                contig, ref_pos, ref_pos + 1, strand,
-                varfreq->n_called, varfreq->n_mod, freq_value, mod_code,
+        } else {
+            fprintf(out_fp, "%s\t%d\t%d\t%c\t%d\t%d\t%f\t%s\t%d\t%s\t%s\t%d",
+                agg_chrom, ref_pos, ref_pos + 1, strand,
+                varfreq->n_called, varfreq->n_mod, freq_value, agg_mod_code,
                 varfreq->var_pos,
                 varfreq->ref_allele ? varfreq->ref_allele : ".",
-                varfreq->alt_allele ? varfreq->alt_allele : ".");
-
-            fprintf(out_fp, "\t%d", OFFSET_TO_INT(ins_offset));
-            if(do_haplotypes) {
-                if(haplotype == -1) fputs("\t*", out_fp);
+                varfreq->alt_allele ? varfreq->alt_allele : ".",
+                OFFSET_TO_INT(ins_offset));
+            if (do_haplotypes) {
+                if (haplotype == -1) fputs("\t*", out_fp);
                 else fprintf(out_fp, "\t%d", haplotype);
             }
             fputc('\n', out_fp);
-            free(contig);
-            free(mod_code);
         }
+        free(contig);
+        free(mod_code);
     }
+
+    free(agg_chrom);
+    free(agg_mod_code);
 
     if(out_fp != stdout) fclose(out_fp);
 
