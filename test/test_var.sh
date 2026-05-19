@@ -93,5 +93,16 @@ echo -e "${BLUE}${testname}${NC}"
 ex ./minimod varfreq -b -c "m,h" test/tmp/genome_chr22.fa test/data/dna_5mC_5hmC_mm_chr22.bam test/data/dna_5mC_5hmC_mm_chr22.vcf > test/tmp/dna_5mC_5hmC_mm_chr22.mm.varfreq.bed || die "${testname} failed"
 diff -q test/tmp/dna_5mC_5hmC_mm_chr22.mm.varfreq.bed test/expected/dna_5mC_5hmC_mm_chr22.mm.varfreq.bed || die "${testname} failed: output does not match expected output"
 
+# hg002 PGXXSX240041 promethion chr22 - covers all variant types: SNP, INS, DEL, multiallelic, RefCall (chr22:17280000-17380000)
+testname="varfreq hg002_prom_chr22_snp_ins_del_multiallele_refcall"
+echo -e "${BLUE}${testname}${NC}"
+ex ./minimod varfreq -c "m,h" test/tmp/genome_chr22.fa test/data/hg002_prom_chr22_snp_ins_del_multiallele_refcall.bam test/data/hg002_prom_chr22_snp_ins_del_multiallele_refcall.vcf > test/tmp/hg002_prom_chr22_snp_ins_del_multiallele_refcall.mm.varfreq.tsv || die "${testname} failed"
+diff -q test/tmp/hg002_prom_chr22_snp_ins_del_multiallele_refcall.mm.varfreq.tsv test/expected/hg002_prom_chr22_snp_ins_del_multiallele_refcall.mm.varfreq.tsv || die "${testname} failed: output does not match expected output"
+
+testname="varfreq -b hg002_prom_chr22_snp_ins_del_multiallele_refcall"
+echo -e "${BLUE}${testname}${NC}"
+ex ./minimod varfreq -b -c "m,h" test/tmp/genome_chr22.fa test/data/hg002_prom_chr22_snp_ins_del_multiallele_refcall.bam test/data/hg002_prom_chr22_snp_ins_del_multiallele_refcall.vcf > test/tmp/hg002_prom_chr22_snp_ins_del_multiallele_refcall.mm.varfreq.bed || die "${testname} failed"
+diff -q test/tmp/hg002_prom_chr22_snp_ins_del_multiallele_refcall.mm.varfreq.bed test/expected/hg002_prom_chr22_snp_ins_del_multiallele_refcall.mm.varfreq.bed || die "${testname} failed: output does not match expected output"
+
 
 echo -e "${GREEN}All tests passed!${NC}"
