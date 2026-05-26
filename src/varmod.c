@@ -298,13 +298,18 @@ void load_var_map(const char* vcf_file, khash_t(varm)* var_map) {
             // build CG-position index for O(log N) lookup during processing
             int var_idx = vars->vars_len - 1;
             for (int o = 0; o < n_cg_offsets; o++) {
-                int8_t is_ins = (cg_offsets[o] > ref_len && cg_offsets[o] <= alt_len) ? 1 : 0;
+                int o_val = cg_offsets[o];
+                int8_t is_ins = (o_val > ref_len && o_val <= alt_len) ? 1 : 0;
                 if (vars->cg_entries_len >= vars->cg_entries_cap) {
                     vars->cg_entries_cap *= 2;
                     vars->cg_entries = (cg_entry_t*)realloc(vars->cg_entries, sizeof(cg_entry_t) * vars->cg_entries_cap);
                     MALLOC_CHK(vars->cg_entries);
                 }
-                vars->cg_entries[vars->cg_entries_len].ref_cg_pos = pos - 1 + cg_offsets[o];
+
+                int ref_cg_pos = (o_val > alt_len)
+                    ? pos + ref_len + (o_val - alt_len - 1)
+                    : pos - 1 + o_val;
+                vars->cg_entries[vars->cg_entries_len].ref_cg_pos = ref_cg_pos;
                 vars->cg_entries[vars->cg_entries_len].var_idx = var_idx;
                 vars->cg_entries[vars->cg_entries_len].is_insertion_only = is_ins;
                 vars->cg_entries_len++;
