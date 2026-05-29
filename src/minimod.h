@@ -86,6 +86,8 @@ typedef struct {
     char * alt_allele; //alternative allele
     char * before_site;
     char * after_site;
+    int8_t hap; //haplotype of ALT. 0 = any (unphased, hom-alt, or no GT info)
+    char *gt; //genotype from VCF. "." when no GT info
 } var_t;
 
 typedef struct {
@@ -108,6 +110,7 @@ typedef struct {
     uint32_t n_mod;
     const char *ref_allele;
     const char *alt_allele;
+    const char *gt; //genotype string from var_t.gt
     int var_pos;
 } varfreq_t;
 
@@ -166,6 +169,8 @@ typedef struct {
     uint8_t allow_secondary; //is secondary alignments enabled, process secondary alignments in the bam file
     uint8_t alt_alleles; // whether to require the read base to match the reference base
     uint8_t skip_supplementary; // whether to skip supplementary alignments
+
+    char *sample; // sample name for multi-sample phased VCFs; NULL = first sample
 
 } opt_t;
 

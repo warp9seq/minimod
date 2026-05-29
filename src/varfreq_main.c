@@ -58,6 +58,7 @@ static struct option long_options[] = {
     {"allow-secondary",no_argument, 0, 0},         //12 enable secondary alignments
     {"skip-supplementary",no_argument, 0, 0},      //13 skip supplementary alignments
     {"bedmethyl", no_argument, 0, 'b'},            //14 output in bedMethyl format
+    {"sample", required_argument, 0, 0},           //15 sample name in multi-sample VCF
     {0, 0, 0, 0}};
 
 
@@ -73,11 +74,12 @@ static inline void print_help_msg(FILE *fp_help, opt_t opt){
     fprintf(fp_help,"   -h                         help\n");
     fprintf(fp_help,"   -p INT                     print progress every INT seconds (0: per batch) [%d]\n", opt.progress_interval);
     fprintf(fp_help,"   -o FILE                    output file [%s]\n", opt.output_file==NULL?"stdout":opt.output_file);
-    fprintf(fp_help,"   --haplotypes               output haplotypes [%s]\n", (opt.haplotypes?"yes":"no"));
+    fprintf(fp_help,"   --haplotypes               output per-haplotype rows (expects phased BAM and VCF) [%s]\n", (opt.haplotypes?"yes":"no"));
     fprintf(fp_help,"   --verbose INT              verbosity level [%d]\n",(int)get_log_level());
     fprintf(fp_help,"   --version                  print version\n");
     fprintf(fp_help,"   --allow-secondary          allow secondary alignments [%s]\n", (opt.allow_secondary?"yes":"no"));
     fprintf(fp_help,"   --skip-supplementary       skip supplementary alignments [%s]\n", (opt.skip_supplementary?"yes":"no"));
+    fprintf(fp_help,"   --sample STR               sample name to use from a multi-sample VCF [%s]\n", opt.sample==NULL?"first sample":opt.sample);
 
     fprintf(fp_help,"\nadvanced options:\n");
     fprintf(fp_help,"   --debug-break INT          break after processing the specified no. of batches\n");
@@ -231,6 +233,8 @@ int varfreq_main(int argc, char* argv[]) {
             opt.allow_secondary = 1;
         } else if(c == 0 && longindex == 13){
             opt.skip_supplementary = 1;
+        } else if(c == 0 && longindex == 15){
+            opt.sample = optarg;
         } else {
             print_help_msg(fp_help, opt);
             if(fp_help == stdout){
@@ -302,7 +306,7 @@ int varfreq_main(int argc, char* argv[]) {
 
     double realtime3 = realtime();
     fprintf(stderr, "[%s] Loading VCF file %s\n", __func__, vcf_file);
-    load_var_map(vcf_file, core->var_map);
+    load_var_map(vcf_file, opt.sample, core->var_map);
     fprintf(stderr, "[%s] VCF file loaded in %.3f sec\n", __func__, realtime()-realtime3);
 
     int32_t counter=0;

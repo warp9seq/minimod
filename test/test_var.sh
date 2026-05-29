@@ -116,4 +116,16 @@ echo -e "${BLUE}${testname}${NC}"
 ex ./minimod varfreq -b -c "m,h" test/tmp/genome_chr22.fa test/data/hg002_prom_chr22_ins_multi_cg.bam test/data/hg002_prom_chr22_ins_multi_cg.vcf > test/tmp/hg002_prom_chr22_ins_multi_cg.mm.varfreq.bed || die "${testname} failed"
 diff -q test/tmp/hg002_prom_chr22_ins_multi_cg.mm.varfreq.bed test/expected/hg002_prom_chr22_ins_multi_cg.mm.varfreq.bed || die "${testname} failed: output does not match expected output"
 
+# phased VCF: example-ont reads with alternating HP=1/HP=2 + VCF mixing 1|1, 0|1, 1|0, 0|0, 0/1.
+# Exercises hom-alt (any hap), per-haplotype filtering, hom-ref skip, unphased fallthrough.
+testname="varview example-ont-phased"
+echo -e "${BLUE}${testname}${NC}"
+ex ./minimod varview -c "m,h" test/tmp/genome_chr22.fa test/data/example-ont-hpmix.bam test/data/example-ont-phased.vcf > test/tmp/example-ont-phased.mm.varview.tsv || die "${testname} failed"
+diff -q test/tmp/example-ont-phased.mm.varview.tsv test/expected/example-ont-phased.mm.varview.tsv || die "${testname} failed: output does not match expected output"
+
+testname="varfreq --haplotypes example-ont-phased"
+echo -e "${BLUE}${testname}${NC}"
+ex ./minimod varfreq --haplotypes -c "m,h" test/tmp/genome_chr22.fa test/data/example-ont-hpmix.bam test/data/example-ont-phased.vcf > test/tmp/example-ont-phased.mm.varfreq.tsv || die "${testname} failed"
+diff -q test/tmp/example-ont-phased.mm.varfreq.tsv test/expected/example-ont-phased.mm.varfreq.tsv || die "${testname} failed: output does not match expected output"
+
 echo -e "${GREEN}All tests passed!${NC}"

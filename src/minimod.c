@@ -558,6 +558,7 @@ void init_opt(opt_t* opt) {
     opt->allow_secondary = 0;
     opt->alt_alleles = 0;
     opt->skip_supplementary = 0;
+    opt->sample = NULL;
 
     opt->modcodes_map = kh_init(modcodesm);
 

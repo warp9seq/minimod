@@ -46,7 +46,7 @@ typedef struct {
 
 void varviewfreq_single(core_t * core, db_t *db, int32_t bam_i);
 void destroy_var_map(khash_t(varm)* var_map);
-void load_var_map(const char* vcf_file, khash_t(varm)* var_map);
+void load_var_map(const char* vcf_file, const char* sample_name, khash_t(varm)* var_map);
 void warn_untested_cases_var(opt_t * opt);
 void print_varview_header(core_t* core);
 void print_varview_output(core_t* core, db_t* db);
