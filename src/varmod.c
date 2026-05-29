@@ -634,8 +634,8 @@ void varviewfreq_single(core_t * core, db_t *db, int32_t bam_i) {
     char strand = rev ? '-' : '+';
     const char *mm_string = db->mm[bam_i];
     uint8_t *ml = db->ml[bam_i];
-    // always read HP so we can phase-filter against the VCF, regardless of --haplotypes (0 = absent)
-    uint8_t read_hp = get_hp_tag(record);
+    // phase-aware processing only when --haplotypes is specified with phased VCF and BAM
+    uint8_t read_hp = core->opt.haplotypes ? get_hp_tag(record) : 0;
     int haplotype = core->opt.haplotypes ? (int)read_hp : -1;
     int *aln_pairs = db->aln[bam_i];
 
@@ -831,8 +831,8 @@ void varviewfreq_single(core_t * core, db_t *db, int32_t bam_i) {
                         if (vars->cg_entries[ei].is_insertion_only != want_ins) continue;
                         var_t var = vars->vars[vars->cg_entries[ei].var_idx];
                         if (want_ins && var.pos != ins_start) continue;
-                        // phase-aware filter: phased ALT (var.hap > 0) only counts reads with matching HP tag
-                        if (var.hap > 0 && (int)read_hp != var.hap) continue;
+                        // phase-aware filter: only when --haplotypes is on; phased ALT (var.hap > 0) only counts reads with matching HP tag
+                        if (core->opt.haplotypes && var.hap > 0 && (int)read_hp != var.hap) continue;
                         uint8_t mod_prob = ml[ml_idx];
                         uint16_t offset = want_ins ? (uint16_t)ins_offset : REF_OFFSET(out_pos, var.pos);
                         if (core->opt.subtool == VARVIEW) {
@@ -890,7 +890,7 @@ void varviewfreq_single(core_t * core, db_t *db, int32_t bam_i) {
                                 if (vars->cg_entries[ei].is_insertion_only != want_ins) continue;
                                 var_t var = vars->vars[vars->cg_entries[ei].var_idx];
                                 if (want_ins && var.pos != skip_ins_start) continue;
-                                if (var.hap > 0 && (int)read_hp != var.hap) continue;
+                                if (core->opt.haplotypes && var.hap > 0 && (int)read_hp != var.hap) continue;
                                 uint16_t offset = want_ins ? (uint16_t)skip_ins_offset : REF_OFFSET(out_pos, var.pos);
                                 if (core->opt.subtool == VARVIEW) {
                                     add_varview_entry(db->varview_maps[bam_i], tname, out_pos, offset, mod_code, strand, haplotype, 0, skip_fastq_read_pos, var);
