@@ -1,0 +1,2 @@
+contig	start	end	strand	n_called	n_mod	freq	mod_code	var_pos	var_gt	ref_allele	alt_allele	offset	haplotype
+chr22	19987102	19987103	+	1	1	1.000000	m	19987102	1|0	A	C	0	1

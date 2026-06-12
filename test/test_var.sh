@@ -128,4 +128,29 @@ echo -e "${BLUE}${testname}${NC}"
 ex ./minimod varfreq --haplotypes -c "m,h" test/tmp/genome_chr22.fa test/data/example-ont-hpmix.bam test/data/example-ont-phased.vcf > test/tmp/example-ont-phased.mm.varfreq.tsv || die "${testname} failed"
 diff -q test/tmp/example-ont-phased.mm.varfreq.tsv test/expected/example-ont-phased.mm.varfreq.tsv || die "${testname} failed: output does not match expected output"
 
+# Synthetic compound-variant test: two adjacent phased SNPs together create a new CpG that
+# neither produces alone. Verifies the per-hap cluster pass + is_compound scan-time gating.
+testname="varview --haplotypes example-ont-compound"
+echo -e "${BLUE}${testname}${NC}"
+ex ./minimod varview --haplotypes -c "m" test/tmp/genome_chr22.fa test/data/example-ont-compound.bam test/data/example-ont-compound.vcf > test/tmp/example-ont-compound.m.varview.tsv || die "${testname} failed"
+diff -q test/tmp/example-ont-compound.m.varview.tsv test/expected/example-ont-compound.m.varview.tsv || die "${testname} failed: output does not match expected output"
+
+testname="varfreq --haplotypes example-ont-compound"
+echo -e "${BLUE}${testname}${NC}"
+ex ./minimod varfreq --haplotypes -b -c "m" test/tmp/genome_chr22.fa test/data/example-ont-compound.bam test/data/example-ont-compound.vcf > test/tmp/example-ont-compound.m.varfreq.bedmethyl || die "${testname} failed"
+diff -q test/tmp/example-ont-compound.m.varfreq.bedmethyl test/expected/example-ont-compound.m.varfreq.bedmethyl || die "${testname} failed: output does not match expected output"
+
+# Indel compound test: an insertion (A->AC) followed by a SNP (T->G) on the same hap. Neither
+# variant alone produces a CpG; together the inserted C and the SNP G form one. Verifies
+# indel-aware cluster patching and the insertion-style scan-time match.
+testname="varview --haplotypes example-ont-compound-indel"
+echo -e "${BLUE}${testname}${NC}"
+ex ./minimod varview --haplotypes -c "m" test/tmp/genome_chr22.fa test/data/example-ont-compound-indel.bam test/data/example-ont-compound-indel.vcf > test/tmp/example-ont-compound-indel.m.varview.tsv || die "${testname} failed"
+diff -q test/tmp/example-ont-compound-indel.m.varview.tsv test/expected/example-ont-compound-indel.m.varview.tsv || die "${testname} failed: output does not match expected output"
+
+testname="varfreq --haplotypes example-ont-compound-indel"
+echo -e "${BLUE}${testname}${NC}"
+ex ./minimod varfreq --haplotypes -b -c "m" test/tmp/genome_chr22.fa test/data/example-ont-compound-indel.bam test/data/example-ont-compound-indel.vcf > test/tmp/example-ont-compound-indel.m.varfreq.bedmethyl || die "${testname} failed"
+diff -q test/tmp/example-ont-compound-indel.m.varfreq.bedmethyl test/expected/example-ont-compound-indel.m.varfreq.bedmethyl || die "${testname} failed: output does not match expected output"
+
 echo -e "${GREEN}All tests passed!${NC}"

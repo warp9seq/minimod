@@ -60,7 +60,7 @@ void parse_mod_codes(opt_t *opt);
 void parse_mod_threshes(opt_t * opt);
 void warn_untested_cases(opt_t * opt);
 void print_view_options(opt_t *opt);
-void load_var_map(const char* vcf_file, const char* sample_name, khash_t(varm)* var_map);
+void load_var_map(const char* vcf_file, const char* sample_name, khash_t(varm)* var_map, int haplotypes);
 void destroy_var_map(khash_t(varm)* var_map);
 void update_freq_map(khash_t(freqm) *freq_map, const char *tname, int ref_pos, int ins_offset, char *mod_code, char strand, int haplotype, int is_called, int is_mod);
 void add_view_entry(khash_t(viewm) *view_map, const char *tname, int ref_pos, int ins_offset, char *mod_code, char strand, int haplotype, uint8_t mod_prob, int read_pos);

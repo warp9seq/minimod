@@ -1,0 +1,2 @@
+ref_contig	ref_pos	strand	read_id	read_pos	mod_code	mod_prob	var_pos	var_gt	ref_allele	alt_allele	offset	haplotype
+chr22	19987102	+	read_hp1_compound	0	m	0.978516	19987102	1|0	A	C	0

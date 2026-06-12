@@ -189,7 +189,18 @@ int * find_cg_contexts_in_reverse_sequence(const char* seq, int seq_len, int* of
     return offsets;
 }
 
-void load_var_map(const char* vcf_file, const char* sample_name, khash_t(varm)* var_map) {
+// check if the given CG positions already exists in the reference. we only omit CG formed by variants.
+static inline int is_reference_cpg(const char *ref_seq, int ref_seq_length,
+                                   int c_ref_pos, int g_ref_pos,
+                                   int c_is_ins, int g_is_ins) {
+    if (c_is_ins || g_is_ins) return 0;
+    if (g_ref_pos != c_ref_pos + 1) return 0;
+    if (c_ref_pos < 0 || c_ref_pos + 1 >= ref_seq_length) return 0;
+    char c = ref_seq[c_ref_pos], g = ref_seq[c_ref_pos + 1];
+    return ((c == 'C' || c == 'c') && (g == 'G' || g == 'g'));
+}
+
+void load_var_map(const char* vcf_file, const char* sample_name, khash_t(varm)* var_map, int haplotypes) {
 
     htsFile *vcf_fp = hts_open(vcf_file, "r");
     if(vcf_fp == NULL) {
@@ -383,6 +394,18 @@ void load_var_map(const char* vcf_file, const char* sample_name, khash_t(varm)* 
             for (int o = 0; o < n_cg_offsets; o++) {
                 int o_val = cg_offsets[o];
                 int8_t is_ins = (o_val > ref_len && o_val <= alt_len) ? 1 : 0;
+
+                // skip if CG is a ref CG
+                {
+                    int c_idx = (after_site[o_val] == 'C' || after_site[o_val] == 'c') ? o_val : o_val - 1;
+                    int g_idx = c_idx + 1;
+                    int c_rp = (c_idx > alt_len) ? pos + ref_len + (c_idx - alt_len - 1) : pos - 1 + c_idx;
+                    int g_rp = (g_idx > alt_len) ? pos + ref_len + (g_idx - alt_len - 1) : pos - 1 + g_idx;
+                    int c_in = (c_idx > ref_len && c_idx <= alt_len);
+                    int g_in = (g_idx > ref_len && g_idx <= alt_len);
+                    if (is_reference_cpg(ref_seq, ref->ref_seq_length, c_rp, g_rp, c_in, g_in)) continue;
+                }
+
                 if (vars->cg_entries_len >= vars->cg_entries_cap) {
                     vars->cg_entries_cap *= 2;
                     vars->cg_entries = (cg_entry_t*)realloc(vars->cg_entries, sizeof(cg_entry_t) * vars->cg_entries_cap);
@@ -395,6 +418,7 @@ void load_var_map(const char* vcf_file, const char* sample_name, khash_t(varm)* 
                 vars->cg_entries[vars->cg_entries_len].ref_cg_pos = ref_cg_pos;
                 vars->cg_entries[vars->cg_entries_len].var_idx = var_idx;
                 vars->cg_entries[vars->cg_entries_len].is_insertion_only = is_ins;
+                vars->cg_entries[vars->cg_entries_len].is_compound = 0;
                 vars->cg_entries_len++;
             }
 
@@ -408,6 +432,152 @@ void load_var_map(const char* vcf_file, const char* sample_name, khash_t(varm)* 
     bcf_destroy(rec);
     bcf_hdr_destroy(vcf_hdr);
     hts_close(vcf_fp);
+
+
+    if (haplotypes) {
+    for (khint_t k = kh_begin(var_map); k != kh_end(var_map); ++k) {
+        if (!kh_exist(var_map, k)) continue;
+        const char *contig = (const char *) kh_key(var_map, k);
+        ref_t *ref = get_ref(contig);
+        if (ref == NULL) continue;
+        const char *ref_seq = ref->forward;
+        vars_t *vars = kh_value(var_map, k);
+
+        int8_t max_hap = 0;
+        for (int i = 0; i < vars->vars_len; i++) {
+            if (vars->vars[i].hap > max_hap) max_hap = vars->vars[i].hap;
+        }
+        if (max_hap < 1) continue;
+
+        int idx_cap = 16;
+        int *hap_idx = (int*)malloc(sizeof(int) * idx_cap);
+        MALLOC_CHK(hap_idx);
+
+        for (int hap = 1; hap <= max_hap; hap++) {
+            int n_hap = 0;
+            for (int i = 0; i < vars->vars_len; i++) {
+                if (vars->vars[i].hap != hap) continue;
+                if (n_hap >= idx_cap) { idx_cap *= 2; hap_idx = (int*)realloc(hap_idx, sizeof(int)*idx_cap); MALLOC_CHK(hap_idx); }
+                hap_idx[n_hap++] = i;
+            }
+            if (n_hap < 2) continue;
+
+            // insertion sort by pos
+            for (int i = 1; i < n_hap; i++) {
+                int key = hap_idx[i];
+                int j = i - 1;
+                while (j >= 0 && vars->vars[hap_idx[j]].pos > vars->vars[key].pos) {
+                    hap_idx[j+1] = hap_idx[j]; j--;
+                }
+                hap_idx[j+1] = key;
+            }
+
+            // drop variants that overlap their predecessor (rare in normal VCFs); compact in place
+            int w = 0;
+            for (int i = 0; i < n_hap; i++) {
+                if (w > 0 && vars->vars[hap_idx[i]].pos < vars->vars[hap_idx[w-1]].pos + vars->vars[hap_idx[w-1]].ref_len) {
+                    continue; // overlapping; skip
+                }
+                hap_idx[w++] = hap_idx[i];
+            }
+            n_hap = w;
+            if (n_hap < 2) continue;
+
+            // span [span_start, span_end) covers 1 ref base before the first variant and 1 after the last
+            int span_start = vars->vars[hap_idx[0]].pos - 1;
+            int last_end = vars->vars[hap_idx[n_hap-1]].pos + vars->vars[hap_idx[n_hap-1]].ref_len;
+            int span_end = last_end + 1;
+            if (span_start < 0) span_start = 0;
+            if (span_end > ref->ref_seq_length) span_end = ref->ref_seq_length;
+
+            // worst-case patched length = ref span + total inserted bases
+            long total_ins = 0;
+            for (int v = 0; v < n_hap; v++) {
+                int al = (int)strlen(vars->vars[hap_idx[v]].alt_allele);
+                int rl = vars->vars[hap_idx[v]].ref_len;
+                if (al > rl) total_ins += (al - rl);
+            }
+            long cap = (long)(span_end - span_start) + total_ins + 8;
+
+            char    *hap_seq     = (char*)   malloc(sizeof(char)    * cap);
+            int     *hap_ref_pos = (int*)    malloc(sizeof(int)     * cap);
+            int8_t  *hap_is_ins  = (int8_t*) malloc(sizeof(int8_t)  * cap);
+            int     *hap_owner   = (int*)    malloc(sizeof(int)     * cap); // var_idx, or -1 for ref base
+            MALLOC_CHK(hap_seq); MALLOC_CHK(hap_ref_pos); MALLOC_CHK(hap_is_ins); MALLOC_CHK(hap_owner);
+
+            long len = 0;
+            int rp = span_start;
+            int vptr = 0;
+            while (rp < span_end) {
+                if (vptr < n_hap && rp == vars->vars[hap_idx[vptr]].pos) {
+                    int vi = hap_idx[vptr];
+                    var_t *vt = &vars->vars[vi];
+                    int alt_len = (int)strlen(vt->alt_allele);
+                    for (int a = 0; a < alt_len; a++) {
+                        hap_seq[len] = vt->alt_allele[a];
+                        // ref_cg_pos convention matches the per-variant after_site path:
+                        // alt index a uses vt->pos + a, is_ins=1 when a >= ref_len.
+                        hap_ref_pos[len] = vt->pos + a;
+                        hap_is_ins[len] = (a >= vt->ref_len) ? 1 : 0;
+                        hap_owner[len] = vi;
+                        len++;
+                    }
+                    rp = vt->pos + vt->ref_len; // skip the replaced ref bases
+                    vptr++;
+                } else {
+                    hap_seq[len] = ref_seq[rp];
+                    hap_ref_pos[len] = rp;
+                    hap_is_ins[len] = 0;
+                    hap_owner[len] = -1;
+                    len++;
+                    rp++;
+                }
+            }
+
+            for (long p = 0; p + 1 < len; p++) {
+                char cc = hap_seq[p], gc = hap_seq[p+1];
+                if ((cc != 'C' && cc != 'c') || (gc != 'G' && gc != 'g')) continue;
+                // skip CpGs already present in the reference; only emit variant-introduced ones
+                if (is_reference_cpg(ref_seq, ref->ref_seq_length,
+                                     hap_ref_pos[p], hap_ref_pos[p+1],
+                                     hap_is_ins[p], hap_is_ins[p+1])) continue;
+                int ref_cg_pos = hap_ref_pos[p];
+                int8_t is_ins = hap_is_ins[p];
+                // attribute to the owning variant of the C; if C is a ref base, fall back to the
+                // owner of the G, else the nearest preceding variant base.
+                int attr = hap_owner[p];
+                if (attr < 0) attr = hap_owner[p+1];
+                if (attr < 0) { for (long q = p; q >= 0; q--) { if (hap_owner[q] >= 0) { attr = hap_owner[q]; break; } } }
+                if (attr < 0) attr = hap_idx[0];
+
+                // dedup against existing entries at same (ref_cg_pos, is_ins) on this hap;
+                // for insertion entries also require matching var.pos (matches scan filter)
+                int dup = 0;
+                for (int e = 0; e < vars->cg_entries_len; e++) {
+                    if (vars->cg_entries[e].ref_cg_pos != ref_cg_pos) continue;
+                    if (vars->cg_entries[e].is_insertion_only != is_ins) continue;
+                    if (is_ins && vars->vars[vars->cg_entries[e].var_idx].pos != vars->vars[attr].pos) continue;
+                    if (vars->vars[vars->cg_entries[e].var_idx].hap == hap) { dup = 1; break; }
+                }
+                if (dup) continue;
+
+                if (vars->cg_entries_len >= vars->cg_entries_cap) {
+                    vars->cg_entries_cap *= 2;
+                    vars->cg_entries = (cg_entry_t*)realloc(vars->cg_entries, sizeof(cg_entry_t) * vars->cg_entries_cap);
+                    MALLOC_CHK(vars->cg_entries);
+                }
+                vars->cg_entries[vars->cg_entries_len].ref_cg_pos = ref_cg_pos;
+                vars->cg_entries[vars->cg_entries_len].var_idx = attr;
+                vars->cg_entries[vars->cg_entries_len].is_insertion_only = is_ins;
+                vars->cg_entries[vars->cg_entries_len].is_compound = 1;
+                vars->cg_entries_len++;
+            }
+
+            free(hap_seq); free(hap_ref_pos); free(hap_is_ins); free(hap_owner);
+        }
+        free(hap_idx);
+    }
+    } // if (haplotypes)
 
     // sort each contig's CG-position index for binary search during processing
     for (khint_t k = kh_begin(var_map); k != kh_end(var_map); ++k) {
@@ -497,8 +667,6 @@ static void get_aln(core_t * core, db_t *db, bam_hdr_t *hdr, bam1_t *record, int
         } else if(cigar_op == BAM_CDEL) {
             ref_inc = 1;
         } else if(cigar_op == BAM_CREF_SKIP) {
-            // end the current segment and start a new one
-            //out.push_back(AlignedSegment());
             ref_inc = 1;
         } else if(cigar_op == BAM_CINS) {
             read_inc = 1;
@@ -573,34 +741,6 @@ void update_varfreq_map(khash_t(varfreqm) *varfreq_map, const char *tname, int r
             exit(EXIT_FAILURE);
         }
         free(key);
-    }
-
-    if(haplotype != -1) {
-        char * key2 = make_key(tname, ref_pos, ins_offset, mod_code, strand, -1); // aggregate all haplotypes
-        khiter_t k2 = kh_get(varfreqm, varfreq_map, key2);
-        if (k2 == kh_end(varfreq_map)) { // not found, add
-            varfreq_t * varfreq = (varfreq_t *)malloc(sizeof(varfreq_t));
-            MALLOC_CHK(varfreq);
-            varfreq->n_called = is_called;
-            varfreq->n_mod = is_mod;
-            varfreq->ref_allele = ref_allele;
-            varfreq->alt_allele = alt_allele;
-            varfreq->gt = gt;
-            varfreq->var_pos = var_pos;
-            int ret;
-            k2 = kh_put(varfreqm, varfreq_map, key2, &ret);
-            kh_value(varfreq_map, k2) = varfreq;
-        } else { // found, update
-            varfreq_t * varfreq = kh_value(varfreq_map, k2);
-            varfreq->n_called += is_called;
-            varfreq->n_mod += is_mod;
-            // check if varfreq->n_called overflows
-            if(varfreq->n_called == 0){
-                ERROR("n_called overflowed for key %s. Please report this issue.", key2);
-                exit(EXIT_FAILURE);
-            }
-            free(key2);
-        }
     }
 }
 
@@ -829,6 +969,7 @@ void varviewfreq_single(core_t * core, db_t *db, int32_t bam_i) {
                     int ei = lower_bound_cg(vars->cg_entries, vars->cg_entries_len, lookup_pos);
                     for (; ei < vars->cg_entries_len && vars->cg_entries[ei].ref_cg_pos == lookup_pos; ei++) {
                         if (vars->cg_entries[ei].is_insertion_only != want_ins) continue;
+                        if (vars->cg_entries[ei].is_compound && !core->opt.haplotypes) continue;
                         var_t var = vars->vars[vars->cg_entries[ei].var_idx];
                         if (want_ins && var.pos != ins_start) continue;
                         // phase-aware filter: only when --haplotypes is on; phased ALT (var.hap > 0) only counts reads with matching HP tag
@@ -888,6 +1029,7 @@ void varviewfreq_single(core_t * core, db_t *db, int32_t bam_i) {
                             int ei = lower_bound_cg(vars->cg_entries, vars->cg_entries_len, lookup_pos);
                             for (; ei < vars->cg_entries_len && vars->cg_entries[ei].ref_cg_pos == lookup_pos; ei++) {
                                 if (vars->cg_entries[ei].is_insertion_only != want_ins) continue;
+                                if (vars->cg_entries[ei].is_compound && !core->opt.haplotypes) continue;
                                 var_t var = vars->vars[vars->cg_entries[ei].var_idx];
                                 if (want_ins && var.pos != skip_ins_start) continue;
                                 if (core->opt.haplotypes && var.hap > 0 && (int)read_hp != var.hap) continue;
@@ -934,6 +1076,7 @@ void varviewfreq_single(core_t * core, db_t *db, int32_t bam_i) {
                         int ei = lower_bound_cg(vars->cg_entries, vars->cg_entries_len, lookup_pos);
                         for (; ei < vars->cg_entries_len && vars->cg_entries[ei].ref_cg_pos == lookup_pos; ei++) {
                             if (vars->cg_entries[ei].is_insertion_only != want_ins) continue;
+                            if (vars->cg_entries[ei].is_compound && !core->opt.haplotypes) continue;
                             var_t var = vars->vars[vars->cg_entries[ei].var_idx];
                             if (want_ins && var.pos != skip_ins_start) continue;
                             uint16_t offset = want_ins ? (uint16_t)skip_ins_offset : REF_OFFSET(out_pos, var.pos);
@@ -1139,7 +1282,8 @@ void print_varfreq_output(core_t* core) {
 
     int is_bed = core->opt.bedmethyl_out;
     char *agg_chrom = NULL;
-    int agg_pos = -1, agg_haplotype = INT_MIN;
+    int agg_pos = -1;
+    uint16_t agg_ins_offset = 0;
     char agg_strand = 0;
     char *agg_mod_code = NULL;
     uint64_t agg_n_called = 0, agg_n_mod = 0;
@@ -1160,35 +1304,40 @@ void print_varfreq_output(core_t* core) {
             decode_key(sorted_arr[i].key, &contig, &ref_pos, &ins_offset, &mod_code, &strand, &haplotype);
         }
 
+        //  - haplotypes on : group by (contig,pos,strand,mod,offset), sum over haplotype -> haplotype=* row
+        //  - haplotypes off: group by (contig,pos,strand,mod), sum over offset            -> offset=* row
+        //    (haplotype is always -1 when off, so it is not part of the grouping)
         int is_new_group = (i == size) || !agg_chrom ||
             strcmp(contig, agg_chrom) != 0 || ref_pos != agg_pos ||
             strand != agg_strand || strcmp(mod_code, agg_mod_code) != 0 ||
-            haplotype != agg_haplotype;
+            (do_haplotypes && ins_offset != agg_ins_offset);
 
+        //  - haplotypes on : >=2 haplotypes at this (pos,offset) -> haplotype=* row
+        //  - haplotypes off: >=2 offsets at this position        -> offset=* row
         if (is_new_group && agg_count >= 2) {
             double avg_freq = (double)agg_n_mod / agg_n_called;
             if (is_bed) {
                 int end = agg_pos + 1;
-                fprintf(out_fp, "%s\t%d\t%d\t%s\t%llu\t%c\t%d\t%d\t255,0,0\t%llu\t%f\t%d\t%s\t%s\t%s\t*\n",
+                fprintf(out_fp, "%s\t%d\t%d\t%s\t%llu\t%c\t%d\t%d\t255,0,0\t%llu\t%f\t%d\t%s\t%s\t%s\t",
                     agg_chrom, agg_pos, end, agg_mod_code,
                     (unsigned long long)agg_n_called, agg_strand, agg_pos, end,
                     (unsigned long long)agg_n_called, avg_freq * 100, agg_ref->var_pos,
                     agg_ref->gt ? agg_ref->gt : ".",
                     agg_ref->ref_allele ? agg_ref->ref_allele : ".",
                     agg_ref->alt_allele ? agg_ref->alt_allele : ".");
+                // haplotypes on: real offset + haplotype=* ; off: offset=*
+                if (do_haplotypes) fprintf(out_fp, "%d\t*\n", OFFSET_TO_INT(agg_ins_offset));
+                else fputs("*\n", out_fp);
             } else {
-                fprintf(out_fp, "%s\t%d\t%d\t%c\t%llu\t%llu\t%f\t%s\t%d\t%s\t%s\t%s\t*",
+                fprintf(out_fp, "%s\t%d\t%d\t%c\t%llu\t%llu\t%f\t%s\t%d\t%s\t%s\t%s\t",
                     agg_chrom, agg_pos, agg_pos + 1, agg_strand,
                     (unsigned long long)agg_n_called, (unsigned long long)agg_n_mod, avg_freq,
                     agg_mod_code, agg_ref->var_pos,
                     agg_ref->gt ? agg_ref->gt : ".",
                     agg_ref->ref_allele ? agg_ref->ref_allele : ".",
                     agg_ref->alt_allele ? agg_ref->alt_allele : ".");
-                if (do_haplotypes) {
-                    if (agg_haplotype == -1) fputs("\t*", out_fp);
-                    else fprintf(out_fp, "\t%d", agg_haplotype);
-                }
-                fputc('\n', out_fp);
+                if (do_haplotypes) fprintf(out_fp, "%d\t*\n", OFFSET_TO_INT(agg_ins_offset));
+                else fputs("*\n", out_fp);
             }
         }
 
@@ -1197,7 +1346,8 @@ void print_varfreq_output(core_t* core) {
         if (is_new_group) {
             free(agg_chrom); agg_chrom = contig; contig = NULL;
             free(agg_mod_code); agg_mod_code = mod_code; mod_code = NULL;
-            agg_pos = ref_pos; agg_strand = strand; agg_haplotype = haplotype;
+            agg_pos = ref_pos; agg_strand = strand;
+            agg_ins_offset = ins_offset;
             agg_n_called = 0; agg_n_mod = 0; agg_count = 0; agg_ref = varfreq;
         }
         agg_n_called += varfreq->n_called;
@@ -1207,7 +1357,7 @@ void print_varfreq_output(core_t* core) {
         double freq_value = (double)varfreq->n_mod / varfreq->n_called;
         if (is_bed) {
             int end = ref_pos + 1;
-            fprintf(out_fp, "%s\t%d\t%d\t%s\t%d\t%c\t%d\t%d\t255,0,0\t%d\t%f\t%d\t%s\t%s\t%s\t%d\n",
+            fprintf(out_fp, "%s\t%d\t%d\t%s\t%d\t%c\t%d\t%d\t255,0,0\t%d\t%f\t%d\t%s\t%s\t%s\t%d",
                 agg_chrom, ref_pos, end, agg_mod_code, varfreq->n_called, strand, ref_pos, end,
                 varfreq->n_called, freq_value * 100,
                 varfreq->var_pos,
@@ -1215,6 +1365,11 @@ void print_varfreq_output(core_t* core) {
                 varfreq->ref_allele ? varfreq->ref_allele : ".",
                 varfreq->alt_allele ? varfreq->alt_allele : ".",
                 OFFSET_TO_INT(ins_offset));
+            if (do_haplotypes) {
+                if (haplotype == -1) fputs("\t*", out_fp);
+                else fprintf(out_fp, "\t%d", haplotype);
+            }
+            fputc('\n', out_fp);
         } else {
             fprintf(out_fp, "%s\t%d\t%d\t%c\t%d\t%d\t%f\t%s\t%d\t%s\t%s\t%s\t%d",
                 agg_chrom, ref_pos, ref_pos + 1, strand,

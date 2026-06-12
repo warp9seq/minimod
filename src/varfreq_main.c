@@ -306,7 +306,7 @@ int varfreq_main(int argc, char* argv[]) {
 
     double realtime3 = realtime();
     fprintf(stderr, "[%s] Loading VCF file %s\n", __func__, vcf_file);
-    load_var_map(vcf_file, opt.sample, core->var_map);
+    load_var_map(vcf_file, opt.sample, core->var_map, opt.haplotypes);
     fprintf(stderr, "[%s] VCF file loaded in %.3f sec\n", __func__, realtime()-realtime3);
 
     int32_t counter=0;

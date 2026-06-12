@@ -94,6 +94,7 @@ typedef struct {
     int ref_cg_pos;       // var.pos - 1 + cg_offsets[o]
     int var_idx;          // index into vars->vars[]
     int8_t is_insertion_only; // (cg_offsets[o] > ref_len && cg_offsets[o] <= alt_len)
+    int8_t is_compound;       // 1 if CG spans >=2 variants on the same hap (phase-only)
 } cg_entry_t;
 
 typedef struct {
