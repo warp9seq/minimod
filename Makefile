@@ -111,7 +111,9 @@ release: distclean
 
 test: $(BINARY)
 	./test/test.sh
+	./test/test_var.sh
 
 memtest: $(BINARY)
 	./test/test.sh mem
+	./test/test_var.sh mem
 
