@@ -96,7 +96,9 @@ KSORT_INIT(varview, varview_kv_t, varview_kv_lt)
 
 static int cmp_cg_entry(const void *a, const void *b) {
     const cg_entry_t *ea = a, *eb = b;
-    return (ea->ref_cg_pos > eb->ref_cg_pos) - (ea->ref_cg_pos < eb->ref_cg_pos);
+    if (ea->ref_cg_pos != eb->ref_cg_pos)
+        return (ea->ref_cg_pos > eb->ref_cg_pos) - (ea->ref_cg_pos < eb->ref_cg_pos);
+    return (ea->seq > eb->seq) - (ea->seq < eb->seq);
 }
 
 static inline int lower_bound_cg(cg_entry_t *entries, int len, int pos) {
@@ -419,6 +421,7 @@ void load_var_map(const char* vcf_file, const char* sample_name, khash_t(varm)* 
                 vars->cg_entries[vars->cg_entries_len].var_idx = var_idx;
                 vars->cg_entries[vars->cg_entries_len].is_insertion_only = is_ins;
                 vars->cg_entries[vars->cg_entries_len].is_compound = 0;
+                vars->cg_entries[vars->cg_entries_len].seq = vars->cg_entries_len;
                 vars->cg_entries_len++;
             }
 
@@ -570,6 +573,7 @@ void load_var_map(const char* vcf_file, const char* sample_name, khash_t(varm)* 
                 vars->cg_entries[vars->cg_entries_len].var_idx = attr;
                 vars->cg_entries[vars->cg_entries_len].is_insertion_only = is_ins;
                 vars->cg_entries[vars->cg_entries_len].is_compound = 1;
+                vars->cg_entries[vars->cg_entries_len].seq = vars->cg_entries_len;
                 vars->cg_entries_len++;
             }
 
