@@ -48,23 +48,23 @@ diff -q test/tmp/varmod/example-ont.mm.varview.tsv test/expected/varmod/example-
 
 testname="varview -b example-ont"
 echo -e "${BLUE}${testname}${NC}"
-ex ./minimod varview -b -c "m,h" test/tmp/genome_chr22.fa test/data/example-ont.bam test/data/varmod/example-ont-clair.vcf > test/tmp/varmod/example-ont.mm.varview.bed || die "${testname} failed"
-diff -q test/tmp/varmod/example-ont.mm.varview.bed test/expected/varmod/example-ont.mm.varview.bed || die "${testname} failed: output does not match expected output"
+ex ./minimod varview -b -c "m,h" test/tmp/genome_chr22.fa test/data/example-ont.bam test/data/varmod/example-ont-clair.vcf > test/tmp/varmod/example-ont.mm.varview.bedmethyl || die "${testname} failed"
+diff -q test/tmp/varmod/example-ont.mm.varview.bedmethyl test/expected/varmod/example-ont.mm.varview.bedmethyl || die "${testname} failed: output does not match expected output"
 
 testname="varview dna_4mC_5mC_mm_chr22"
 echo -e "${BLUE}${testname}${NC}"
-ex ./minimod varview -b -c "m,h" test/tmp/genome_chr22.fa test/data/dna_4mC_5mC_mm_chr22.bam test/data/varmod/dna_4mC_5mC_mm_chr22.vcf > test/tmp/varmod/dna_4mC_5mC_mm_chr22.mm.varview.bed || die "${testname} failed"
-diff -q test/tmp/varmod/dna_4mC_5mC_mm_chr22.mm.varview.bed test/expected/varmod/dna_4mC_5mC_mm_chr22.mm.varview.bed || die "${testname} failed: output does not match expected output"
+ex ./minimod varview -b -c "m,h" test/tmp/genome_chr22.fa test/data/dna_4mC_5mC_mm_chr22.bam test/data/varmod/dna_4mC_5mC_mm_chr22.vcf > test/tmp/varmod/dna_4mC_5mC_mm_chr22.mm.varview.bedmethyl || die "${testname} failed"
+diff -q test/tmp/varmod/dna_4mC_5mC_mm_chr22.mm.varview.bedmethyl test/expected/varmod/dna_4mC_5mC_mm_chr22.mm.varview.bedmethyl || die "${testname} failed: output does not match expected output"
 
 testname="varview dna_5mCG_5hmCG_mm_chr22"
 echo -e "${BLUE}${testname}${NC}"
-ex ./minimod varview -b -c "m,h" test/tmp/genome_chr22.fa test/data/dna_5mCG_5hmCG_mm_chr22.bam test/data/varmod/dna_5mCG_5hmCG_mm_chr22.vcf > test/tmp/varmod/dna_5mCG_5hmCG_mm_chr22.mm.varview.bed || die "${testname} failed"
-diff -q test/tmp/varmod/dna_5mCG_5hmCG_mm_chr22.mm.varview.bed test/expected/varmod/dna_5mCG_5hmCG_mm_chr22.mm.varview.bed || die "${testname} failed: output does not match expected output"
+ex ./minimod varview -b -c "m,h" test/tmp/genome_chr22.fa test/data/dna_5mCG_5hmCG_mm_chr22.bam test/data/varmod/dna_5mCG_5hmCG_mm_chr22.vcf > test/tmp/varmod/dna_5mCG_5hmCG_mm_chr22.mm.varview.bedmethyl || die "${testname} failed"
+diff -q test/tmp/varmod/dna_5mCG_5hmCG_mm_chr22.mm.varview.bedmethyl test/expected/varmod/dna_5mCG_5hmCG_mm_chr22.mm.varview.bedmethyl || die "${testname} failed: output does not match expected output"
 
 testname="varview dna_5mC_5hmC_mm_chr22"
 echo -e "${BLUE}${testname}${NC}"
-ex ./minimod varview -b -c "m,h" test/tmp/genome_chr22.fa test/data/dna_5mC_5hmC_mm_chr22.bam test/data/varmod/dna_5mC_5hmC_mm_chr22.vcf > test/tmp/varmod/dna_5mC_5hmC_mm_chr22.mm.varview.bed || die "${testname} failed"
-diff -q test/tmp/varmod/dna_5mC_5hmC_mm_chr22.mm.varview.bed test/expected/varmod/dna_5mC_5hmC_mm_chr22.mm.varview.bed || die "${testname} failed: output does not match expected output"
+ex ./minimod varview -b -c "m,h" test/tmp/genome_chr22.fa test/data/dna_5mC_5hmC_mm_chr22.bam test/data/varmod/dna_5mC_5hmC_mm_chr22.vcf > test/tmp/varmod/dna_5mC_5hmC_mm_chr22.mm.varview.bedmethyl || die "${testname} failed"
+diff -q test/tmp/varmod/dna_5mC_5hmC_mm_chr22.mm.varview.bedmethyl test/expected/varmod/dna_5mC_5hmC_mm_chr22.mm.varview.bedmethyl || die "${testname} failed: output does not match expected output"
 
 # varfreq tests
 
@@ -75,23 +75,23 @@ diff -q test/tmp/varmod/example-ont.mm.varfreq.tsv test/expected/varmod/example-
 
 testname="varfreq -b example-ont"
 echo -e "${BLUE}${testname}${NC}"
-ex ./minimod varfreq -b -c "m,h" test/tmp/genome_chr22.fa test/data/example-ont.bam test/data/varmod/example-ont-clair.vcf > test/tmp/varmod/example-ont.mm.varfreq.bed || die "${testname} failed"
-diff -q test/tmp/varmod/example-ont.mm.varfreq.bed test/expected/varmod/example-ont.mm.varfreq.bed || die "${testname} failed: output does not match expected output"
+ex ./minimod varfreq -b -c "m,h" test/tmp/genome_chr22.fa test/data/example-ont.bam test/data/varmod/example-ont-clair.vcf > test/tmp/varmod/example-ont.mm.varfreq.bedmethyl || die "${testname} failed"
+diff -q test/tmp/varmod/example-ont.mm.varfreq.bedmethyl test/expected/varmod/example-ont.mm.varfreq.bedmethyl || die "${testname} failed: output does not match expected output"
 
 testname="varfreq -b dna_4mC_5mC_mm_chr22"
 echo -e "${BLUE}${testname}${NC}"
-ex ./minimod varfreq -b -c "m,h" test/tmp/genome_chr22.fa test/data/dna_4mC_5mC_mm_chr22.bam test/data/varmod/dna_4mC_5mC_mm_chr22.vcf > test/tmp/varmod/dna_4mC_5mC_mm_chr22.mm.varfreq.bed || die "${testname} failed"
-diff -q test/tmp/varmod/dna_4mC_5mC_mm_chr22.mm.varfreq.bed test/expected/varmod/dna_4mC_5mC_mm_chr22.mm.varfreq.bed || die "${testname} failed: output does not match expected output"
+ex ./minimod varfreq -b -c "m,h" test/tmp/genome_chr22.fa test/data/dna_4mC_5mC_mm_chr22.bam test/data/varmod/dna_4mC_5mC_mm_chr22.vcf > test/tmp/varmod/dna_4mC_5mC_mm_chr22.mm.varfreq.bedmethyl || die "${testname} failed"
+diff -q test/tmp/varmod/dna_4mC_5mC_mm_chr22.mm.varfreq.bedmethyl test/expected/varmod/dna_4mC_5mC_mm_chr22.mm.varfreq.bedmethyl || die "${testname} failed: output does not match expected output"
 
 testname="varfreq -b dna_5mCG_5hmCG_mm_chr22"
 echo -e "${BLUE}${testname}${NC}"
-ex ./minimod varfreq -b -c "m,h" test/tmp/genome_chr22.fa test/data/dna_5mCG_5hmCG_mm_chr22.bam test/data/varmod/dna_5mCG_5hmCG_mm_chr22.vcf > test/tmp/varmod/dna_5mCG_5hmCG_mm_chr22.mm.varfreq.bed || die "${testname} failed"
-diff -q test/tmp/varmod/dna_5mCG_5hmCG_mm_chr22.mm.varfreq.bed test/expected/varmod/dna_5mCG_5hmCG_mm_chr22.mm.varfreq.bed || die "${testname} failed: output does not match expected output"
+ex ./minimod varfreq -b -c "m,h" test/tmp/genome_chr22.fa test/data/dna_5mCG_5hmCG_mm_chr22.bam test/data/varmod/dna_5mCG_5hmCG_mm_chr22.vcf > test/tmp/varmod/dna_5mCG_5hmCG_mm_chr22.mm.varfreq.bedmethyl || die "${testname} failed"
+diff -q test/tmp/varmod/dna_5mCG_5hmCG_mm_chr22.mm.varfreq.bedmethyl test/expected/varmod/dna_5mCG_5hmCG_mm_chr22.mm.varfreq.bedmethyl || die "${testname} failed: output does not match expected output"
 
 testname="varfreq -b dna_5mC_5hmC_mm_chr22"
 echo -e "${BLUE}${testname}${NC}"
-ex ./minimod varfreq -b -c "m,h" test/tmp/genome_chr22.fa test/data/dna_5mC_5hmC_mm_chr22.bam test/data/varmod/dna_5mC_5hmC_mm_chr22.vcf > test/tmp/varmod/dna_5mC_5hmC_mm_chr22.mm.varfreq.bed || die "${testname} failed"
-diff -q test/tmp/varmod/dna_5mC_5hmC_mm_chr22.mm.varfreq.bed test/expected/varmod/dna_5mC_5hmC_mm_chr22.mm.varfreq.bed || die "${testname} failed: output does not match expected output"
+ex ./minimod varfreq -b -c "m,h" test/tmp/genome_chr22.fa test/data/dna_5mC_5hmC_mm_chr22.bam test/data/varmod/dna_5mC_5hmC_mm_chr22.vcf > test/tmp/varmod/dna_5mC_5hmC_mm_chr22.mm.varfreq.bedmethyl || die "${testname} failed"
+diff -q test/tmp/varmod/dna_5mC_5hmC_mm_chr22.mm.varfreq.bedmethyl test/expected/varmod/dna_5mC_5hmC_mm_chr22.mm.varfreq.bedmethyl || die "${testname} failed: output does not match expected output"
 
 # hg002 PGXXSX240041 promethion chr22 - covers all variant types: SNP, INS, DEL, multiallelic, RefCall (chr22:17280000-17380000)
 testname="varfreq hg002_prom_chr22_snp_ins_del_multiallele_refcall"
@@ -101,8 +101,8 @@ diff -q test/tmp/varmod/hg002_prom_chr22_snp_ins_del_multiallele_refcall.mm.varf
 
 testname="varfreq -b hg002_prom_chr22_snp_ins_del_multiallele_refcall"
 echo -e "${BLUE}${testname}${NC}"
-ex ./minimod varfreq -b -c "m,h" test/tmp/genome_chr22.fa test/data/varmod/hg002_prom_chr22_snp_ins_del_multiallele_refcall.bam test/data/varmod/hg002_prom_chr22_snp_ins_del_multiallele_refcall.vcf > test/tmp/varmod/hg002_prom_chr22_snp_ins_del_multiallele_refcall.mm.varfreq.bed || die "${testname} failed"
-diff -q test/tmp/varmod/hg002_prom_chr22_snp_ins_del_multiallele_refcall.mm.varfreq.bed test/expected/varmod/hg002_prom_chr22_snp_ins_del_multiallele_refcall.mm.varfreq.bed || die "${testname} failed: output does not match expected output"
+ex ./minimod varfreq -b -c "m,h" test/tmp/genome_chr22.fa test/data/varmod/hg002_prom_chr22_snp_ins_del_multiallele_refcall.bam test/data/varmod/hg002_prom_chr22_snp_ins_del_multiallele_refcall.vcf > test/tmp/varmod/hg002_prom_chr22_snp_ins_del_multiallele_refcall.mm.varfreq.bedmethyl || die "${testname} failed"
+diff -q test/tmp/varmod/hg002_prom_chr22_snp_ins_del_multiallele_refcall.mm.varfreq.bedmethyl test/expected/varmod/hg002_prom_chr22_snp_ins_del_multiallele_refcall.mm.varfreq.bedmethyl || die "${testname} failed: output does not match expected output"
 
 
 # HG002 PromethION - insertion with multiple CpG sites (T->TGCCGCGCGCGCAC at chr22:15689408), validates offset per CpG
@@ -113,8 +113,8 @@ diff -q test/tmp/varmod/hg002_prom_chr22_ins_multi_cg.mm.varfreq.tsv test/expect
 
 testname="varfreq -b hg002_prom_chr22_ins_multi_cg"
 echo -e "${BLUE}${testname}${NC}"
-ex ./minimod varfreq -b -c "m,h" test/tmp/genome_chr22.fa test/data/varmod/hg002_prom_chr22_ins_multi_cg.bam test/data/varmod/hg002_prom_chr22_ins_multi_cg.vcf > test/tmp/varmod/hg002_prom_chr22_ins_multi_cg.mm.varfreq.bed || die "${testname} failed"
-diff -q test/tmp/varmod/hg002_prom_chr22_ins_multi_cg.mm.varfreq.bed test/expected/varmod/hg002_prom_chr22_ins_multi_cg.mm.varfreq.bed || die "${testname} failed: output does not match expected output"
+ex ./minimod varfreq -b -c "m,h" test/tmp/genome_chr22.fa test/data/varmod/hg002_prom_chr22_ins_multi_cg.bam test/data/varmod/hg002_prom_chr22_ins_multi_cg.vcf > test/tmp/varmod/hg002_prom_chr22_ins_multi_cg.mm.varfreq.bedmethyl || die "${testname} failed"
+diff -q test/tmp/varmod/hg002_prom_chr22_ins_multi_cg.mm.varfreq.bedmethyl test/expected/varmod/hg002_prom_chr22_ins_multi_cg.mm.varfreq.bedmethyl || die "${testname} failed: output does not match expected output"
 
 # phased VCF: example-ont reads with alternating HP=1/HP=2 + VCF mixing 1|1, 0|1, 1|0, 0|0, 0/1.
 # Exercises hom-alt (any hap), per-haplotype filtering, hom-ref skip, unphased fallthrough.
@@ -153,26 +153,30 @@ echo -e "${BLUE}${testname}${NC}"
 ex ./minimod varfreq --haplotypes -b -c "m" test/tmp/genome_chr22.fa test/data/varmod/example-ont-compound-indel.bam test/data/varmod/example-ont-compound-indel.vcf > test/tmp/varmod/example-ont-compound-indel.m.varfreq.bedmethyl || die "${testname} failed"
 diff -q test/tmp/varmod/example-ont-compound-indel.m.varfreq.bedmethyl test/expected/varmod/example-ont-compound-indel.m.varfreq.bedmethyl || die "${testname} failed: output does not match expected output"
 
-# Region-based regression tests. Each entry in test/regions/regions.tsv generates
-# a slice fixture (own renamed chrom + shifted POS) via test/regions/extract.sh.
-# Fixtures are committed; tests rerun minimod against the committed slice and
-# diff against the expected outputs.
+# Region-based regression tests. Each entry in test/regions/regions.tsv is sliced
+# by test/regions/extract.sh into a BAM + VCF (original chrom names + absolute
+# coordinates preserved, so the fixtures load directly in IGV). The reference
+# at test time is the existing per-chromosome download.
 while IFS=$'\t' read -r label chrom start end notes; do
     [[ "$label" =~ ^#.* ]] && continue
     [ -z "$label" ] && continue
 
-    fa=test/data/varmod/region_${label}.fa
+    case "$chrom" in
+        chr1)  ref=test/tmp/genome_chr1.fa ;;
+        chr22) ref=test/tmp/genome_chr22.fa ;;
+        *)     die "region:${label} chrom=${chrom} has no reference download wired up" ;;
+    esac
     bam=test/data/varmod/region_${label}.bam
     vcf=test/data/varmod/region_${label}.vcf
 
-    testname="varview --haplotypes region:${label}"
+    testname="varview -b --haplotypes region:${label}"
     echo -e "${BLUE}${testname}${NC}"
-    ex ./minimod varview --haplotypes -c "m,h" "$fa" "$bam" "$vcf" > test/tmp/varmod/region_${label}.mh.varview.tsv || die "${testname} failed"
-    diff -q test/tmp/varmod/region_${label}.mh.varview.tsv test/expected/varmod/region_${label}.mh.varview.tsv || die "${testname} failed: output does not match expected output"
+    ex ./minimod varview --haplotypes -b -c "m,h" "$ref" "$bam" "$vcf" > test/tmp/varmod/region_${label}.mh.varview.bedmethyl || die "${testname} failed"
+    diff -q test/tmp/varmod/region_${label}.mh.varview.bedmethyl test/expected/varmod/region_${label}.mh.varview.bedmethyl || die "${testname} failed: output does not match expected output"
 
     testname="varfreq -b --haplotypes region:${label}"
     echo -e "${BLUE}${testname}${NC}"
-    ex ./minimod varfreq --haplotypes -b -c "m,h" "$fa" "$bam" "$vcf" > test/tmp/varmod/region_${label}.mh.varfreq.bedmethyl || die "${testname} failed"
+    ex ./minimod varfreq --haplotypes -b -c "m,h" "$ref" "$bam" "$vcf" > test/tmp/varmod/region_${label}.mh.varfreq.bedmethyl || die "${testname} failed"
     diff -q test/tmp/varmod/region_${label}.mh.varfreq.bedmethyl test/expected/varmod/region_${label}.mh.varfreq.bedmethyl || die "${testname} failed: output does not match expected output"
 done < test/regions/regions.tsv
 
