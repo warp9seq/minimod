@@ -236,8 +236,13 @@ void load_var_map(const char* vcf_file, const char* sample_name, khash_t(varm)* 
     int32_t *gt_arr = NULL;
     int n_gt_arr = 0;
 
+    // track imprecise (symbolic ALT, e.g. <INS>/<DEL>) records to warn if they dominate
+    int64_t total_records = 0;
+    int64_t imprecise_records = 0;
+
     while(bcf_read(vcf_fp, vcf_hdr, rec) == 0) {
         bcf_unpack(rec, BCF_UN_STR | BCF_UN_FMT);
+        total_records++;
 
         const char *contig = bcf_hdr_id2name(vcf_hdr, rec->rid);
         int32_t pos = rec->pos;
@@ -345,9 +350,15 @@ void load_var_map(const char* vcf_file, const char* sample_name, khash_t(varm)* 
             kh_value(var_map, k) = vars;
         }
         
+        int record_imprecise = 0;
         for(int i = 1; i < rec->n_allele; i++) {
             char * alt_allele = rec->d.allele[i];
             if(alt_allele[0] == '.') continue; // reference call, no variant
+            if(alt_allele[0] == '<') {
+                // symbolic/imprecise ALT (such as <INS>, <DEL>), ALT sequence cannot be derived, skip
+                record_imprecise = 1;
+                continue;
+            }
             if(i >= 256 || alt_hap[i] < 0) continue; // ALT not present in chosen sample
 
             int alt_len = strlen(alt_allele);
@@ -429,8 +440,23 @@ void load_var_map(const char* vcf_file, const char* sample_name, khash_t(varm)* 
 
         }
 
+        if (record_imprecise) imprecise_records++;
+
     }
-    
+
+    if (imprecise_records > 0) {
+        if (total_records > 0 && imprecise_records * 10 >= total_records * 9) {
+            WARNING("%lld of %lld VCF records have imprecise/symbolic ALT alleles "
+                    "(e.g. <INS>, <DEL>) and were skipped; the ALT sequence cannot be derived for these. "
+                    "More than 90%% of the input is imprecise - is this the correct VCF?",
+                    (long long)imprecise_records, (long long)total_records);
+        } else {
+            INFO("Skipped %lld of %lld VCF records with imprecise/symbolic ALT alleles "
+                 "(e.g. <INS>, <DEL>); the ALT sequence cannot be derived for these.",
+                 (long long)imprecise_records, (long long)total_records);
+        }
+    }
+
     free(gt_arr);
     bcf_destroy(rec);
     bcf_hdr_destroy(vcf_hdr);
