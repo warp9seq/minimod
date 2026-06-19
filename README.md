@@ -439,7 +439,7 @@ chr22	20016700	20016700	-	4	0	0.000000	m	0
 Highlighted line corresponds to a 5mC modification within an insertion (A mC G) at position 19968083
 
 # Enable haplotypes
-minimod can output the haplotype in a separate integer column (**only in tsv output**) by specifying --haplotypes flag for both view and freq tools. minimod does **not** compute or infer haplotypes. Instead, it uses haplotype assignments already present in the input BAM, if the BAM is phased and contains the [`HP` (Haplotype)](https://samtools.github.io/hts-specs/SAMtags.pdf) tag.
+minimod can output the haplotype in a separate integer column by specifying --haplotypes flag for both view and freq tools. The haplotype column is appended to the tsv output as well as to the freq bedmethyl output (`-b`). minimod does **not** compute or infer haplotypes. Instead, it uses haplotype assignments already present in the input BAM, if the BAM is phased and contains the [`HP` (Haplotype)](https://samtools.github.io/hts-specs/SAMtags.pdf) tag.
 
 **Sample output of view with --haplotypes**
 ```bash
@@ -465,6 +465,18 @@ chr1	23002	23002	-	6	6	1.000000	m	*
 chr1	23096	23096	+	1	0	0.000000	m	1
 chr1	23096	23096	+	3	3	1.000000	m	2
 chr1	23096	23096	+	4	3	0.750000	m	*
+```
+
+**Sample output of freq bedmethyl (`-b`) with --haplotypes**
+
+The haplotype is appended as an extra (last) column after the standard bedMethyl columns.
+
+```bash
+$ minimod freq -b --haplotypes ref.fa reads.bam
+
+chr1	10468	10469	m	2	+	10468	10469	255,0,0	2	100.000000	2
+chr1	10468	10469	m	2	+	10468	10469	255,0,0	2	100.000000	*
+chr1	10469	10470	m	1	-	10469	10470	255,0,0	1	100.000000	2
 ```
 
 freq value of modifications with haplotype=* is calculated taking modifications from all haplotypes
