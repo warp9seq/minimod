@@ -432,6 +432,9 @@ void load_var_map(const char* vcf_file, const char* sample_name, khash_t(varm)* 
                 vars->cg_entries[vars->cg_entries_len].var_idx = var_idx;
                 vars->cg_entries[vars->cg_entries_len].is_insertion_only = is_ins;
                 vars->cg_entries[vars->cg_entries_len].is_compound = 0;
+                // o_val points at the C ('+' cytosine) or the G ('-' cytosine) of the CpG
+                vars->cg_entries[vars->cg_entries_len].strand =
+                    (after_site[o_val] == 'C' || after_site[o_val] == 'c') ? '+' : '-';
                 vars->cg_entries[vars->cg_entries_len].seq = vars->cg_entries_len;
                 vars->cg_entries_len++;
             }
@@ -570,8 +573,6 @@ void load_var_map(const char* vcf_file, const char* sample_name, khash_t(varm)* 
                 if (is_reference_cpg(ref_seq, ref->ref_seq_length,
                                      hap_ref_pos[p], hap_ref_pos[p+1],
                                      hap_is_ins[p], hap_is_ins[p+1])) continue;
-                int ref_cg_pos = hap_ref_pos[p];
-                int8_t is_ins = hap_is_ins[p];
                 // attribute to the owning variant of the C; if C is a ref base, fall back to the
                 // owner of the G, else the nearest preceding variant base.
                 int attr = hap_owner[p];
@@ -579,28 +580,41 @@ void load_var_map(const char* vcf_file, const char* sample_name, khash_t(varm)* 
                 if (attr < 0) { for (long q = p; q >= 0; q--) { if (hap_owner[q] >= 0) { attr = hap_owner[q]; break; } } }
                 if (attr < 0) attr = hap_idx[0];
 
-                // dedup against existing entries at same (ref_cg_pos, is_ins) on this hap;
-                // for insertion entries also require matching var.pos (matches scan filter)
-                int dup = 0;
-                for (int e = 0; e < vars->cg_entries_len; e++) {
-                    if (vars->cg_entries[e].ref_cg_pos != ref_cg_pos) continue;
-                    if (vars->cg_entries[e].is_insertion_only != is_ins) continue;
-                    if (is_ins && vars->vars[vars->cg_entries[e].var_idx].pos != vars->vars[attr].pos) continue;
-                    if (vars->vars[vars->cg_entries[e].var_idx].hap == hap) { dup = 1; break; }
-                }
-                if (dup) continue;
+                // emit both cytosines of the CpG: C at p ('+' strand) and G at p+1 ('-' strand),
+                // each at its own reference coordinate so pileup matches the correct strand.
+                int    cg_pos[2]    = { hap_ref_pos[p], hap_ref_pos[p+1] };
+                int8_t cg_ins[2]    = { hap_is_ins[p],  hap_is_ins[p+1]  };
+                char   cg_strand[2] = { '+', '-' };
+                for (int s = 0; s < 2; s++) {
+                    int ref_cg_pos = cg_pos[s];
+                    int8_t is_ins  = cg_ins[s];
+                    char strand    = cg_strand[s];
 
-                if (vars->cg_entries_len >= vars->cg_entries_cap) {
-                    vars->cg_entries_cap *= 2;
-                    vars->cg_entries = (cg_entry_t*)realloc(vars->cg_entries, sizeof(cg_entry_t) * vars->cg_entries_cap);
-                    MALLOC_CHK(vars->cg_entries);
+                    // dedup against existing entries at same (ref_cg_pos, is_ins, strand) on this hap;
+                    // for insertion entries also require matching var.pos (matches scan filter)
+                    int dup = 0;
+                    for (int e = 0; e < vars->cg_entries_len; e++) {
+                        if (vars->cg_entries[e].ref_cg_pos != ref_cg_pos) continue;
+                        if (vars->cg_entries[e].is_insertion_only != is_ins) continue;
+                        if (vars->cg_entries[e].strand != strand) continue;
+                        if (is_ins && vars->vars[vars->cg_entries[e].var_idx].pos != vars->vars[attr].pos) continue;
+                        if (vars->vars[vars->cg_entries[e].var_idx].hap == hap) { dup = 1; break; }
+                    }
+                    if (dup) continue;
+
+                    if (vars->cg_entries_len >= vars->cg_entries_cap) {
+                        vars->cg_entries_cap *= 2;
+                        vars->cg_entries = (cg_entry_t*)realloc(vars->cg_entries, sizeof(cg_entry_t) * vars->cg_entries_cap);
+                        MALLOC_CHK(vars->cg_entries);
+                    }
+                    vars->cg_entries[vars->cg_entries_len].ref_cg_pos = ref_cg_pos;
+                    vars->cg_entries[vars->cg_entries_len].var_idx = attr;
+                    vars->cg_entries[vars->cg_entries_len].is_insertion_only = is_ins;
+                    vars->cg_entries[vars->cg_entries_len].is_compound = 1;
+                    vars->cg_entries[vars->cg_entries_len].strand = strand;
+                    vars->cg_entries[vars->cg_entries_len].seq = vars->cg_entries_len;
+                    vars->cg_entries_len++;
                 }
-                vars->cg_entries[vars->cg_entries_len].ref_cg_pos = ref_cg_pos;
-                vars->cg_entries[vars->cg_entries_len].var_idx = attr;
-                vars->cg_entries[vars->cg_entries_len].is_insertion_only = is_ins;
-                vars->cg_entries[vars->cg_entries_len].is_compound = 1;
-                vars->cg_entries[vars->cg_entries_len].seq = vars->cg_entries_len;
-                vars->cg_entries_len++;
             }
 
             free(hap_seq); free(hap_ref_pos); free(hap_is_ins); free(hap_owner);
@@ -1000,6 +1014,7 @@ void varviewfreq_single(core_t * core, db_t *db, int32_t bam_i) {
                     for (; ei < vars->cg_entries_len && vars->cg_entries[ei].ref_cg_pos == lookup_pos; ei++) {
                         if (vars->cg_entries[ei].is_insertion_only != want_ins) continue;
                         if (vars->cg_entries[ei].is_compound && !core->opt.haplotypes) continue;
+                        if (vars->cg_entries[ei].strand != strand) continue;
                         var_t var = vars->vars[vars->cg_entries[ei].var_idx];
                         if (want_ins && var.pos != ins_start) continue;
                         // phase-aware filter: only when --haplotypes is on; phased ALT (var.hap > 0) only counts reads with matching HP tag
@@ -1060,6 +1075,7 @@ void varviewfreq_single(core_t * core, db_t *db, int32_t bam_i) {
                             for (; ei < vars->cg_entries_len && vars->cg_entries[ei].ref_cg_pos == lookup_pos; ei++) {
                                 if (vars->cg_entries[ei].is_insertion_only != want_ins) continue;
                                 if (vars->cg_entries[ei].is_compound && !core->opt.haplotypes) continue;
+                                if (vars->cg_entries[ei].strand != strand) continue;
                                 var_t var = vars->vars[vars->cg_entries[ei].var_idx];
                                 if (want_ins && var.pos != skip_ins_start) continue;
                                 if (core->opt.haplotypes && var.hap > 0 && (int)read_hp != var.hap) continue;
@@ -1107,6 +1123,7 @@ void varviewfreq_single(core_t * core, db_t *db, int32_t bam_i) {
                         for (; ei < vars->cg_entries_len && vars->cg_entries[ei].ref_cg_pos == lookup_pos; ei++) {
                             if (vars->cg_entries[ei].is_insertion_only != want_ins) continue;
                             if (vars->cg_entries[ei].is_compound && !core->opt.haplotypes) continue;
+                            if (vars->cg_entries[ei].strand != strand) continue;
                             var_t var = vars->vars[vars->cg_entries[ei].var_idx];
                             if (want_ins && var.pos != skip_ins_start) continue;
                             uint16_t offset = want_ins ? (uint16_t)skip_ins_offset : REF_OFFSET(out_pos, var.pos);
