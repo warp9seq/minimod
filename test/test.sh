@@ -155,6 +155,16 @@ sort -k1,1 -k2,2n -k4,4 test/expected/test5c.tsv > test/tmp/test5c.exp.tsv.sorte
 sort -k1,1 -k2,2n -k4,4 test/tmp/test5c.tsv > test/tmp/test5c.tsv.sorted
 diff -q test/tmp/test5c.exp.tsv.sorted test/tmp/test5c.tsv.sorted || die "${testname} diff failed"
 
+testname="Test 5d: freq ont bedmethyl output with haplotypes"
+echo -e "${BLUE}${testname}${NC}"
+ex  ./minimod freq -b --haplotypes test/tmp/genome_chr1.fa test/data/hap.bam > test/tmp/test5d.bedmethyl || die "${testname} Running the tool failed"
+# every row must carry the trailing haplotype column (1, 2 or *)
+bad=`awk -F'\t' 'NF!=12 || ($12!="1" && $12!="2" && $12!="*")' test/tmp/test5d.bedmethyl | wc -l`
+[ "$bad" -ne 0 ] && die "${testname} rows missing or with invalid haplotype column"
+sort -k1,1 -k2,2n -k6,6 -k12,12 test/expected/test5d.bedmethyl > test/tmp/test5d.bedmethyl.exp.sorted
+sort -k1,1 -k2,2n -k6,6 -k12,12 test/tmp/test5d.bedmethyl > test/tmp/test5d.bedmethyl.sorted
+diff -q test/tmp/test5d.bedmethyl.exp.sorted test/tmp/test5d.bedmethyl.sorted || die "${testname} diff failed"
+
 testname="Test 6: freq ont bedmethyl output"
 echo -e "${BLUE}${testname}${NC}"
 ex  ./minimod freq -b test/tmp/genome_chr22.fa test/data/example-ont.bam > test/tmp/test6.bedmethyl || die "${testname} Running the tool failed"

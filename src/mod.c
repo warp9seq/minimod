@@ -682,7 +682,15 @@ void print_freq_output(core_t * core) {
             char * key = sorted_arr[i].key;
             decode_key(key, &contig, &ref_pos, &ins_offset, &mod_code, &strand, &haplotype);
             int end = ref_pos+1;
-            fprintf(core->opt.output_fp, "%s\t%d\t%d\t%s\t%d\t%c\t%d\t%d\t255,0,0\t%d\t%f\n", contig, ref_pos, end, mod_code, freq->n_called, strand, ref_pos, end, freq->n_called, freq_value);
+            fprintf(core->opt.output_fp, "%s\t%d\t%d\t%s\t%d\t%c\t%d\t%d\t255,0,0\t%d\t%f", contig, ref_pos, end, mod_code, freq->n_called, strand, ref_pos, end, freq->n_called, freq_value);
+            if(do_haplotypes) {
+                if(haplotype == -1){
+                    fputs("\t*", core->opt.output_fp);
+                } else {
+                    fprintf(core->opt.output_fp, "\t%d", haplotype);
+                }
+            }
+            fputc('\n', core->opt.output_fp);
             free(contig);
             free(mod_code);
         }
