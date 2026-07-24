@@ -153,6 +153,47 @@ echo -e "${BLUE}${testname}${NC}"
 ex ./minimod varfreq --haplotypes -b -c "m" test/tmp/genome_chr22.fa test/data/varmod/example-ont-compound-indel.bam test/data/varmod/example-ont-compound-indel.vcf > test/tmp/varmod/example-ont-compound-indel.m.varfreq.bedmethyl || die "${testname} failed"
 diff -q test/tmp/varmod/example-ont-compound-indel.m.varfreq.bedmethyl test/expected/varmod/example-ont-compound-indel.m.varfreq.bedmethyl || die "${testname} failed: output does not match expected output"
 
+# HG002 PGXXXX250050 — a merged chr1 fixture (6 slices) covering, with >=2 entries each:
+#   cpg_gain() classes  : from_SNP, from_DEL, from_INS (offset<=0), within_INS (offset>0)
+#     * chr1:1029600-1030643 and chr1:2122900-2123550 each carry all four classes
+#   hap-based merge     : two adjacent phased SNPs on the SAME hap that jointly form a CpG
+#     * chr1:104963183-104963184 (1|0) and chr1:119585475-119585476 (1|0) — CpG on hap1 only
+#   MNP                 : chr1:36689056 (TA->CG) and chr1:73471034 (AA->CG). clair3 decomposes
+#     MNPs into adjacent SNPs, so these two are re-composed into single MNP records in the VCF
+#     (the reads carry the same haplotype, so the reconstructed CpG is identical).
+#   variant types       : SNP, INS, DEL, MNP, REFCALL (0/0)  — all present >=2x in the VCF
+#   phasing             : both phased (1|0/0|1) and unphased (1/1) genotypes present
+# freq output is trimmed to the union of the 6 slice windows (long reads extend far beyond them).
+FREQ_WIN='($1=="chr1")&&(($2>=1029600&&$2<=1030643)||($2>=2122900&&$2<=2123550)||($2>=36688756&&$2<=36689356)||($2>=73470734&&$2<=73471334)||($2>=104962934&&$2<=104963434)||($2>=119585226&&$2<=119585726))'
+testname="freq --haplotypes varmod_all_chr1"
+echo -e "${BLUE}${testname}${NC}"
+ex ./minimod freq --haplotypes -b -c "m,h" test/tmp/genome_chr1.fa test/data/varmod/varmod_all_chr1.bam > test/tmp/varmod/varmod_all_chr1.mh.freq.full.bedmethyl || die "${testname} failed"
+awk -F'\t' "$FREQ_WIN" test/tmp/varmod/varmod_all_chr1.mh.freq.full.bedmethyl > test/tmp/varmod/varmod_all_chr1.mh.freq.bedmethyl
+diff -q test/tmp/varmod/varmod_all_chr1.mh.freq.bedmethyl test/expected/varmod/varmod_all_chr1.mh.freq.bedmethyl || die "${testname} failed: output does not match expected output"
+
+testname="varfreq --haplotypes varmod_all_chr1"
+echo -e "${BLUE}${testname}${NC}"
+ex ./minimod varfreq --haplotypes -b -c "m,h" test/tmp/genome_chr1.fa test/data/varmod/varmod_all_chr1.bam test/data/varmod/varmod_all_chr1.vcf > test/tmp/varmod/varmod_all_chr1.mh.varfreq.bedmethyl || die "${testname} failed"
+diff -q test/tmp/varmod/varmod_all_chr1.mh.varfreq.bedmethyl test/expected/varmod/varmod_all_chr1.mh.varfreq.bedmethyl || die "${testname} failed: output does not match expected output"
+
+# Analysis-script tests: run the varfreq_summary/varfreq_context helpers over the
+# varmod_all_chr1 freq + varfreq outputs generated above and diff their reports.
+# varfreq_summary also takes the VCF and the reference (for the reference-CpG leak check).
+testname="varfreq_summary varmod_all_chr1"
+echo -e "${BLUE}${testname}${NC}"
+ex test/varfreq_summary.py test/data/varmod/varmod_all_chr1.vcf test/tmp/varmod/varmod_all_chr1.mh.freq.bedmethyl test/tmp/varmod/varmod_all_chr1.mh.varfreq.bedmethyl test/tmp/genome_chr1.fa > test/tmp/varmod/varmod_all_chr1.mh.varfreq.summary.txt || die "${testname} failed"
+diff -q test/tmp/varmod/varmod_all_chr1.mh.varfreq.summary.txt test/expected/varmod/varmod_all_chr1.mh.varfreq.summary.txt || die "${testname} failed: output does not match expected output"
+
+testname="varfreq_context varmod_all_chr1"
+echo -e "${BLUE}${testname}${NC}"
+ex test/varfreq_context.py test/tmp/varmod/varmod_all_chr1.mh.freq.bedmethyl test/tmp/varmod/varmod_all_chr1.mh.varfreq.bedmethyl > test/tmp/varmod/varmod_all_chr1.mh.varfreq.context.tsv 2>/dev/null || die "${testname} failed"
+diff -q test/tmp/varmod/varmod_all_chr1.mh.varfreq.context.tsv test/expected/varmod/varmod_all_chr1.mh.varfreq.context.tsv || die "${testname} failed: output does not match expected output"
+
+testname="varfreq_context --bed varmod_all_chr1"
+echo -e "${BLUE}${testname}${NC}"
+ex test/varfreq_context.py test/tmp/varmod/varmod_all_chr1.mh.freq.bedmethyl test/tmp/varmod/varmod_all_chr1.mh.varfreq.bedmethyl --bed test/tmp/varmod/varmod_all_chr1.mh.varfreq.context.bed > /dev/null 2>&1 || die "${testname} failed"
+diff -q test/tmp/varmod/varmod_all_chr1.mh.varfreq.context.bed test/expected/varmod/varmod_all_chr1.mh.varfreq.context.bed || die "${testname} failed: output does not match expected output"
+
 # Region-based regression tests. Each entry in test/regions/regions.tsv is sliced
 # by test/regions/extract.sh into a BAM + VCF (original chrom names + absolute
 # coordinates preserved, so the fixtures load directly in IGV). The reference

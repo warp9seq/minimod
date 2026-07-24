@@ -1,0 +1,197 @@
+#!/usr/bin/env python3
+
+# Usage: test/varfreq_context.py freq.bedmethyl varfreq.bedmethyl [radius] [site_thresh] [meth_site_pct] [--bed out.bed]
+
+import sys
+from bisect import bisect_left, bisect_right
+
+argv = sys.argv[1:]
+bed_file = None
+if "--bed" in argv:
+    i = argv.index("--bed")
+    if i + 1 >= len(argv):
+        print("--bed requires an output file path")
+        sys.exit(1)
+    bed_file = argv[i + 1]
+    del argv[i:i + 2]
+
+if len(argv) < 2 or len(argv) > 5:
+    print("Usage: {} freq.bedmethyl varfreq.bedmethyl [radius] [site_thresh] [meth_site_pct] [--bed out.bed]".format(sys.argv[0]))
+    sys.exit(1)
+
+ALL_VARTYPES = ("SNP", "INS", "DEL", "MNP")
+
+freq_file = argv[0]
+varfreq_file = argv[1]
+radius = int(argv[2]) if len(argv) > 2 else 1000
+site_thresh = float(argv[3]) if len(argv) > 3 else 0.5
+meth_site_pct = float(argv[4]) if len(argv) > 4 else 20.0
+
+def var_type_of(ref_allele, alt_allele):
+    if len(ref_allele) == 1 and len(alt_allele) == 1:
+        return "SNP"
+    if len(ref_allele) > len(alt_allele):
+        return "DEL"
+    if len(ref_allele) < len(alt_allele):
+        return "INS"
+    return "MNP"
+
+def freq_load(fn):
+    # (contig, hap, mod_code) -> (sites, [(site, n_called, n_mod), ...])
+    per_site = {}
+    with open(fn) as f:
+        for line in f:
+            parts = line.rstrip("\n").split("\t")
+            contig, mod_code, strand, hap = parts[0], parts[3], parts[5], parts[11]
+            pos, n_called, freq = int(parts[1]), int(parts[4]), float(parts[10])
+
+            n_mod = n_called * freq / 100.0
+
+            if hap == "*":
+                continue
+
+            site_pos = pos if strand == "+" else pos - 1
+            d = per_site.setdefault((contig, hap, mod_code), {})
+            s = d.get(site_pos)
+            if s:
+                s[0] += n_called
+                s[1] += n_mod
+            else:
+                d[site_pos] = [n_called, n_mod]
+
+    out = {}
+    for key, d in per_site.items():
+        sites = sorted(d)
+        out[key] = (sites, [(site, d[site][0], d[site][1]) for site in sites])
+    return out
+
+def varfreq_load(fn):
+    groups = {}
+    with open(fn) as f:
+        for line in f:
+            parts = line.rstrip("\n").split("\t")
+            contig, mod_code, strand, hap = parts[0], parts[3], parts[5], parts[16]
+            pos, n_called, freq = int(parts[1]), int(parts[4]), float(parts[10])
+            var_pos, ref_allele, alt_allele = int(parts[11]), parts[13], parts[14]
+
+            n_mod = n_called * freq / 100.0
+
+            if hap == "*":
+                continue
+
+            site_pos = pos if strand == "+" else pos - 1
+            key = (contig, var_pos, ref_allele, alt_allele, hap, mod_code)
+            g = groups.get(key)
+            if g is None:
+                g = [var_type_of(ref_allele, alt_allele), {}]
+                groups[key] = g
+            s = g[1].get(site_pos)
+            if s:
+                s[0] += n_called
+                s[1] += n_mod
+            else:
+                g[1][site_pos] = [n_called, n_mod]
+    return groups
+
+def meth_site_count(sites_data):
+    return sum(1 for n_called, n_mod in sites_data
+               if n_called > 0 and n_mod / n_called > site_thresh)
+
+def background(freqs, contig, hap, mod_code, var_pos):
+    # -> (n_meth_sites, n_sites) within +/-radius of var_pos
+    entry = freqs.get((contig, hap, mod_code))
+    if entry is None:
+        return (0, 0)
+    sites, records = entry
+    lo = bisect_left(sites, var_pos - radius)
+    hi = bisect_right(sites, var_pos + radius)
+    n_meth = meth_site_count((records[i][1], records[i][2]) for i in range(lo, hi))
+    return (n_meth, hi - lo)
+
+CATEGORY = {"gain": "meth_in_unmeth", "loss": "unmeth_in_meth"}
+COLOUR = {"gain": "255,0,0", "loss": "0,0,255"}
+
+freqs = freq_load(freq_file)
+varfreqs = varfreq_load(varfreq_file)
+
+print("# freq    : {}".format(freq_file), file=sys.stderr)
+print("# varfreq : {}".format(varfreq_file), file=sys.stderr)
+print("# radius={} bp  site methylated if freq>{}  methylated if meth/len >{}%".format(
+    radius, site_thresh, meth_site_pct), file=sys.stderr)
+
+def new_bucket():
+    return {"gain": [], "loss": []}
+buckets = {t: new_bucket() for t in ALL_VARTYPES}
+
+for key in sorted(varfreqs):
+    contig, var_pos, ref_allele, alt_allele, hap, mod_code = key
+    var_type, var_sites = varfreqs[key]
+    b = buckets[var_type]
+
+    var_ncpg = len(var_sites)
+    bg_nmeth, bg_ncpg = background(freqs, contig, hap, mod_code, var_pos)
+
+    var_nmeth = meth_site_count(var_sites.values())
+    var_pct = 100.0 * var_nmeth / len(alt_allele)
+    bg_pct = 100.0 * bg_nmeth / (2 * radius)
+    var_methylated = var_pct > meth_site_pct
+    bg_methylated = bg_pct > meth_site_pct
+
+    rec = (contig, var_pos, ref_allele, alt_allele, hap, mod_code,
+           var_pct, var_nmeth, var_ncpg, bg_pct, bg_nmeth, bg_ncpg)
+
+    if var_methylated and not bg_methylated:
+        b["gain"].append(rec)
+    elif not var_methylated and bg_methylated:
+        b["loss"].append(rec)
+
+COLUMNS = ["#chrom", "start", "end", "var_type", "ref", "alt", "hap", "mod",
+           "category", "var_meth", "var_len", "var_meth_pct", "var_cpg",
+           "bg_meth", "bg_len", "bg_meth_pct", "bg_cpg"]
+
+tsv_rows = []
+for var_type in ALL_VARTYPES:
+    b = buckets[var_type]
+    for category in ("gain", "loss"):
+        for (contig, var_pos, ref_allele, alt_allele, hap, mod_code,
+             var_pct, var_nmeth, var_ncpg, bg_pct, bg_nmeth, bg_ncpg) in b[category]:
+            tsv_rows.append((contig, var_pos, var_pos + len(ref_allele), var_type,
+                             ref_allele, alt_allele, hap, mod_code, CATEGORY[category],
+                             var_nmeth, len(alt_allele), var_pct, var_ncpg,
+                             bg_nmeth, 2 * radius, bg_pct, bg_ncpg))
+
+tsv_rows.sort(key=lambda r: (r[0], r[1], r[2], r[8]))
+
+print("\t".join(COLUMNS))
+for r in tsv_rows:
+    print("{}\t{}\t{}\t{}\t{}\t{}\t{}\t{}\t{}\t{}\t{}\t{:.1f}\t{}\t{}\t{}\t{:.1f}\t{}".format(*r))
+
+for var_type in ALL_VARTYPES:
+    b = buckets[var_type]
+    print("# {}: gain={} loss={}".format(
+        var_type, len(b["gain"]), len(b["loss"])), file=sys.stderr)
+
+def write_bed(fn, buckets):
+    rows = []
+    for var_type in ALL_VARTYPES:
+        for category in ("gain", "loss"):
+            for (contig, var_pos, ref_allele, alt_allele, hap, mod_code,
+                 var_pct, var_nmeth, var_ncpg, bg_pct, bg_nmeth, bg_ncpg) in buckets[var_type][category]:
+                start = var_pos
+                end = var_pos + len(ref_allele)
+                name = "{}_{}_{}>{}_hap{}_{}_v{:.0f}/b{:.0f}".format(
+                    var_type, CATEGORY[category], ref_allele, alt_allele, hap, mod_code, var_pct, bg_pct)
+                score = min(1000, int(round(var_pct * 10)))
+                rows.append((contig, start, end, name, score, COLOUR[category]))
+
+    rows.sort(key=lambda r: (r[0], r[1], r[2]))
+    with open(fn, "w") as out:
+        out.write('track name="varfreq_context" description="variant vs background methylation contrasts" itemRgb="On"\n')
+        for contig, start, end, name, score, colour in rows:
+            out.write("{}\t{}\t{}\t{}\t{}\t.\t{}\t{}\t{}\n".format(
+                contig, start, end, name, score, start, end, colour))
+    return len(rows)
+
+if bed_file is not None:
+    n = write_bed(bed_file, buckets)
+    print("# wrote {} contrast feature(s) to {}".format(n, bed_file), file=sys.stderr)
