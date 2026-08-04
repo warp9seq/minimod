@@ -47,7 +47,8 @@ def vcf_load(fn):
 
 def freq_load(fn):
     d = {}
-    with open(fn) as f:
+    opener = gzip.open if fn.endswith(".gz") else open
+    with opener(fn, "rt") as f:
         for line in f:
             parts = line.rstrip("\n").split("\t")
 
@@ -77,7 +78,8 @@ def freq_load(fn):
 
 def varfreq_load(fn):
     d = {}
-    with open(fn) as f:
+    opener = gzip.open if fn.endswith(".gz") else open
+    with opener(fn, "rt") as f:
         for line in f:
             parts = line.rstrip("\n").split("\t")
 
@@ -275,7 +277,8 @@ def cpg_gain_summary(varfreq_file):
             "uncategorized"]
     summary = {c: 0 for c in cats}
 
-    with open(varfreq_file) as f:
+    opener = gzip.open if varfreq_file.endswith(".gz") else open
+    with opener(varfreq_file, "rt") as f:
         for line in f:
             parts = line.rstrip("\n").split("\t")
 
@@ -352,7 +355,8 @@ def load_reference(fn):
 def reference_cpg_in_varfreq_check(varfreq_file, reference):
     leaks = []
     checked = 0
-    with open(varfreq_file) as f:
+    opener = gzip.open if varfreq_file.endswith(".gz") else open
+    with opener(varfreq_file, "rt") as f:
         for line in f:
             parts = line.rstrip("\n").split("\t")
             if parts[5] != "+" or parts[16] == "*":

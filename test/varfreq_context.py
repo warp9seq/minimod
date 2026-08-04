@@ -3,6 +3,7 @@
 # Usage: test/varfreq_context.py freq.bedmethyl varfreq.bedmethyl [radius] [site_thresh] [meth_site_pct] [--bed out.bed]
 
 import sys
+import gzip
 from bisect import bisect_left, bisect_right
 
 argv = sys.argv[1:]
@@ -39,7 +40,8 @@ def var_type_of(ref_allele, alt_allele):
 def freq_load(fn):
     # (contig, hap, mod_code) -> (sites, [(site, n_called, n_mod), ...])
     per_site = {}
-    with open(fn) as f:
+    opener = gzip.open if fn.endswith(".gz") else open
+    with opener(fn, "rt") as f:
         for line in f:
             parts = line.rstrip("\n").split("\t")
             contig, mod_code, strand, hap = parts[0], parts[3], parts[5], parts[11]
@@ -67,7 +69,8 @@ def freq_load(fn):
 
 def varfreq_load(fn):
     groups = {}
-    with open(fn) as f:
+    opener = gzip.open if fn.endswith(".gz") else open
+    with opener(fn, "rt") as f:
         for line in f:
             parts = line.rstrip("\n").split("\t")
             contig, mod_code, strand, hap = parts[0], parts[3], parts[5], parts[16]
