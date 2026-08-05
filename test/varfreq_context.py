@@ -112,8 +112,8 @@ def background(freqs, contig, hap, mod_code, var_pos):
     n_meth = meth_site_count((records[i][1], records[i][2]) for i in range(lo, hi))
     return (n_meth, hi - lo)
 
-CATEGORY = {"gain": "meth_in_unmeth", "loss": "unmeth_in_meth"}
-COLOUR = {"gain": "255,0,0", "loss": "0,0,255"}
+CATEGORIES = ("meth_in_unmeth", "unmeth_in_meth")
+COLOUR = {"meth_in_unmeth": "255,0,0", "unmeth_in_meth": "0,0,255"}
 
 freqs = freq_load(freq_file)
 varfreqs = varfreq_load(varfreq_file)
@@ -124,7 +124,7 @@ print("# radius={} bp  site methylated if freq>{}  variant methylated if meth/le
     radius, site_thresh, var_meth_pct, bg_meth_pct), file=sys.stderr)
 
 def new_bucket():
-    return {"gain": [], "loss": []}
+    return {c: [] for c in CATEGORIES}
 buckets = {t: new_bucket() for t in ALL_VARTYPES}
 
 for key in sorted(varfreqs):
@@ -145,9 +145,9 @@ for key in sorted(varfreqs):
            var_pct, var_nmeth, var_ncpg, bg_pct, bg_nmeth, bg_ncpg)
 
     if var_methylated and not bg_methylated:
-        b["gain"].append(rec)
+        b["meth_in_unmeth"].append(rec)
     elif not var_methylated and bg_methylated:
-        b["loss"].append(rec)
+        b["unmeth_in_meth"].append(rec)
 
 COLUMNS = ["chrom", "start", "end", "var_type", "ref", "alt", "hap", "mod",
            "category", "var_meth", "var_len", "var_meth_pct", "var_cpg",
@@ -156,11 +156,11 @@ COLUMNS = ["chrom", "start", "end", "var_type", "ref", "alt", "hap", "mod",
 tsv_rows = []
 for var_type in ALL_VARTYPES:
     b = buckets[var_type]
-    for category in ("gain", "loss"):
+    for category in CATEGORIES:
         for (contig, var_pos, ref_allele, alt_allele, hap, mod_code,
              var_pct, var_nmeth, var_ncpg, bg_pct, bg_nmeth, bg_ncpg) in b[category]:
             tsv_rows.append((contig, var_pos, var_pos + len(ref_allele), var_type,
-                             ref_allele, alt_allele, hap, mod_code, CATEGORY[category],
+                             ref_allele, alt_allele, hap, mod_code, category,
                              var_nmeth, len(alt_allele), var_pct, var_ncpg,
                              bg_nmeth, 2 * radius, bg_pct, bg_ncpg))
 
@@ -172,19 +172,19 @@ for r in tsv_rows:
 
 for var_type in ALL_VARTYPES:
     b = buckets[var_type]
-    print("# {}: gain={} loss={}".format(
-        var_type, len(b["gain"]), len(b["loss"])), file=sys.stderr)
+    print("# {}: meth_in_unmeth={} unmeth_in_meth={}".format(
+        var_type, len(b["meth_in_unmeth"]), len(b["unmeth_in_meth"])), file=sys.stderr)
 
 def write_bed(fn, buckets):
     rows = []
     for var_type in ALL_VARTYPES:
-        for category in ("gain", "loss"):
+        for category in CATEGORIES:
             for (contig, var_pos, ref_allele, alt_allele, hap, mod_code,
                  var_pct, var_nmeth, var_ncpg, bg_pct, bg_nmeth, bg_ncpg) in buckets[var_type][category]:
                 start = var_pos
                 end = var_pos + len(ref_allele)
                 name = "{}_{}_{}>{}_hap{}_{}_v{:.0f}/b{:.0f}".format(
-                    var_type, CATEGORY[category], ref_allele, alt_allele, hap, mod_code, var_pct, bg_pct)
+                    var_type, category, ref_allele, alt_allele, hap, mod_code, var_pct, bg_pct)
                 score = min(1000, int(round(var_pct * 10)))
                 rows.append((contig, start, end, name, score, COLOUR[category]))
 
