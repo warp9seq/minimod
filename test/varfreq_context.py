@@ -102,15 +102,17 @@ def meth_site_count(sites_data):
                if n_called > 0 and n_mod / n_called > site_thresh)
 
 def background(freqs, contig, hap, mod_code, var_pos):
-    # -> (n_meth_sites, n_sites) within +/-radius of var_pos
     entry = freqs.get((contig, hap, mod_code))
     if entry is None:
-        return (0, 0)
+        return ((0, 0), (0, 0))
     sites, records = entry
     lo = bisect_left(sites, var_pos - radius)
+    mid_l = bisect_left(sites, var_pos)
+    mid_r = bisect_right(sites, var_pos)
     hi = bisect_right(sites, var_pos + radius)
-    n_meth = meth_site_count((records[i][1], records[i][2]) for i in range(lo, hi))
-    return (n_meth, hi - lo)
+    left_meth = meth_site_count((records[i][1], records[i][2]) for i in range(lo, mid_l))
+    right_meth = meth_site_count((records[i][1], records[i][2]) for i in range(mid_r, hi))
+    return ((left_meth, mid_l - lo), (right_meth, hi - mid_r))
 
 CATEGORIES = ("meth_in_unmeth", "unmeth_in_meth")
 COLOUR = {"meth_in_unmeth": "255,0,0", "unmeth_in_meth": "0,0,255"}
@@ -134,16 +136,20 @@ for key in sorted(varfreqs):
     b = buckets[var_type]
 
     var_ncpg = len(var_sites)
-    bg_nmeth, bg_ncpg = background(freqs, contig, hap, mod_code, var_pos)
+    (bg_l_nmeth, bg_l_ncpg), (bg_r_nmeth, bg_r_ncpg) = background(freqs, contig, hap, mod_code, var_pos)
+    bg_nmeth = bg_l_nmeth + bg_r_nmeth
+    bg_ncpg = bg_l_ncpg + bg_r_ncpg
 
     var_nmeth = meth_site_count(var_sites.values())
     var_pct = 100.0 * var_nmeth / len(alt_allele)
+    bg_l_pct = 100.0 * bg_l_nmeth / radius
+    bg_r_pct = 100.0 * bg_r_nmeth / radius
     bg_pct = 100.0 * bg_nmeth / (2 * radius)
     var_methylated = var_pct > var_meth_pct
-    bg_methylated = bg_pct > bg_meth_pct
+    bg_methylated = bg_l_pct > bg_meth_pct or bg_r_pct > bg_meth_pct
 
     rec = (contig, var_pos, ref_allele, alt_allele, hap, mod_code,
-           var_pct, var_nmeth, var_ncpg, bg_pct, bg_nmeth, bg_ncpg)
+           var_pct, var_nmeth, var_ncpg, bg_pct, bg_l_pct, bg_r_pct, bg_nmeth, bg_ncpg)
 
     if var_methylated and not bg_methylated:
         b["meth_in_unmeth"].append(rec)
@@ -156,24 +162,24 @@ for key in sorted(varfreqs):
 
 COLUMNS = ["chrom", "start", "end", "var_type", "ref", "alt", "hap", "mod",
            "category", "var_meth", "var_len", "var_meth_pct", "var_cpg",
-           "bg_meth", "bg_len", "bg_meth_pct", "bg_cpg"]
+           "bg_meth", "bg_len", "bg_meth_pct", "bg_l_meth_pct", "bg_r_meth_pct", "bg_cpg"]
 
 tsv_rows = []
 for var_type in ALL_VARTYPES:
     b = buckets[var_type]
     for category in CATEGORIES:
         for (contig, var_pos, ref_allele, alt_allele, hap, mod_code,
-             var_pct, var_nmeth, var_ncpg, bg_pct, bg_nmeth, bg_ncpg) in b[category]:
+             var_pct, var_nmeth, var_ncpg, bg_pct, bg_l_pct, bg_r_pct, bg_nmeth, bg_ncpg) in b[category]:
             tsv_rows.append((contig, var_pos, var_pos + len(ref_allele), var_type,
                              ref_allele, alt_allele, hap, mod_code, category,
                              var_nmeth, len(alt_allele), var_pct, var_ncpg,
-                             bg_nmeth, 2 * radius, bg_pct, bg_ncpg))
+                             bg_nmeth, 2 * radius, bg_pct, bg_l_pct, bg_r_pct, bg_ncpg))
 
 tsv_rows.sort(key=lambda r: (r[0], r[1], r[2], r[8]))
 
 print("\t".join(COLUMNS))
 for r in tsv_rows:
-    print("{}\t{}\t{}\t{}\t{}\t{}\t{}\t{}\t{}\t{}\t{}\t{:.1f}\t{}\t{}\t{}\t{:.1f}\t{}".format(*r))
+    print("{}\t{}\t{}\t{}\t{}\t{}\t{}\t{}\t{}\t{}\t{}\t{:.1f}\t{}\t{}\t{}\t{:.1f}\t{:.1f}\t{:.1f}\t{}".format(*r))
 
 for var_type in ALL_VARTYPES:
     b = buckets[var_type]
@@ -187,7 +193,7 @@ def write_bed(fn, buckets):
     for var_type in ALL_VARTYPES:
         for category in CATEGORIES:
             for (contig, var_pos, ref_allele, alt_allele, hap, mod_code,
-                 var_pct, var_nmeth, var_ncpg, bg_pct, bg_nmeth, bg_ncpg) in buckets[var_type][category]:
+                 var_pct, var_nmeth, var_ncpg, bg_pct, bg_l_pct, bg_r_pct, bg_nmeth, bg_ncpg) in buckets[var_type][category]:
                 start = var_pos
                 end = var_pos + len(ref_allele)
                 name = "{}_{}_{}>{}_hap{}_{}_v{:.0f}/b{:.0f}".format(
