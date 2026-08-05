@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 
-# Usage: test/varfreq_context.py freq.bedmethyl varfreq.bedmethyl [radius] [site_thresh] [meth_site_pct] [--bed out.bed]
+# Usage: test/varfreq_context.py freq.bedmethyl varfreq.bedmethyl [radius] [site_thresh] [var_meth_pct] [bg_meth_pct] [--bed out.bed]
 
 import sys
 import gzip
@@ -16,8 +16,8 @@ if "--bed" in argv:
     bed_file = argv[i + 1]
     del argv[i:i + 2]
 
-if len(argv) < 2 or len(argv) > 5:
-    print("Usage: {} freq.bedmethyl varfreq.bedmethyl [radius] [site_thresh] [meth_site_pct] [--bed out.bed]".format(sys.argv[0]))
+if len(argv) < 2 or len(argv) > 6:
+    print("Usage: {} freq.bedmethyl varfreq.bedmethyl [radius] [site_thresh] [var_meth_pct] [bg_meth_pct] [--bed out.bed]".format(sys.argv[0]))
     sys.exit(1)
 
 ALL_VARTYPES = ("SNP", "INS", "DEL", "MNP")
@@ -26,7 +26,8 @@ freq_file = argv[0]
 varfreq_file = argv[1]
 radius = int(argv[2]) if len(argv) > 2 else 1000
 site_thresh = float(argv[3]) if len(argv) > 3 else 0.5
-meth_site_pct = float(argv[4]) if len(argv) > 4 else 20.0
+var_meth_pct = float(argv[4]) if len(argv) > 4 else 20.0
+bg_meth_pct = float(argv[5]) if len(argv) > 5 else var_meth_pct
 
 def var_type_of(ref_allele, alt_allele):
     if len(ref_allele) == 1 and len(alt_allele) == 1:
@@ -119,8 +120,8 @@ varfreqs = varfreq_load(varfreq_file)
 
 print("# freq    : {}".format(freq_file), file=sys.stderr)
 print("# varfreq : {}".format(varfreq_file), file=sys.stderr)
-print("# radius={} bp  site methylated if freq>{}  methylated if meth/len >{}%".format(
-    radius, site_thresh, meth_site_pct), file=sys.stderr)
+print("# radius={} bp  site methylated if freq>{}  variant methylated if meth/len >{}%  background methylated if meth/len >{}%".format(
+    radius, site_thresh, var_meth_pct, bg_meth_pct), file=sys.stderr)
 
 def new_bucket():
     return {"gain": [], "loss": []}
@@ -137,8 +138,8 @@ for key in sorted(varfreqs):
     var_nmeth = meth_site_count(var_sites.values())
     var_pct = 100.0 * var_nmeth / len(alt_allele)
     bg_pct = 100.0 * bg_nmeth / (2 * radius)
-    var_methylated = var_pct > meth_site_pct
-    bg_methylated = bg_pct > meth_site_pct
+    var_methylated = var_pct > var_meth_pct
+    bg_methylated = bg_pct > bg_meth_pct
 
     rec = (contig, var_pos, ref_allele, alt_allele, hap, mod_code,
            var_pct, var_nmeth, var_ncpg, bg_pct, bg_nmeth, bg_ncpg)
@@ -148,7 +149,7 @@ for key in sorted(varfreqs):
     elif not var_methylated and bg_methylated:
         b["loss"].append(rec)
 
-COLUMNS = ["#chrom", "start", "end", "var_type", "ref", "alt", "hap", "mod",
+COLUMNS = ["chrom", "start", "end", "var_type", "ref", "alt", "hap", "mod",
            "category", "var_meth", "var_len", "var_meth_pct", "var_cpg",
            "bg_meth", "bg_len", "bg_meth_pct", "bg_cpg"]
 
