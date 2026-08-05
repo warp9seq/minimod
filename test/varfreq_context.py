@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 
-# Usage: test/varfreq_context.py freq.bedmethyl varfreq.bedmethyl [radius] [site_thresh] [var_meth_pct] [bg_meth_pct] [--bed out.bed]
+# Usage: test/varfreq_context.py freq.bedmethyl varfreq.bedmethyl radius meth_freq_thresh var_meth_pct var_unmeth_pct bg_meth_pct bg_unmeth_pct [--bed out.bed]
 
 import sys
 import gzip
@@ -16,18 +16,20 @@ if "--bed" in argv:
     bed_file = argv[i + 1]
     del argv[i:i + 2]
 
-if len(argv) < 2 or len(argv) > 6:
-    print("Usage: {} freq.bedmethyl varfreq.bedmethyl [radius] [site_thresh] [var_meth_pct] [bg_meth_pct] [--bed out.bed]".format(sys.argv[0]))
+if len(argv) != 8:
+    print("Usage: {} freq.bedmethyl varfreq.bedmethyl radius meth_freq_thresh var_meth_pct var_unmeth_pct bg_meth_pct bg_unmeth_pct [--bed out.bed]".format(sys.argv[0]))
     sys.exit(1)
 
 ALL_VARTYPES = ("SNP", "INS", "DEL", "MNP")
 
 freq_file = argv[0]
 varfreq_file = argv[1]
-radius = int(argv[2]) if len(argv) > 2 else 1000
-site_thresh = float(argv[3]) if len(argv) > 3 else 0.5
-var_meth_pct = float(argv[4]) if len(argv) > 4 else 20.0
-bg_meth_pct = float(argv[5]) if len(argv) > 5 else var_meth_pct
+radius = int(argv[2])
+meth_freq_thresh = float(argv[3])
+var_meth_pct = float(argv[4])
+var_unmeth_pct = float(argv[5])
+bg_meth_pct = float(argv[6])
+bg_unmeth_pct = float(argv[7])
 
 def var_type_of(ref_allele, alt_allele):
     if len(ref_allele) == 1 and len(alt_allele) == 1:
@@ -99,7 +101,7 @@ def varfreq_load(fn):
 
 def meth_site_count(sites_data):
     return sum(1 for n_called, n_mod in sites_data
-               if n_called > 0 and n_mod / n_called > site_thresh)
+               if n_called > 0 and n_mod / n_called > meth_freq_thresh)
 
 def background(freqs, contig, hap, mod_code, var_pos):
     entry = freqs.get((contig, hap, mod_code))
@@ -122,13 +124,13 @@ varfreqs = varfreq_load(varfreq_file)
 
 print("# freq    : {}".format(freq_file), file=sys.stderr)
 print("# varfreq : {}".format(varfreq_file), file=sys.stderr)
-print("# radius={} bp  site methylated if freq>{}  variant methylated if meth/len >{}%  background methylated if meth/len >{}%".format(
-    radius, site_thresh, var_meth_pct, bg_meth_pct), file=sys.stderr)
+print("# radius={} bp  site methylated if freq>{}  variant methylated if meth/len >{}%  variant unmethylated if meth/len <{}%  background methylated if meth/len >{}%  background unmethylated if meth/len <{}%".format(
+    radius, meth_freq_thresh, var_meth_pct, var_unmeth_pct, bg_meth_pct, bg_unmeth_pct), file=sys.stderr)
 
 def new_bucket():
     return {c: [] for c in CATEGORIES}
 buckets = {t: new_bucket() for t in ALL_VARTYPES}
-ignored = {t: {"meth_in_meth": 0, "unmeth_in_unmeth": 0} for t in ALL_VARTYPES}
+ignored = {t: {"meth_in_meth": 0, "unmeth_in_unmeth": 0, "ambiguous": 0} for t in ALL_VARTYPES}
 
 for key in sorted(varfreqs):
     contig, var_pos, ref_allele, alt_allele, hap, mod_code = key
@@ -146,19 +148,23 @@ for key in sorted(varfreqs):
     bg_r_pct = 100.0 * bg_r_nmeth / radius
     bg_pct = 100.0 * bg_nmeth / (2 * radius)
     var_methylated = var_pct > var_meth_pct
+    var_unmethylated = var_pct < var_unmeth_pct
     bg_methylated = bg_l_pct > bg_meth_pct or bg_r_pct > bg_meth_pct
+    bg_unmethylated = bg_l_pct < bg_unmeth_pct and bg_r_pct < bg_unmeth_pct
 
     rec = (contig, var_pos, ref_allele, alt_allele, hap, mod_code,
            var_pct, var_nmeth, var_ncpg, bg_pct, bg_l_pct, bg_r_pct, bg_nmeth, bg_ncpg)
 
-    if var_methylated and not bg_methylated:
+    if var_methylated and bg_unmethylated:
         b["meth_in_unmeth"].append(rec)
-    elif not var_methylated and bg_methylated:
+    elif var_unmethylated and bg_methylated:
         b["unmeth_in_meth"].append(rec)
     elif var_methylated and bg_methylated:
         ignored[var_type]["meth_in_meth"] += 1
-    else:
+    elif var_unmethylated and bg_unmethylated:
         ignored[var_type]["unmeth_in_unmeth"] += 1
+    else:
+        ignored[var_type]["ambiguous"] += 1
 
 COLUMNS = ["chrom", "start", "end", "var_type", "ref", "alt", "hap", "mod",
            "category", "var_meth", "var_len", "var_meth_pct", "var_cpg",
@@ -184,9 +190,9 @@ for r in tsv_rows:
 for var_type in ALL_VARTYPES:
     b = buckets[var_type]
     ig = ignored[var_type]
-    print("# {}: meth_in_unmeth={} unmeth_in_meth={} meth_in_meth={} unmeth_in_unmeth={}".format(
+    print("# {}: meth_in_unmeth={} unmeth_in_meth={} meth_in_meth={} unmeth_in_unmeth={} ambiguous={}".format(
         var_type, len(b["meth_in_unmeth"]), len(b["unmeth_in_meth"]),
-        ig["meth_in_meth"], ig["unmeth_in_unmeth"]), file=sys.stderr)
+        ig["meth_in_meth"], ig["unmeth_in_unmeth"], ig["ambiguous"]), file=sys.stderr)
 
 def write_bed(fn, buckets):
     rows = []
