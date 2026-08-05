@@ -114,20 +114,20 @@ def varfreq_load(fn):
                 continue
                 
             if strand == "+":
-                key = (contig, pos, mod_code, hap, offset)
+                key = (contig, pos, mod_code, hap)
             else:
-                key = (contig, pos - 1, mod_code, hap, offset)
+                key = (contig, pos - 1, mod_code, hap)
 
             if key in d:
                 vars = d[key]
                 if var_pos in vars:
                     v = vars[var_pos]
-                    d[key][var_pos] = (var_type, ref_allele, alt_allele, gt, v[4] + n_called, v[5] + n_mod)
+                    d[key][var_pos] = (var_type, ref_allele, alt_allele, offset, gt, v[5] + n_called, v[6] + n_mod)
                 else:
-                    d[key][var_pos] = (var_type, ref_allele, alt_allele, gt, n_called, n_mod)
+                    d[key][var_pos] = (var_type, ref_allele, alt_allele, offset, gt, n_called, n_mod)
             else:
                 v = {}
-                v[var_pos] = (var_type, ref_allele, alt_allele, gt, n_called, n_mod)
+                v[var_pos] = (var_type, ref_allele, alt_allele, offset, gt, n_called, n_mod)
                 d[key] = v
     return d
 
@@ -224,11 +224,11 @@ def varfreq_hap_summary(varfreqs):
 def varfreq_vartype_summary(varfreqs):
     vartype_summary = {}
     for key in varfreqs:
-        for var_pos in varfreqs[key]:
-            var_type = varfreqs[key][var_pos][0]
-            if var_type not in vartype_summary:
-                vartype_summary[var_type] = 0
-            vartype_summary[var_type] += 1
+        var_pos = next(iter(varfreqs[key]))
+        var_type = varfreqs[key][var_pos][0]
+        if var_type not in vartype_summary:
+            vartype_summary[var_type] = 0
+        vartype_summary[var_type] += 1
     
     print("## Variant type summary:")
     total=0
@@ -240,8 +240,8 @@ def varfreq_vartype_summary(varfreqs):
 def varfreq_offset_summary(varfreqs):
     offset_summary = {}
     for key in varfreqs:
-        offset = key[4]
-        for _ in varfreqs[key]:
+        for var_pos in varfreqs[key]:
+            offset = varfreqs[key][var_pos][3]
             if offset not in offset_summary:
                 offset_summary[offset] = 0
             offset_summary[offset] += 1
@@ -256,11 +256,11 @@ def varfreq_offset_summary(varfreqs):
 def varfreq_gt_summary(varfreqs):
     gt_summary = {}
     for key in varfreqs:
-        for var_pos in varfreqs[key]:
-            gt = varfreqs[key][var_pos][3]
-            if gt not in gt_summary:
-                gt_summary[gt] = 0
-            gt_summary[gt] += 1
+        var_pos = next(iter(varfreqs[key]))
+        gt = varfreqs[key][var_pos][4]
+        if gt not in gt_summary:
+            gt_summary[gt] = 0
+        gt_summary[gt] += 1
     
     print("## Genotype summary:")
     total=0
