@@ -126,6 +126,7 @@ print("# radius={} bp  site methylated if freq>{}  variant methylated if meth/le
 def new_bucket():
     return {c: [] for c in CATEGORIES}
 buckets = {t: new_bucket() for t in ALL_VARTYPES}
+ignored = {t: {"meth_in_meth": 0, "unmeth_in_unmeth": 0} for t in ALL_VARTYPES}
 
 for key in sorted(varfreqs):
     contig, var_pos, ref_allele, alt_allele, hap, mod_code = key
@@ -148,6 +149,10 @@ for key in sorted(varfreqs):
         b["meth_in_unmeth"].append(rec)
     elif not var_methylated and bg_methylated:
         b["unmeth_in_meth"].append(rec)
+    elif var_methylated and bg_methylated:
+        ignored[var_type]["meth_in_meth"] += 1
+    else:
+        ignored[var_type]["unmeth_in_unmeth"] += 1
 
 COLUMNS = ["chrom", "start", "end", "var_type", "ref", "alt", "hap", "mod",
            "category", "var_meth", "var_len", "var_meth_pct", "var_cpg",
@@ -172,8 +177,10 @@ for r in tsv_rows:
 
 for var_type in ALL_VARTYPES:
     b = buckets[var_type]
-    print("# {}: meth_in_unmeth={} unmeth_in_meth={}".format(
-        var_type, len(b["meth_in_unmeth"]), len(b["unmeth_in_meth"])), file=sys.stderr)
+    ig = ignored[var_type]
+    print("# {}: meth_in_unmeth={} unmeth_in_meth={} meth_in_meth={} unmeth_in_unmeth={}".format(
+        var_type, len(b["meth_in_unmeth"]), len(b["unmeth_in_meth"]),
+        ig["meth_in_meth"], ig["unmeth_in_unmeth"]), file=sys.stderr)
 
 def write_bed(fn, buckets):
     rows = []
