@@ -114,20 +114,20 @@ def varfreq_load(fn):
                 continue
                 
             if strand == "+":
-                key = (contig, pos, mod_code, hap)
+                key = (contig, pos, mod_code, hap, offset)
             else:
-                key = (contig, pos - 1, mod_code, hap)
+                key = (contig, pos - 1, mod_code, hap, offset)
 
             if key in d:
                 vars = d[key]
                 if var_pos in vars:
                     v = vars[var_pos]
-                    d[key][var_pos] = (var_type, ref_allele, alt_allele, offset, gt, v[5] + n_called, v[6] + n_mod)
+                    d[key][var_pos] = (var_type, ref_allele, alt_allele, gt, v[4] + n_called, v[5] + n_mod)
                 else:
-                    d[key][var_pos] = (var_type, ref_allele, alt_allele, offset, gt, n_called, n_mod)
+                    d[key][var_pos] = (var_type, ref_allele, alt_allele, gt, n_called, n_mod)
             else:
                 v = {}
-                v[var_pos] = (var_type, ref_allele, alt_allele, offset, gt, n_called, n_mod)
+                v[var_pos] = (var_type, ref_allele, alt_allele, gt, n_called, n_mod)
                 d[key] = v
     return d
 
@@ -240,8 +240,8 @@ def varfreq_vartype_summary(varfreqs):
 def varfreq_offset_summary(varfreqs):
     offset_summary = {}
     for key in varfreqs:
-        for var_pos in varfreqs[key]:
-            offset = varfreqs[key][var_pos][3]
+        offset = key[4]
+        for _ in varfreqs[key]:
             if offset not in offset_summary:
                 offset_summary[offset] = 0
             offset_summary[offset] += 1
@@ -257,7 +257,7 @@ def varfreq_gt_summary(varfreqs):
     gt_summary = {}
     for key in varfreqs:
         for var_pos in varfreqs[key]:
-            gt = varfreqs[key][var_pos][4]
+            gt = varfreqs[key][var_pos][3]
             if gt not in gt_summary:
                 gt_summary[gt] = 0
             gt_summary[gt] += 1
