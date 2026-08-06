@@ -157,7 +157,7 @@ for key in sorted(varfreqs):
 
 COLUMNS = ["chrom", "start", "end", "var_type", "ref", "alt", "hap", "mod",
            "category", "var_meth", "var_len", "var_meth_pct", "var_cpg",
-           "bg_meth", "bg_len", "bg_meth_pct", "bg_l_meth_pct", "bg_r_meth_pct", "bg_cpg"]
+           "bg_meth", "bg_len", "bg_meth_pct", "bg_l_meth_pct", "bg_r_meth_pct", "bg_cpg", "meth_pct_diff"]
 
 tsv_rows = []
 for var_type in ALL_VARTYPES:
@@ -168,13 +168,13 @@ for var_type in ALL_VARTYPES:
             tsv_rows.append((contig, var_pos, var_pos + len(ref_allele), var_type,
                              ref_allele, alt_allele, hap, mod_code, category,
                              var_nmeth, len(alt_allele), var_pct, var_ncpg,
-                             bg_nmeth, 2 * radius, bg_pct, bg_l_pct, bg_r_pct, bg_ncpg))
+                             bg_nmeth, 2 * radius, bg_pct, bg_l_pct, bg_r_pct, bg_ncpg, var_pct - bg_pct))
 
 tsv_rows.sort(key=lambda r: (r[0], r[1], r[2], r[8]))
 
 print("\t".join(COLUMNS))
 for r in tsv_rows:
-    print("{}\t{}\t{}\t{}\t{}\t{}\t{}\t{}\t{}\t{}\t{}\t{:.1f}\t{}\t{}\t{}\t{:.1f}\t{:.1f}\t{:.1f}\t{}".format(*r))
+    print("{}\t{}\t{}\t{}\t{}\t{}\t{}\t{}\t{}\t{}\t{}\t{:.1f}\t{}\t{}\t{}\t{:.1f}\t{:.1f}\t{:.1f}\t{}\t{:.1f}".format(*r))
 
 for var_type in ALL_VARTYPES:
     b = buckets[var_type]
