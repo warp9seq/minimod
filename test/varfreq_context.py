@@ -4,7 +4,7 @@
 
 import sys
 import gzip
-from bisect import bisect_left, bisect_right
+from bisect import bisect_left
 
 argv = sys.argv[1:]
 bed_file = None
@@ -103,15 +103,15 @@ def meth_site_count(sites_data):
     return sum(1 for n_called, n_mod in sites_data
                if n_called > 0 and n_mod / n_called > meth_freq_thresh)
 
-def background(freqs, contig, hap, mod_code, var_pos):
+def background(freqs, contig, hap, mod_code, var_pos, var_end):
     entry = freqs.get((contig, hap, mod_code))
     if entry is None:
         return ((0, 0), (0, 0))
     sites, records = entry
     lo = bisect_left(sites, var_pos - radius)
     mid_l = bisect_left(sites, var_pos)
-    mid_r = bisect_right(sites, var_pos)
-    hi = bisect_right(sites, var_pos + radius)
+    mid_r = bisect_left(sites, var_end)
+    hi = bisect_left(sites, var_end + radius)
     left_meth = meth_site_count((records[i][1], records[i][2]) for i in range(lo, mid_l))
     right_meth = meth_site_count((records[i][1], records[i][2]) for i in range(mid_r, hi))
     return ((left_meth, mid_l - lo), (right_meth, hi - mid_r))
@@ -138,7 +138,8 @@ for key in sorted(varfreqs):
     b = buckets[var_type]
 
     var_ncpg = len(var_sites)
-    (bg_l_nmeth, bg_l_ncpg), (bg_r_nmeth, bg_r_ncpg) = background(freqs, contig, hap, mod_code, var_pos)
+    var_end = var_pos + len(ref_allele)
+    (bg_l_nmeth, bg_l_ncpg), (bg_r_nmeth, bg_r_ncpg) = background(freqs, contig, hap, mod_code, var_pos, var_end)
     bg_nmeth = bg_l_nmeth + bg_r_nmeth
     bg_ncpg = bg_l_ncpg + bg_r_ncpg
 
