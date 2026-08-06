@@ -150,7 +150,7 @@ for key in sorted(varfreqs):
     var_methylated = var_pct > var_meth_pct
     var_unmethylated = var_pct < var_unmeth_pct
     bg_methylated = bg_l_pct > bg_meth_pct or bg_r_pct > bg_meth_pct
-    bg_unmethylated = bg_l_pct < bg_unmeth_pct and bg_r_pct < bg_unmeth_pct
+    bg_unmethylated = bg_l_pct <= bg_unmeth_pct and bg_r_pct <= bg_unmeth_pct
 
     rec = (contig, var_pos, ref_allele, alt_allele, hap, mod_code,
            var_pct, var_nmeth, var_ncpg, bg_pct, bg_l_pct, bg_r_pct, bg_nmeth, bg_ncpg)
