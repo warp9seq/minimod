@@ -1,10 +1,11 @@
 #!/usr/bin/env python3
 
-# Usage: test/varfreq_context.py freq.bedmethyl varfreq.bedmethyl radius meth_freq_thresh [--bed out.bed]
+# Usage: test/varfreq_context.py freq.bedmethyl varfreq.bedmethyl radius [--bed out.bed]
 
 import sys
 import gzip
 from bisect import bisect_left
+from statistics import mean, stdev
 
 argv = sys.argv[1:]
 bed_file = None
@@ -16,8 +17,8 @@ if "--bed" in argv:
     bed_file = argv[i + 1]
     del argv[i:i + 2]
 
-if len(argv) != 4:
-    print("Usage: {} freq.bedmethyl varfreq.bedmethyl radius meth_freq_thresh [--bed out.bed]".format(sys.argv[0]))
+if len(argv) != 3:
+    print("Usage: {} freq.bedmethyl varfreq.bedmethyl radius [--bed out.bed]".format(sys.argv[0]))
     sys.exit(1)
 
 ALL_VARTYPES = ("SNP", "INS", "DEL", "MNP")
@@ -25,7 +26,6 @@ ALL_VARTYPES = ("SNP", "INS", "DEL", "MNP")
 freq_file = argv[0]
 varfreq_file = argv[1]
 radius = int(argv[2])
-meth_freq_thresh = float(argv[3])
 
 def var_type_of(ref_allele, alt_allele):
     if len(ref_allele) == 1 and len(alt_allele) == 1:
@@ -35,6 +35,20 @@ def var_type_of(ref_allele, alt_allele):
     if len(ref_allele) < len(alt_allele):
         return "INS"
     return "MNP"
+
+def site_pct(strand_pcts):
+    return mean(strand_pcts)
+
+def site_pcts(sites):
+    return [site_pct(strand_pcts) for strand_pcts in sites]
+
+def stats(pcts):
+    if not pcts:
+        return (0, None, None)
+    return (len(pcts), mean(pcts), stdev(pcts) if len(pcts) > 1 else None)
+
+def fmt(x):
+    return "NA" if x is None else "{:.1f}".format(x)
 
 def freq_load(fn):
     # (contig, hap, mod_code) -> (sites, [(site, n_called, n_mod), ...])
@@ -46,25 +60,27 @@ def freq_load(fn):
             contig, mod_code, strand, hap = parts[0], parts[3], parts[5], parts[11]
             pos, n_called, freq = int(parts[1]), int(parts[4]), float(parts[10])
 
-            n_mod = n_called * freq / 100.0
-
             if hap == "*":
                 continue
 
             site_pos = pos if strand == "+" else pos - 1
             d = per_site.setdefault((contig, hap, mod_code), {})
-            s = d.get(site_pos)
-            if s:
-                s[0] += n_called
-                s[1] += n_mod
-            else:
-                d[site_pos] = [n_called, n_mod]
+            d.setdefault(site_pos, []).append(freq)
 
     out = {}
     for key, d in per_site.items():
         sites = sorted(d)
-        out[key] = (sites, [(site, d[site][0], d[site][1]) for site in sites])
+        out[key] = (sites, [site_pct(d[site]) for site in sites])
     return out
+
+def cpg_key_offset(pos, offset, strand, var_pos, ref_len, alt_len):
+    if pos == var_pos and offset >= 1:
+        o = offset + 1
+    elif offset == ref_len:
+        o = alt_len + 1
+    else:
+        o = offset + 1
+    return o if strand == "+" else o - 1
 
 def varfreq_load(fn):
     groups = {}
@@ -75,129 +91,134 @@ def varfreq_load(fn):
             contig, mod_code, strand, hap = parts[0], parts[3], parts[5], parts[16]
             pos, n_called, freq = int(parts[1]), int(parts[4]), float(parts[10])
             var_pos, ref_allele, alt_allele = int(parts[11]), parts[13], parts[14]
-
-            n_mod = n_called * freq / 100.0
+            offset = int(parts[15])
 
             if hap == "*":
                 continue
 
-            site_pos = pos if strand == "+" else pos - 1
+            cpg_key = cpg_key_offset(pos, offset, strand, var_pos, len(ref_allele), len(alt_allele))
+            # keep only CpGs whose C lies inside the ALT allele
+            if not 1 <= cpg_key <= len(alt_allele):
+                continue
+
             key = (contig, var_pos, ref_allele, alt_allele, hap, mod_code)
             g = groups.get(key)
             if g is None:
                 g = [var_type_of(ref_allele, alt_allele), {}]
                 groups[key] = g
-            s = g[1].get(site_pos)
-            if s:
-                s[0] += n_called
-                s[1] += n_mod
-            else:
-                g[1][site_pos] = [n_called, n_mod]
+            g[1].setdefault(cpg_key, []).append(freq)
     return groups
-
-def meth_site_count(sites_data):
-    return sum(1 for n_called, n_mod in sites_data
-               if n_called > 0 and n_mod / n_called > meth_freq_thresh)
 
 def background(freqs, contig, hap, mod_code, var_pos, var_end):
     entry = freqs.get((contig, hap, mod_code))
     if entry is None:
-        return ((0, 0), (0, 0))
-    sites, records = entry
+        return ([], [])
+    sites, pcts = entry
     lo = bisect_left(sites, var_pos - radius)
     mid_l = bisect_left(sites, var_pos)
     mid_r = bisect_left(sites, var_end)
     hi = bisect_left(sites, var_end + radius)
-    left_meth = meth_site_count((records[i][1], records[i][2]) for i in range(lo, mid_l))
-    right_meth = meth_site_count((records[i][1], records[i][2]) for i in range(mid_r, hi))
-    return ((left_meth, mid_l - lo), (right_meth, hi - mid_r))
+    return (pcts[lo:mid_l], pcts[mid_r:hi])
 
-CATEGORIES = ("meth_in_unmeth", "unmeth_in_meth")
-COLOUR = {"meth_in_unmeth": "255,0,0", "unmeth_in_meth": "0,0,255"}
+CATEGORIES = ("meth_in_unmeth", "unmeth_in_meth", "equal")
+COLOUR = {"meth_in_unmeth": "255,0,0", "unmeth_in_meth": "0,0,255", "equal": "128,128,128"}
 
 freqs = freq_load(freq_file)
 varfreqs = varfreq_load(varfreq_file)
 
 print("# freq    : {}".format(freq_file), file=sys.stderr)
 print("# varfreq : {}".format(varfreq_file), file=sys.stderr)
-print("# radius={} bp  site methylated if freq>{}  meth_in_unmeth if var_meth_pct > bg_meth_pct  unmeth_in_meth if bg_meth_pct > var_meth_pct".format(
-    radius, meth_freq_thresh), file=sys.stderr)
+print("# radius={} bp  per-CpG freq = mean of its + and - strand freqs  allele level = unweighted mean over the CpGs in ALT".format(
+    radius), file=sys.stderr)
+print("# meth_in_unmeth if var_meth_mean > both flank means  unmeth_in_meth if a flank mean > var_meth_mean  equal if it ties the larger flank mean", file=sys.stderr)
+print("# meth_mean_diff = var_meth_mean - the larger flank mean, so its sign follows the category", file=sys.stderr)
 
 def new_bucket():
     return {c: [] for c in CATEGORIES}
 buckets = {t: new_bucket() for t in ALL_VARTYPES}
-skipped_equal = {t: 0 for t in ALL_VARTYPES}
+skipped_no_bg = {t: 0 for t in ALL_VARTYPES}
 
 for key in sorted(varfreqs):
     contig, var_pos, ref_allele, alt_allele, hap, mod_code = key
     var_type, var_sites = varfreqs[key]
-    b = buckets[var_type]
-
-    var_ncpg = len(var_sites)
     var_end = var_pos + len(ref_allele)
-    (bg_l_nmeth, bg_l_ncpg), (bg_r_nmeth, bg_r_ncpg) = background(freqs, contig, hap, mod_code, var_pos, var_end)
-    bg_nmeth = bg_l_nmeth + bg_r_nmeth
-    bg_ncpg = bg_l_ncpg + bg_r_ncpg
 
-    var_nmeth = meth_site_count(var_sites.values())
-    var_pct = 100.0 * var_nmeth / len(alt_allele)
-    bg_l_pct = 100.0 * bg_l_nmeth / radius
-    bg_r_pct = 100.0 * bg_r_nmeth / radius
-    bg_pct = 100.0 * bg_nmeth / (2 * radius)
+    var_ncpg, var_mean, var_sd = stats(site_pcts(var_sites.values()))
+
+    bg_l_pcts, bg_r_pcts = background(freqs, contig, hap, mod_code, var_pos, var_end)
+    bg_l_ncpg, bg_l_mean, _ = stats(bg_l_pcts)
+    bg_r_ncpg, bg_r_mean, _ = stats(bg_r_pcts)
+    bg_ncpg, bg_mean, bg_sd = stats(bg_l_pcts + bg_r_pcts)
+
+    flanks = [m for m in (bg_l_mean, bg_r_mean) if m is not None]
+    if not flanks:
+        skipped_no_bg[var_type] += 1
+        continue
+
+    meth_diff = var_mean - max(flanks)
 
     rec = (contig, var_pos, ref_allele, alt_allele, hap, mod_code,
-           var_pct, var_nmeth, var_ncpg, bg_pct, bg_l_pct, bg_r_pct, bg_nmeth, bg_ncpg)
+           var_ncpg, var_mean, var_sd,
+           bg_ncpg, bg_mean, bg_sd, bg_l_ncpg, bg_l_mean, bg_r_ncpg, bg_r_mean, meth_diff)
 
-    if var_pct > bg_l_pct and var_pct > bg_r_pct:
-        b["meth_in_unmeth"].append(rec)
-    elif var_pct < bg_l_pct or var_pct < bg_r_pct:
-        b["unmeth_in_meth"].append(rec)
+    if all(var_mean > m for m in flanks):
+        buckets[var_type]["meth_in_unmeth"].append(rec)
+    elif any(var_mean < m for m in flanks):
+        buckets[var_type]["unmeth_in_meth"].append(rec)
     else:
-        skipped_equal[var_type] += 1
+        buckets[var_type]["equal"].append(rec)
 
-COLUMNS = ["chrom", "start", "end", "var_type", "ref", "alt", "hap", "mod",
-           "category", "var_meth", "var_len", "var_meth_pct", "var_cpg",
-           "bg_meth", "bg_len", "bg_meth_pct", "bg_l_meth_pct", "bg_r_meth_pct", "bg_cpg", "meth_pct_diff"]
+COLUMNS = ["chrom", "start", "end", "var_type", "ref", "alt", "hap", "mod", "category",
+           "alt_len", "var_ncpg", "var_meth_mean", "var_meth_sd",
+           "bg_span", "bg_ncpg", "bg_meth_mean", "bg_meth_sd",
+           "bg_l_ncpg", "bg_l_meth_mean", "bg_r_ncpg", "bg_r_meth_mean", "meth_mean_diff"]
 
 tsv_rows = []
 for var_type in ALL_VARTYPES:
     b = buckets[var_type]
     for category in CATEGORIES:
         for (contig, var_pos, ref_allele, alt_allele, hap, mod_code,
-             var_pct, var_nmeth, var_ncpg, bg_pct, bg_l_pct, bg_r_pct, bg_nmeth, bg_ncpg) in b[category]:
+             var_ncpg, var_mean, var_sd,
+             bg_ncpg, bg_mean, bg_sd, bg_l_ncpg, bg_l_mean, bg_r_ncpg, bg_r_mean,
+             meth_diff) in b[category]:
             tsv_rows.append((contig, var_pos, var_pos + len(ref_allele), var_type,
                              ref_allele, alt_allele, hap, mod_code, category,
-                             var_nmeth, len(alt_allele), var_pct, var_ncpg,
-                             bg_nmeth, 2 * radius, bg_pct, bg_l_pct, bg_r_pct, bg_ncpg, var_pct - bg_pct))
+                             len(alt_allele), var_ncpg, fmt(var_mean), fmt(var_sd),
+                             2 * radius, bg_ncpg, fmt(bg_mean), fmt(bg_sd),
+                             bg_l_ncpg, fmt(bg_l_mean), bg_r_ncpg, fmt(bg_r_mean),
+                             fmt(meth_diff)))
 
 tsv_rows.sort(key=lambda r: (r[0], r[1], r[2], r[8]))
 
 print("\t".join(COLUMNS))
 for r in tsv_rows:
-    print("{}\t{}\t{}\t{}\t{}\t{}\t{}\t{}\t{}\t{}\t{}\t{:.1f}\t{}\t{}\t{}\t{:.1f}\t{:.1f}\t{:.1f}\t{}\t{:.1f}".format(*r))
+    print("\t".join(str(f) for f in r))
 
 for var_type in ALL_VARTYPES:
     b = buckets[var_type]
-    print("# {}: meth_in_unmeth={} unmeth_in_meth={} equal={}".format(
-        var_type, len(b["meth_in_unmeth"]), len(b["unmeth_in_meth"]),
-        skipped_equal[var_type]), file=sys.stderr)
+    print("# {}: meth_in_unmeth={} unmeth_in_meth={} equal={} no_bg_cpg={}".format(
+        var_type, len(b["meth_in_unmeth"]), len(b["unmeth_in_meth"]), len(b["equal"]),
+        skipped_no_bg[var_type]), file=sys.stderr)
 
 def write_bed(fn, buckets):
     rows = []
     for var_type in ALL_VARTYPES:
         for category in CATEGORIES:
             for (contig, var_pos, ref_allele, alt_allele, hap, mod_code,
-                 var_pct, var_nmeth, var_ncpg, bg_pct, bg_l_pct, bg_r_pct, bg_nmeth, bg_ncpg) in buckets[var_type][category]:
+                 var_ncpg, var_mean, var_sd,
+                 bg_ncpg, bg_mean, bg_sd, bg_l_ncpg, bg_l_mean, bg_r_ncpg, bg_r_mean,
+                 meth_diff) in buckets[var_type][category]:
                 start = var_pos
                 end = var_pos + len(ref_allele)
-                name = "{}_{}_{}>{}_hap{}_{}_v{:.0f}/b{:.0f}".format(
-                    var_type, category, ref_allele, alt_allele, hap, mod_code, var_pct, bg_pct)
-                score = min(1000, int(round(var_pct * 10)))
+                name = "{}_{}_{}>{}_hap{}_{}_v{:.0f}/b{}".format(
+                    var_type, category, ref_allele, alt_allele, hap, mod_code, var_mean,
+                    "NA" if bg_mean is None else "{:.0f}".format(bg_mean))
+                score = min(1000, int(round(var_mean * 10)))
                 rows.append((contig, start, end, name, score, COLOUR[category]))
 
     rows.sort(key=lambda r: (r[0], r[1], r[2]))
     with open(fn, "w") as out:
-        out.write('track name="varfreq_context" description="variant vs background methylation contrasts" itemRgb="On"\n')
+        out.write('track name="varfreq_context" description="variant vs background methylation" itemRgb="On"\n')
         for contig, start, end, name, score, colour in rows:
             out.write("{}\t{}\t{}\t{}\t{}\t.\t{}\t{}\t{}\n".format(
                 contig, start, end, name, score, start, end, colour))
@@ -205,4 +226,4 @@ def write_bed(fn, buckets):
 
 if bed_file is not None:
     n = write_bed(bed_file, buckets)
-    print("# wrote {} contrast feature(s) to {}".format(n, bed_file), file=sys.stderr)
+    print("# wrote {} feature(s) to {}".format(n, bed_file), file=sys.stderr)
