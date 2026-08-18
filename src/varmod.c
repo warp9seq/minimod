@@ -202,6 +202,16 @@ static inline int is_reference_cpg(const char *ref_seq, int ref_seq_length,
     return ((c == 'C' || c == 'c') && (g == 'G' || g == 'g'));
 }
 
+// ALT sequence cannot be derived from REF/ALT alone, and so must be skipped.
+static int alt_not_derivable(const char *alt, int alt_len) {
+    if (alt_len == 0) return 1;                              // no sequence to substitute
+    if (alt_len == 1 && alt[0] == '*') return 1;             // allele missing due to an upstream deletion
+    if (strchr(alt, '<') || strchr(alt, '>')) return 1;      // symbolic: <INS>, <DEL>, and the C<ctg1> insertion shorthand
+    if (strchr(alt, '[') || strchr(alt, ']')) return 1;      // mated breakend, e.g. G]1:10000]
+    if (alt[0] == '.' || alt[alt_len - 1] == '.') return 1;  // single breakend, e.g. G. or .TGCA
+    return 0;
+}
+
 void load_var_map(const char* vcf_file, const char* sample_name, khash_t(varm)* var_map, int haplotypes) {
 
     htsFile *vcf_fp = hts_open(vcf_file, "r");
@@ -236,9 +246,9 @@ void load_var_map(const char* vcf_file, const char* sample_name, khash_t(varm)* 
     int32_t *gt_arr = NULL;
     int n_gt_arr = 0;
 
-    // track imprecise (symbolic ALT, e.g. <INS>/<DEL>) records to warn if they dominate
+    // track records with non-derivable ALT alleles
     int64_t total_records = 0;
-    int64_t imprecise_records = 0;
+    int64_t skipped_records = 0;
 
     while(bcf_read(vcf_fp, vcf_hdr, rec) == 0) {
         bcf_unpack(rec, BCF_UN_STR | BCF_UN_FMT);
@@ -350,18 +360,15 @@ void load_var_map(const char* vcf_file, const char* sample_name, khash_t(varm)* 
             kh_value(var_map, k) = vars;
         }
         
-        int record_imprecise = 0;
+        int record_skipped = 0;
         for(int i = 1; i < rec->n_allele; i++) {
             char * alt_allele = rec->d.allele[i];
-            if(alt_allele[0] == '.') continue; // reference call, no variant
-            if(alt_allele[0] == '<') {
-                // symbolic/imprecise ALT (such as <INS>, <DEL>), ALT sequence cannot be derived, skip
-                record_imprecise = 1;
+            int alt_len = strlen(alt_allele);
+            if(alt_not_derivable(alt_allele, alt_len)) {
+                record_skipped = 1;
                 continue;
             }
             if(i >= 256 || alt_hap[i] < 0) continue; // ALT not present in chosen sample
-
-            int alt_len = strlen(alt_allele);
 
             char * before_site = (char*)malloc(sizeof(char) * (ref_len + 3));
             MALLOC_CHK(before_site);
@@ -443,20 +450,22 @@ void load_var_map(const char* vcf_file, const char* sample_name, khash_t(varm)* 
 
         }
 
-        if (record_imprecise) imprecise_records++;
+        if (record_skipped) skipped_records++;
 
     }
 
-    if (imprecise_records > 0) {
-        if (total_records > 0 && imprecise_records * 10 >= total_records * 9) {
-            WARNING("%lld of %lld VCF records have imprecise/symbolic ALT alleles "
-                    "(e.g. <INS>, <DEL>) and were skipped; the ALT sequence cannot be derived for these. "
-                    "More than 90%% of the input is imprecise - is this the correct VCF?",
-                    (long long)imprecise_records, (long long)total_records);
+    if (skipped_records > 0) {
+        if (total_records > 0 && skipped_records * 10 >= total_records * 9) {
+            WARNING("%lld of %lld VCF records have ALT alleles whose sequence cannot be derived - symbolic "
+                    "(e.g. <DEL>, C<ctg1>), breakend (e.g. G]1:10000], G.) or upstream-deletion ('*'); "
+                    "those alleles were skipped. "
+                    "More than 90%% of the input is skipped - is this the correct VCF?",
+                    (long long)skipped_records, (long long)total_records);
         } else {
-            INFO("Skipped %lld of %lld VCF records with imprecise/symbolic ALT alleles "
-                 "(e.g. <INS>, <DEL>); the ALT sequence cannot be derived for these.",
-                 (long long)imprecise_records, (long long)total_records);
+            INFO("%lld of %lld VCF records have ALT alleles whose sequence cannot be derived - symbolic "
+                 "(e.g. <DEL>, C<ctg1>), breakend (e.g. G]1:10000], G.) or upstream-deletion ('*'); "
+                 "those alleles were skipped.",
+                 (long long)skipped_records, (long long)total_records);
         }
     }
 
