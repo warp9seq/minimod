@@ -157,7 +157,7 @@ for key in sorted(varfreqs):
         skipped_no_bg[var_type] += 1
         continue
 
-    meth_diff = var_mean - max(flanks)
+    meth_diff = var_mean - bg_mean
 
     rec = (contig, var_pos, ref_allele, alt_allele, hap, mod_code,
            var_ncpg, var_mean, var_sd,
