@@ -16,8 +16,11 @@ Minimod reads base modification information encoded under `MM:Z` and `ML:B:C` SA
 - [Usage](#usage)
 - [Examples](#examples)
 - [minimod view](#minimod-view)
+- [minimod varview](#minimod-varview)
 - [minimod freq](#minimod-freq)
+- [minimod varfreq](#minimod-varfreq)
 - [minimod summary](#minimod-summary)
+- [Variant-aware modification calling](#variant-aware-modification-calling)
 - [How skipped bases are handled](#how-skipped-bases-are-handled)
 - [Modification codes and contexts](#modification-codes-and-contexts)
 - [Modification probability](#modification-probability)
@@ -65,7 +68,9 @@ Usage: minimod <command> [options]
 
 command:
          view       view base modifications
-         freq       output base modifications frequencies
+         varview    variant-aware view base modifications
+         freq       output base modification frequencies
+         varfreq    variant-aware modification frequencies
          summary    output summary
 ```
 
@@ -85,11 +90,18 @@ minimod freq -b ref.fa reads.bam > modfreqs.bedmethyl
 # modification frequencies of multiple types ( m (5-methylcytosine) and h (5-hydroxymethylcytosine) in CG context with thresholds 0.8 and 0.7 respectively )
 minimod freq -c m[CG],h[CG] -m 0.8,0.7 ref.fa reads.bam > mods.tsv
 
+# 5mC methylation frequencies at CpG sites created or destroyed by the variants in a VCF (default mod code: m, threshold: 0.8)
+minimod varfreq ref.fa reads.bam variants.vcf > varmodfreqs.tsv
+
+# base modifications at CpG sites created or destroyed by the variants in a VCF (default mod code: m)
+minimod varview ref.fa reads.bam variants.vcf > varmods.tsv
+
 # summary of available modifications and counts
 minimod summary reads.bam > summary.tsv
 ```
 - See [how modification codes can be specified?](#modification-codes-and-contexts)
 - See [how threshold is used in minimod?](#modification-threshold)
+- See [how variants are handled?](#variant-aware-modification-calling)
 - See [how minimod is consistent with other tools?](docs/notes.md)
 
 # minimod view
@@ -144,6 +156,61 @@ chr22	19979948	+	m84088_230609_030819_s1/55512555/ccs	98	m	0.623529
 | 7. mod_prob | float | probability (0.0-1.0) of base modification |
 | 8. ins_offset | int | offset of inserted base from ref_pos (only output when --insertions is specified) |
 | 9. haplotype | int | haplotype of the read (only output when --haplotypes is specified) |
+
+# minimod varview
+```bash
+minimod varview ref.fa reads.bam variants.vcf > varmods.tsv
+```
+This is the variant-aware counterpart of [minimod view](#minimod-view). It takes an additional VCF file and writes base modifications (default modification code "m") at CpG sites that are created or destroyed by the variants, to a file (varmods.tsv) in tsv format.
+```bash
+Usage: minimod varview ref.fa reads.bam variants.vcf
+
+basic options:
+   -b                         output in bedMethyl format [not set]
+   -c STR                     modification code(s) (eg. m, h or mh or as ChEBI) [m]
+   -t INT                     number of processing threads [8]
+   -K INT                     batch size (max number of reads loaded at once) [512]
+   -B FLOAT[K/M/G]            max number of bases loaded at once [20.0M]
+   -h                         help
+   -p INT                     print progress every INT seconds (0: per batch) [0]
+   -o FILE                    output file [stdout]
+   --haplotypes               output per-haplotype rows (expects phased BAM and VCF) [no]
+   --verbose INT              verbosity level [4]
+   --version                  print version
+   --allow-secondary          allow secondary alignments [no]
+   --skip-supplementary       skip supplementary alignments [no]
+   --sample STR               sample name to use from a multi-sample VCF [first sample]
+```
+
+- See [how variant-derived CpG sites are determined?](#variant-aware-modification-calling)
+
+**Sample varmods.tsv output**
+The output is ordered in the same as the order the reads appear in the input BAM file, and for each read, entries are sorted by reference contig, reference position, strand, modification code and offset.
+```bash
+ref_contig	ref_pos	strand	read_id	read_pos	mod_code	mod_prob	var_pos	var_gt	ref_allele	alt_allele	offset
+chr22	19981550	+	89870c83-8790-419f-acf8-8a8e93a0f3c9	14919	h	0.017578	19981551	1/1	A	G	-1
+chr22	19981550	+	89870c83-8790-419f-acf8-8a8e93a0f3c9	14919	m	0.982422	19981551	1/1	A	G	-1
+chr22	19987298	+	89870c83-8790-419f-acf8-8a8e93a0f3c9	20645	h	0.009766	19987298	1/1	CG	C	0
+chr22	19987298	+	89870c83-8790-419f-acf8-8a8e93a0f3c9	20645	m	0.001953	19987298	1/1	CG	C	0
+chr22	19988990	+	89870c83-8790-419f-acf8-8a8e93a0f3c9	22308	h	0.580078	19988990	0/1	CG	C	0
+chr22	19988990	+	89870c83-8790-419f-acf8-8a8e93a0f3c9	22308	m	0.419922	19988990	0/1	CG	C	0
+```
+
+| Field    | Type | Definition    |
+|----------|-------------|-------------|
+| 1. ref_contig | str | chromosome |
+| 2. ref_pos   | int | position (0-based) of the base in reference |
+| 3. strand | char | strand (+/-) of the read |
+| 4. read_id | str | name of the read |
+| 5. read_pos | int | position (0-based) of the base in read |
+| 6. mod_code | char | base modification code as in [SAMtags: 1.7 Base modifications](https://github.com/samtools/hts-specs/blob/master/SAMtags.pdf) |
+| 7. mod_prob | float | probability (0.0-1.0) of base modification |
+| 8. var_pos | int | position (0-based) of the variant in reference |
+| 9. var_gt | str | genotype (GT) of the variant in the VCF sample used (. if the VCF carries no genotype) |
+| 10. ref_allele | str | REF allele of the variant |
+| 11. alt_allele | str | ALT allele that creates or destroys the CpG |
+| 12. offset | int | position of the modified base relative to var_pos (-1 when the base is one position before the variant) |
+| 13. haplotype | int | haplotype of the read (only output when --haplotypes is specified) |
 
 # minimod freq
 ```bash
@@ -228,6 +295,108 @@ chr22	19982787	19982788	m	1	+	19982787	19982788	255,0,0	1	0.000000
 | 10. n_mod | int | = field 5 |
 | 11. freq | float | n_mod/n_called ratio |
 
+# minimod varfreq
+```bash
+minimod varfreq ref.fa reads.bam variants.vcf > varmodfreqs.tsv
+```
+This is the variant-aware counterpart of [minimod freq](#minimod-freq). It takes an additional VCF file and writes base modification frequencies (default modification code "m" with modification threshold 0.8) at CpG sites that are created or destroyed by the variants, to a file (varmodfreqs.tsv) in tsv format.
+```bash
+Usage: minimod varfreq ref.fa reads.bam variants.vcf
+
+basic options:
+   -b                         output in bedMethyl format [not set]
+   -c STR                     modification code(s) (eg. m, h or mh or as ChEBI) [m]
+   -m FLOAT                   min modification threshold(s). Comma separated values for each modification code given in -c [0.8]
+   -t INT                     number of processing threads [8]
+   -K INT                     batch size (max number of reads loaded at once) [512]
+   -B FLOAT[K/M/G]            max number of bases loaded at once [20.0M]
+   -h                         help
+   -p INT                     print progress every INT seconds (0: per batch) [0]
+   -o FILE                    output file [stdout]
+   --haplotypes               output per-haplotype rows (expects phased BAM and VCF) [no]
+   --verbose INT              verbosity level [4]
+   --version                  print version
+   --allow-secondary          allow secondary alignments [no]
+   --skip-supplementary       skip supplementary alignments [no]
+   --sample STR               sample name to use from a multi-sample VCF [first sample]
+```
+
+- See [how variant-derived CpG sites are determined?](#variant-aware-modification-calling)
+
+**Sample varmodfreqs.tsv output**
+The output entries are sorted by reference contig, reference position, strand, modification code and offset.
+```bash
+contig	start	end	strand	n_called	n_mod	freq	mod_code	var_pos	var_gt	ref_allele	alt_allele	offset
+chr22	19977102	19977103	-	1	0	0.000000	h	19977101	0/1	T	C	1
+chr22	19977102	19977103	-	1	0	0.000000	m	19977101	0/1	T	C	1
+chr22	19977963	19977964	-	1	0	0.000000	h	19977962	0/1	T	C	1
+chr22	19977963	19977964	-	1	0	0.000000	m	19977962	0/1	T	C	1
+chr22	19979728	19979729	-	1	0	0.000000	h	19979728	0/1	C	G	0
+chr22	19979728	19979729	-	1	0	0.000000	m	19979728	0/1	C	G	0
+```
+
+| Field    | Type | Definition    |
+|----------|-------------|-------------|
+| 1. contig | str | chromosome |
+| 2. start | int | position (0-based, inclusive) of the base |
+| 3. end   | int | position (0-based, not inclusive) of the base |
+| 4. strand | char | strand (+/-) of the read |
+| 5. n_called | int | number of reads called for base modification |
+| 6. n_mod | int | number of reads with base modification |
+| 7. freq | float | n_mod/n_called ratio |
+| 8. mod_code | char | base modification code as in [SAMtags: 1.7 Base modifications](https://github.com/samtools/hts-specs/blob/master/SAMtags.pdf) |
+| 9. var_pos | int | position (0-based) of the variant in reference |
+| 10. var_gt | str | genotype (GT) of the variant in the VCF sample used (. if the VCF carries no genotype) |
+| 11. ref_allele | str | REF allele of the variant |
+| 12. alt_allele | str | ALT allele that creates or destroys the CpG |
+| 13. offset | int | position of the modified base relative to var_pos (-1 when the base is one position before the variant, * for an [aggregated entry](#aggregated-entries)) |
+| 14. haplotype | int | haplotype of the read (only output when --haplotypes is specified, * for an [aggregated entry](#aggregated-entries)) |
+
+**Sample varmodfreqs.bedmethyl output**
+
+The variant columns (fields 12-16 below) are appended to the standard bedMethyl columns.
+
+```bash
+chr22	19977102	19977103	h	1	-	19977102	19977103	255,0,0	1	0.000000	19977101	0/1	T	C	1
+chr22	19977102	19977103	m	1	-	19977102	19977103	255,0,0	1	0.000000	19977101	0/1	T	C	1
+chr22	19977963	19977964	h	1	-	19977963	19977964	255,0,0	1	0.000000	19977962	0/1	T	C	1
+chr22	19977963	19977964	m	1	-	19977963	19977964	255,0,0	1	0.000000	19977962	0/1	T	C	1
+```
+
+| Field    | Type | Definition    |
+|----------|-------------|-------------|
+| 1. contig | str | chromosome |
+| 2. start | int | position (0-based, inclusive) of the base |
+| 3. end   | int | position (0-based, not inclusive) of the base |
+| 4. mod_code | char | base modification code as in [SAMtags: 1.7 Base modifications](https://github.com/samtools/hts-specs/blob/master/SAMtags.pdf) |
+| 5. n_called | int | number of reads called for base modification |
+| 6. strand | char | strand (+/-) of the read |
+| 7. start | int | = field 2 |
+| 8. end   | int | = field 3 |
+| 9. color | str | always 255,0,0 (for compatibility) |
+| 10. n_called | int | = field 5 |
+| 11. freq | float | n_mod/n_called ratio as a percentage |
+| 12. var_pos | int | position (0-based) of the variant in reference |
+| 13. var_gt | str | genotype (GT) of the variant in the VCF sample used |
+| 14. ref_allele | str | REF allele of the variant |
+| 15. alt_allele | str | ALT allele that creates or destroys the CpG |
+| 16. offset | int | position of the modified base relative to var_pos |
+| 17. haplotype | int | haplotype of the read (only output when --haplotypes is specified) |
+
+**Sample varmodfreqs.tsv output with --haplotypes**
+
+```bash
+$ minimod varfreq --haplotypes ref.fa reads.bam variants.vcf
+
+contig	start	end	strand	n_called	n_mod	freq	mod_code	var_pos	var_gt	ref_allele	alt_allele	offset	haplotype
+chr22	19987298	19987299	+	1	0	0.000000	h	19987298	1|1	CG	C	0	1
+chr22	19987298	19987299	+	1	0	0.000000	m	19987298	1|1	CG	C	0	1
+chr22	19987300	19987301	-	1	0	0.000000	h	19987298	1|1	CG	C	2	2
+chr22	19987300	19987301	-	1	0	0.000000	m	19987298	1|1	CG	C	2	2
+chr22	19988992	19988993	-	3	0	0.000000	h	19988990	1|0	CG	C	2	1
+chr22	19988992	19988993	-	3	3	1.000000	m	19988990	1|0	CG	C	2	1
+```
+
 # minimod summary
 
 ```bash
@@ -276,6 +445,49 @@ canonical_base(character such as ACGTN)|mod_code(character or ChEBI number)|stat
 Status flag describes how skipped bases should be interpreted by downstream tools.
 - **.** : skipped bases should be assumed to have low probability of modifications.
 - **?** : there is no information about the modification status of skipped bases
+
+# Variant-aware modification calling
+*varview* and *varfreq* take a VCF file in addition to the reference and the BAM, and report base modifications only at CpG sites that are **created or destroyed by a variant**. These are sites that are present in one allele but not the other, and which therefore cannot be compared against the reference alone.
+
+For each ALT allele, minimod substitutes the ALT into the reference along with one flanking base on either side, locates the CpG dinucleotides in the resulting sequence, and discards the ones that are CpG in the reference as well. What remains are the variant-derived CpG sites that are reported. Each reported entry carries the variant that produced it (var_pos, var_gt, ref_allele, alt_allele) together with an *offset*.
+
+*offset* is the position of the modified base relative to the variant position (var_pos), where 0 is the variant position itself and -1 is one position before it. A single variant, such as an insertion, can create several CpG sites and hence several entries with different offsets that all map back to the same reference position.
+
+As the reported sites are CpG sites, only 5mC (m) and 5hmC (h) in CG context have been tested for *varview* and *varfreq*. minimod prints a warning for any other modification code and context combination given with -c.
+
+## Aggregated entries
+Where more than one entry is reported for the same reference position, strand and modification code, *varfreq* emits an extra entry with `*` in which n_called and n_mod are summed over the group and freq is recomputed from the sums.
+
+- without --haplotypes, the entries are grouped over *offset* and the aggregated entry has `*` in the offset column
+- with --haplotypes, the entries of each *offset* are grouped over *haplotype* and the aggregated entry has `*` in the haplotype column
+
+```bash
+contig	start	end	strand	n_called	n_mod	freq	mod_code	var_pos	var_gt	ref_allele	alt_allele	offset
+chr22	15689407	15689408	+	30	0	0.000000	h	15689407	0/1	T	TGCCGCGCGCGCAC	3
+chr22	15689407	15689408	+	27	0	0.000000	h	15689407	0/1	T	TGCCGCGCGCGCAC	5
+chr22	15689407	15689408	+	27	2	0.074074	h	15689407	0/1	T	TGCCGCGCGCGCAC	7
+chr22	15689407	15689408	+	26	1	0.038462	h	15689407	0/1	T	TGCCGCGCGCGCAC	9
+chr22	15689407	15689408	+	25	1	0.040000	h	15689407	0/1	T	TGCCGCGCGCGCAC	13
+chr22	15689407	15689408	+	135	4	0.029630	h	15689407	0/1	T	TGCCGCGCGCGCAC	*
+```
+The last entry aggregates the five preceding entries, which are the five CpG sites created by a single 13-base insertion, all mapping to reference position 15689407.
+
+## Phased VCF and BAM
+When --haplotypes is specified, minimod uses the phase information in both inputs: the phased genotype of the variant in the VCF and the [`HP` (Haplotype)](https://samtools.github.io/hts-specs/SAMtags.pdf) tag of the read in the BAM. A variant carried by only one haplotype (such as 1|0) is then evaluated only against reads of that haplotype, while homozygous ALT, unphased and haploid calls are evaluated against all reads. Variants that are homozygous reference in the chosen sample are skipped.
+
+Two adjacent variants that only together create a CpG site (compound variants) are resolved only when --haplotypes is specified, as their phase is needed to tell whether they are on the same haplotype.
+
+## Multi-sample VCF
+By default the first sample in the VCF is used. Use --sample to select another sample by name; minimod errors out if the name is not found in the VCF. If the VCF carries no genotype information at all, all ALT alleles are considered present on any haplotype and var_gt is reported as `.`.
+
+## Variants that are skipped
+The ALT sequence of some records cannot be derived from REF and ALT alone, and those alleles are skipped. These are
+
+- symbolic alleles, such as `<DEL>` and the `C<ctg1>` insertion shorthand
+- breakends, both mated (such as `G]1:10000]`) and single (such as `G.` or `.TGCA`)
+- `*`, an allele missing due to an upstream deletion
+
+minimod reports how many of the VCF records were affected, and prints a warning instead if more than 90% of them were skipped.
 
 # How skipped bases are handled
 Modified base positions are encoded in MM tag as a series of integers each indicating how many bases to be skipped before the next modified base. For an example, if the MM tag starts with **C+m.**, the skipped bases should be considered to have low probability. Otherwise, if the MM tag starts with **C+m?**,  the probability of skipped bases are unknown. 
@@ -439,7 +651,7 @@ chr22	20016700	20016700	-	4	0	0.000000	m	0
 Highlighted line corresponds to a 5mC modification within an insertion (A mC G) at position 19968083
 
 # Enable haplotypes
-minimod can output the haplotype in a separate integer column by specifying --haplotypes flag for both view and freq tools. The haplotype column is appended to the tsv output as well as to the freq bedmethyl output (`-b`). minimod does **not** compute or infer haplotypes. Instead, it uses haplotype assignments already present in the input BAM, if the BAM is phased and contains the [`HP` (Haplotype)](https://samtools.github.io/hts-specs/SAMtags.pdf) tag.
+minimod can output the haplotype in a separate integer column by specifying --haplotypes flag for both view and freq tools. For varview and varfreq, the same flag additionally enables phase-aware processing of the variants, see [Phased VCF and BAM](#phased-vcf-and-bam). The haplotype column is appended to the tsv output as well as to the freq bedmethyl output (`-b`). minimod does **not** compute or infer haplotypes. Instead, it uses haplotype assignments already present in the input BAM, if the BAM is phased and contains the [`HP` (Haplotype)](https://samtools.github.io/hts-specs/SAMtags.pdf) tag.
 
 **Sample output of view with --haplotypes**
 ```bash
