@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 
-# Usage: test/varfreq_context.py freq.bedmethyl varfreq.bedmethyl min_radius [--bed out.bed]
+# Usage: test/varfreq_context.py freq.bedmethyl varfreq.bedmethyl min_window [--bed out.bed]
 
 import sys
 import gzip
@@ -18,14 +18,14 @@ if "--bed" in argv:
     del argv[i:i + 2]
 
 if len(argv) != 3:
-    print("Usage: {} freq.bedmethyl varfreq.bedmethyl min_radius [--bed out.bed]".format(sys.argv[0]))
+    print("Usage: {} freq.bedmethyl varfreq.bedmethyl min_window [--bed out.bed]".format(sys.argv[0]))
     sys.exit(1)
 
 ALL_VARTYPES = ("SNP", "INS", "DEL", "MNP")
 
 freq_file = argv[0]
 varfreq_file = argv[1]
-min_radius = int(argv[2])
+min_window = int(argv[2])
 
 def var_type_of(ref_allele, alt_allele):
     if len(ref_allele) == 1 and len(alt_allele) == 1:
@@ -128,8 +128,8 @@ varfreqs = varfreq_load(varfreq_file)
 
 print("# freq    : {}".format(freq_file), file=sys.stderr)
 print("# varfreq : {}".format(varfreq_file), file=sys.stderr)
-print("# min_radius={} bp  per-CpG freq = mean of its + and - strand freqs  allele level = unweighted mean over the CpGs in ALT".format(
-    min_radius), file=sys.stderr)
+print("# min_window={} bp  per-CpG freq = mean of its + and - strand freqs  allele level = unweighted mean over the CpGs in ALT".format(
+    min_window), file=sys.stderr)
 print("# meth_in_unmeth if var_meth_mean > both flank means  unmeth_in_meth if a flank mean > var_meth_mean  equal if it ties the larger flank mean", file=sys.stderr)
 print("# meth_mean_diff = var_meth_mean - the larger flank mean, so its sign follows the category", file=sys.stderr)
 
@@ -145,7 +145,7 @@ for key in sorted(varfreqs):
 
     var_ncpg, var_mean, var_sd = stats(site_pcts(var_sites.values()))
 
-    radius = max(min_radius, len(alt_allele)/2)
+    radius = max(min_window, len(alt_allele))/2
 
     bg_l_pcts, bg_r_pcts = background(freqs, contig, hap, mod_code, var_pos, var_end, radius)
     bg_l_ncpg, bg_l_mean, _ = stats(bg_l_pcts)
@@ -163,9 +163,9 @@ for key in sorted(varfreqs):
            var_ncpg, var_mean, var_sd,
            bg_ncpg, bg_mean, bg_sd, bg_l_ncpg, bg_l_mean, bg_r_ncpg, bg_r_mean, meth_diff, radius)
 
-    if all(var_mean > m for m in flanks):
+    if meth_diff > 0:
         buckets[var_type]["meth_in_unmeth"].append(rec)
-    elif any(var_mean < m for m in flanks):
+    elif meth_diff < 0:
         buckets[var_type]["unmeth_in_meth"].append(rec)
     else:
         buckets[var_type]["equal"].append(rec)
