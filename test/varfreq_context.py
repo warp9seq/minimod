@@ -101,6 +101,10 @@ def varfreq_load(fn):
             if not 1 <= cpg_key <= len(alt_allele):
                 continue
 
+            # check if CG is in the ALT allele
+            if alt_allele[cpg_key - 1:cpg_key] != "CG" and alt_allele[cpg_key - 1:cpg_key] != "cg":
+                continue
+
             key = (contig, var_pos, ref_allele, alt_allele, hap, mod_code)
             g = groups.get(key)
             if g is None:
