@@ -128,6 +128,18 @@ echo -e "${BLUE}${testname}${NC}"
 ex ./minimod varfreq --haplotypes -c "m,h" test/tmp/genome_chr22.fa test/data/varmod/example-ont-hpmix.bam test/data/varmod/example-ont-phased.vcf > test/tmp/varmod/example-ont-phased.mm.varfreq.tsv || die "${testname} failed"
 diff -q test/tmp/varmod/example-ont-phased.mm.varfreq.tsv test/expected/varmod/example-ont-phased.mm.varfreq.tsv || die "${testname} failed: output does not match expected output"
 
+# same VCF as above but with the ID column filled in: a plain rsID, a multi-ID (';' separated),
+# a missing ID ('.') and a non-rs ID. Checks var_id is carried through to the output.
+testname="varfreq --haplotypes example-ont-rsid"
+echo -e "${BLUE}${testname}${NC}"
+ex ./minimod varfreq --haplotypes -c "m,h" test/tmp/genome_chr22.fa test/data/varmod/example-ont-hpmix.bam test/data/varmod/example-ont-rsid.vcf > test/tmp/varmod/example-ont-rsid.mm.varfreq.tsv || die "${testname} failed"
+diff -q test/tmp/varmod/example-ont-rsid.mm.varfreq.tsv test/expected/varmod/example-ont-rsid.mm.varfreq.tsv || die "${testname} failed: output does not match expected output"
+
+testname="varfreq -b example-ont-rsid"
+echo -e "${BLUE}${testname}${NC}"
+ex ./minimod varfreq -b -c "m,h" test/tmp/genome_chr22.fa test/data/varmod/example-ont-hpmix.bam test/data/varmod/example-ont-rsid.vcf > test/tmp/varmod/example-ont-rsid.mm.varfreq.bedmethyl || die "${testname} failed"
+diff -q test/tmp/varmod/example-ont-rsid.mm.varfreq.bedmethyl test/expected/varmod/example-ont-rsid.mm.varfreq.bedmethyl || die "${testname} failed: output does not match expected output"
+
 # Synthetic compound-variant test: two adjacent phased SNPs together create a new CpG that
 # neither produces alone. Verifies the per-hap cluster pass + is_compound scan-time gating.
 testname="varview --haplotypes example-ont-compound"

@@ -88,10 +88,10 @@ def varfreq_load(fn):
     with opener(fn, "rt") as f:
         for line in f:
             parts = line.rstrip("\n").split("\t")
-            contig, mod_code, strand, hap = parts[0], parts[3], parts[5], parts[16]
+            contig, mod_code, strand, hap = parts[0], parts[3], parts[5], parts[17]
             pos, n_called, freq = int(parts[1]), int(parts[4]), float(parts[10])
-            var_pos, ref_allele, alt_allele = int(parts[11]), parts[13], parts[14]
-            offset = int(parts[15])
+            var_pos, ref_allele, alt_allele = int(parts[12]), parts[14], parts[15]
+            offset = int(parts[16])
 
             if hap == "*":
                 continue

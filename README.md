@@ -326,13 +326,13 @@ basic options:
 **Sample varmodfreqs.tsv output**
 The output entries are sorted by reference contig, reference position, strand, modification code and offset.
 ```bash
-contig	start	end	strand	n_called	n_mod	freq	mod_code	var_pos	var_gt	ref_allele	alt_allele	offset
-chr22	19977102	19977103	-	1	0	0.000000	h	19977101	0/1	T	C	1
-chr22	19977102	19977103	-	1	0	0.000000	m	19977101	0/1	T	C	1
-chr22	19977963	19977964	-	1	0	0.000000	h	19977962	0/1	T	C	1
-chr22	19977963	19977964	-	1	0	0.000000	m	19977962	0/1	T	C	1
-chr22	19979728	19979729	-	1	0	0.000000	h	19979728	0/1	C	G	0
-chr22	19979728	19979729	-	1	0	0.000000	m	19979728	0/1	C	G	0
+contig	start	end	strand	n_called	n_mod	freq	mod_code	var_id	var_pos	var_gt	ref_allele	alt_allele	offset
+chr22	19977102	19977103	-	1	0	0.000000	h	.	19977101	0/1	T	C	1
+chr22	19977102	19977103	-	1	0	0.000000	m	.	19977101	0/1	T	C	1
+chr22	19977963	19977964	-	1	0	0.000000	h	.	19977962	0/1	T	C	1
+chr22	19977963	19977964	-	1	0	0.000000	m	.	19977962	0/1	T	C	1
+chr22	19979728	19979729	-	1	0	0.000000	h	.	19979728	0/1	C	G	0
+chr22	19979728	19979729	-	1	0	0.000000	m	.	19979728	0/1	C	G	0
 ```
 
 | Field    | Type | Definition    |
@@ -345,22 +345,23 @@ chr22	19979728	19979729	-	1	0	0.000000	m	19979728	0/1	C	G	0
 | 6. n_mod | int | number of reads with base modification |
 | 7. freq | float | n_mod/n_called ratio |
 | 8. mod_code | char | base modification code as in [SAMtags: 1.7 Base modifications](https://github.com/samtools/hts-specs/blob/master/SAMtags.pdf) |
-| 9. var_pos | int | position (0-based) of the variant in reference |
-| 10. var_gt | str | genotype (GT) of the variant in the VCF sample used (. if the VCF carries no genotype) |
-| 11. ref_allele | str | REF allele of the variant |
-| 12. alt_allele | str | ALT allele that creates or destroys the CpG |
-| 13. offset | int | position of the modified base relative to var_pos (-1 when the base is one position before the variant, * for an [aggregated entry](#aggregated-entries)) |
-| 14. haplotype | int | haplotype of the read (only output when --haplotypes is specified, * for an [aggregated entry](#aggregated-entries)) |
+| 9. var_id | str | ID column of the variant in the VCF (. if the VCF carries no ID) |
+| 10. var_pos | int | position (0-based) of the variant in reference |
+| 11. var_gt | str | genotype (GT) of the variant in the VCF sample used (. if the VCF carries no genotype) |
+| 12. ref_allele | str | REF allele of the variant |
+| 13. alt_allele | str | ALT allele that creates or destroys the CpG |
+| 14. offset | int | position of the modified base relative to var_pos (-1 when the base is one position before the variant, * for an [aggregated entry](#aggregated-entries)) |
+| 15. haplotype | int | haplotype of the read (only output when --haplotypes is specified, * for an [aggregated entry](#aggregated-entries)) |
 
 **Sample varmodfreqs.bedmethyl output**
 
-The variant columns (fields 12-16 below) are appended to the standard bedMethyl columns.
+The variant columns (fields 12-17 below) are appended to the standard bedMethyl columns.
 
 ```bash
-chr22	19977102	19977103	h	1	-	19977102	19977103	255,0,0	1	0.000000	19977101	0/1	T	C	1
-chr22	19977102	19977103	m	1	-	19977102	19977103	255,0,0	1	0.000000	19977101	0/1	T	C	1
-chr22	19977963	19977964	h	1	-	19977963	19977964	255,0,0	1	0.000000	19977962	0/1	T	C	1
-chr22	19977963	19977964	m	1	-	19977963	19977964	255,0,0	1	0.000000	19977962	0/1	T	C	1
+chr22	19977102	19977103	h	1	-	19977102	19977103	255,0,0	1	0.000000	.	19977101	0/1	T	C	1
+chr22	19977102	19977103	m	1	-	19977102	19977103	255,0,0	1	0.000000	.	19977101	0/1	T	C	1
+chr22	19977963	19977964	h	1	-	19977963	19977964	255,0,0	1	0.000000	.	19977962	0/1	T	C	1
+chr22	19977963	19977964	m	1	-	19977963	19977964	255,0,0	1	0.000000	.	19977962	0/1	T	C	1
 ```
 
 | Field    | Type | Definition    |
@@ -376,25 +377,26 @@ chr22	19977963	19977964	m	1	-	19977963	19977964	255,0,0	1	0.000000	19977962	0/1	
 | 9. color | str | always 255,0,0 (for compatibility) |
 | 10. n_called | int | = field 5 |
 | 11. freq | float | n_mod/n_called ratio as a percentage |
-| 12. var_pos | int | position (0-based) of the variant in reference |
-| 13. var_gt | str | genotype (GT) of the variant in the VCF sample used |
-| 14. ref_allele | str | REF allele of the variant |
-| 15. alt_allele | str | ALT allele that creates or destroys the CpG |
-| 16. offset | int | position of the modified base relative to var_pos |
-| 17. haplotype | int | haplotype of the read (only output when --haplotypes is specified) |
+| 12. var_id | str | ID column of the variant in the VCF (. if the VCF carries no ID) |
+| 13. var_pos | int | position (0-based) of the variant in reference |
+| 14. var_gt | str | genotype (GT) of the variant in the VCF sample used |
+| 15. ref_allele | str | REF allele of the variant |
+| 16. alt_allele | str | ALT allele that creates or destroys the CpG |
+| 17. offset | int | position of the modified base relative to var_pos |
+| 18. haplotype | int | haplotype of the read (only output when --haplotypes is specified) |
 
 **Sample varmodfreqs.tsv output with --haplotypes**
 
 ```bash
 $ minimod varfreq --haplotypes ref.fa reads.bam variants.vcf
 
-contig	start	end	strand	n_called	n_mod	freq	mod_code	var_pos	var_gt	ref_allele	alt_allele	offset	haplotype
-chr22	19987298	19987299	+	1	0	0.000000	h	19987298	1|1	CG	C	0	1
-chr22	19987298	19987299	+	1	0	0.000000	m	19987298	1|1	CG	C	0	1
-chr22	19987300	19987301	-	1	0	0.000000	h	19987298	1|1	CG	C	2	2
-chr22	19987300	19987301	-	1	0	0.000000	m	19987298	1|1	CG	C	2	2
-chr22	19988992	19988993	-	3	0	0.000000	h	19988990	1|0	CG	C	2	1
-chr22	19988992	19988993	-	3	3	1.000000	m	19988990	1|0	CG	C	2	1
+contig	start	end	strand	n_called	n_mod	freq	mod_code	var_id	var_pos	var_gt	ref_allele	alt_allele	offset	haplotype
+chr22	19987298	19987299	+	1	0	0.000000	h	.	19987298	1|1	CG	C	0	1
+chr22	19987298	19987299	+	1	0	0.000000	m	.	19987298	1|1	CG	C	0	1
+chr22	19987300	19987301	-	1	0	0.000000	h	.	19987298	1|1	CG	C	2	2
+chr22	19987300	19987301	-	1	0	0.000000	m	.	19987298	1|1	CG	C	2	2
+chr22	19988992	19988993	-	3	0	0.000000	h	.	19988990	1|0	CG	C	2	1
+chr22	19988992	19988993	-	3	3	1.000000	m	.	19988990	1|0	CG	C	2	1
 ```
 
 # minimod summary
@@ -449,7 +451,7 @@ Status flag describes how skipped bases should be interpreted by downstream tool
 # Variant-aware modification calling
 *varview* and *varfreq* take a VCF file in addition to the reference and the BAM, and report base modifications only at CpG sites that are **created or destroyed by a variant**. These are sites that are present in one allele but not the other, and which therefore cannot be compared against the reference alone.
 
-For each ALT allele, minimod substitutes the ALT into the reference along with one flanking base on either side, locates the CpG dinucleotides in the resulting sequence, and discards the ones that are CpG in the reference as well. What remains are the variant-derived CpG sites that are reported. Each reported entry carries the variant that produced it (var_pos, var_gt, ref_allele, alt_allele) together with an *offset*.
+For each ALT allele, minimod substitutes the ALT into the reference along with one flanking base on either side, locates the CpG dinucleotides in the resulting sequence, and discards the ones that are CpG in the reference as well. What remains are the variant-derived CpG sites that are reported. Each reported entry carries the variant that produced it (var_pos, var_gt, ref_allele, alt_allele, plus the VCF ID as var_id in *varfreq*) together with an *offset*.
 
 *offset* is the position of the modified base relative to the variant position (var_pos), where 0 is the variant position itself and -1 is one position before it. A single variant, such as an insertion, can create several CpG sites and hence several entries with different offsets that all map back to the same reference position.
 
@@ -462,13 +464,13 @@ Where more than one entry is reported for the same reference position, strand an
 - with --haplotypes, the entries of each *offset* are grouped over *haplotype* and the aggregated entry has `*` in the haplotype column
 
 ```bash
-contig	start	end	strand	n_called	n_mod	freq	mod_code	var_pos	var_gt	ref_allele	alt_allele	offset
-chr22	15689407	15689408	+	30	0	0.000000	h	15689407	0/1	T	TGCCGCGCGCGCAC	3
-chr22	15689407	15689408	+	27	0	0.000000	h	15689407	0/1	T	TGCCGCGCGCGCAC	5
-chr22	15689407	15689408	+	27	2	0.074074	h	15689407	0/1	T	TGCCGCGCGCGCAC	7
-chr22	15689407	15689408	+	26	1	0.038462	h	15689407	0/1	T	TGCCGCGCGCGCAC	9
-chr22	15689407	15689408	+	25	1	0.040000	h	15689407	0/1	T	TGCCGCGCGCGCAC	13
-chr22	15689407	15689408	+	135	4	0.029630	h	15689407	0/1	T	TGCCGCGCGCGCAC	*
+contig	start	end	strand	n_called	n_mod	freq	mod_code	var_id	var_pos	var_gt	ref_allele	alt_allele	offset
+chr22	15689407	15689408	+	30	0	0.000000	h	.	15689407	0/1	T	TGCCGCGCGCGCAC	3
+chr22	15689407	15689408	+	27	0	0.000000	h	.	15689407	0/1	T	TGCCGCGCGCGCAC	5
+chr22	15689407	15689408	+	27	2	0.074074	h	.	15689407	0/1	T	TGCCGCGCGCGCAC	7
+chr22	15689407	15689408	+	26	1	0.038462	h	.	15689407	0/1	T	TGCCGCGCGCGCAC	9
+chr22	15689407	15689408	+	25	1	0.040000	h	.	15689407	0/1	T	TGCCGCGCGCGCAC	13
+chr22	15689407	15689408	+	135	4	0.029630	h	.	15689407	0/1	T	TGCCGCGCGCGCAC	*
 ```
 The last entry aggregates the five preceding entries, which are the five CpG sites created by a single 13-base insertion, all mapping to reference position 15689407.
 

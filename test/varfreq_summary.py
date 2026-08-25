@@ -90,12 +90,13 @@ def varfreq_load(fn):
             strand = parts[5]
             freq = float(parts[10])
             n_mod = n_called * freq / 100.0
-            var_pos = int(parts[11])
-            gt = parts[12]
-            ref_allele = parts[13]
-            alt_allele = parts[14]
-            offset = int(parts[15])
-            hap = parts[16]
+            var_id = parts[11]
+            var_pos = int(parts[12])
+            gt = parts[13]
+            ref_allele = parts[14]
+            alt_allele = parts[15]
+            offset = int(parts[16])
+            hap = parts[17]
 
             if hap == "*":
                 continue;
@@ -285,10 +286,10 @@ def cpg_gain_summary(varfreq_file):
             contig = parts[0]
             pos = int(parts[1])
             strand = parts[5]
-            ref_allele = parts[13]
-            alt_allele = parts[14]
-            c_off = int(parts[15])
-            hap = parts[16]
+            ref_allele = parts[14]
+            alt_allele = parts[15]
+            c_off = int(parts[16])
+            hap = parts[17]
 
             if hap == "*":
                 continue
@@ -359,16 +360,16 @@ def reference_cpg_in_varfreq_check(varfreq_file, reference):
     with opener(varfreq_file, "rt") as f:
         for line in f:
             parts = line.rstrip("\n").split("\t")
-            if parts[5] != "+" or parts[16] == "*":
+            if parts[5] != "+" or parts[17] == "*":
                 continue
             contig = parts[0]
             pos = int(parts[1])
             mod_code = parts[3]
-            var_pos = int(parts[11])
-            ref_allele = parts[13]
-            alt_allele = parts[14]
-            offset = int(parts[15])
-            hap = parts[16]
+            var_pos = int(parts[12])
+            ref_allele = parts[14]
+            alt_allele = parts[15]
+            offset = int(parts[16])
+            hap = parts[17]
 
             if offset != pos - var_pos:
                 continue

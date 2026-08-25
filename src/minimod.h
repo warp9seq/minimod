@@ -88,6 +88,7 @@ typedef struct {
     char * after_site;
     int8_t hap; //haplotype of ALT. 0 = any (unphased, hom-alt, or no GT info)
     char *gt; //genotype from VCF. "." when no GT info
+    char *var_id; //ID field from VCF. "." when no ID
 } var_t;
 
 typedef struct {
@@ -114,6 +115,7 @@ typedef struct {
     const char *ref_allele;
     const char *alt_allele;
     const char *gt; //genotype string from var_t.gt
+    const char *var_id; //ID string from var_t.var_id
     int var_pos;
 } varfreq_t;
 

@@ -32,9 +32,9 @@ with opener(varfreq_file, "rt") as f:
         parts = line.rstrip("\n").split("\t")
         contig, mod_code, strand = parts[0], parts[3], parts[5]
         pos, freq = int(parts[1]), float(parts[10])
-        var_pos, gt, ref_allele, alt_allele = int(parts[11]), parts[12], parts[13], parts[14]
-        offset = parts[15]
-        hap = parts[16] if len(parts) > 16 else "*"
+        var_pos, gt, ref_allele, alt_allele = int(parts[12]), parts[13], parts[14], parts[15]
+        offset = parts[16]
+        hap = parts[17] if len(parts) > 17 else "*"
 
         if hap == "*" or offset == "*":
             continue
