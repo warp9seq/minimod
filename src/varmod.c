@@ -823,6 +823,68 @@ void add_varview_entry(khash_t(varviewm) *varview_map, const char *tname, int re
     }
 }
 
+static inline int rank_to_read_pos(char modbase, int8_t rev, uint32_t seq_len, int **bases_pos, int *bases_pos_lens, int idx, int rank) {
+    int read_pos;
+    if (modbase == 'N') {
+        read_pos = rev ? (int)(seq_len - rank - 1) : rank;
+    } else {
+        read_pos = rev ? bases_pos[idx][bases_pos_lens[idx] - rank - 1] : bases_pos[idx][rank];
+    }
+    ASSERT_MSG(read_pos >= 0 && read_pos < (int)seq_len, "Read pos cannot exceed seq len. read_pos: %d seq_len: %d\n", read_pos, seq_len);
+    return read_pos;
+}
+
+static void emit_var_entries(core_t *core, db_t *db, int32_t bam_i, const char *tname, vars_t *vars,
+                             uint32_t seq_len, int8_t rev, int haplotype,
+                             char *mod_codes, int mod_codes_len, int has_nums, int *req_mod_valid, modcodem_t **req_mods,
+                             int read_pos, const uint8_t *probs) {
+    if (vars == NULL) return;
+
+    char strand = rev ? '-' : '+';
+    int fastq_read_pos = rev ? (int)(seq_len - read_pos - 1) : read_pos;
+    int ref_pos = db->aln[bam_i][fastq_read_pos];
+    int ins_start = db->ins[bam_i][fastq_read_pos];
+    int ins_offset = db->ins_offset[bam_i][fastq_read_pos];
+
+    if (ref_pos == -1 && ins_start == -1) return; // neither aligned nor an insertion
+
+    int want_ins = (ref_pos == -1);
+    int lookup_pos = want_ins ? (ins_start + ins_offset) : ref_pos;
+    int out_pos = want_ins ? ins_start : ref_pos;
+    int ei_start = lower_bound_cg(vars->cg_entries, vars->cg_entries_len, lookup_pos);
+
+    for (int m = 0; m < mod_codes_len; m++) {
+        if (!req_mod_valid[m]) continue;
+
+        char *mod_code = has_nums ? mod_codes : &mod_codes[m];
+        uint8_t mod_prob = probs ? probs[m] : 0;
+
+        for (int ei = ei_start; ei < vars->cg_entries_len && vars->cg_entries[ei].ref_cg_pos == lookup_pos; ei++) {
+            if (vars->cg_entries[ei].is_insertion_only != want_ins) continue;
+            if (vars->cg_entries[ei].is_compound && !core->opt.haplotypes) continue;
+            if (vars->cg_entries[ei].strand != strand) continue;
+            var_t var = vars->vars[vars->cg_entries[ei].var_idx];
+            if (want_ins && var.pos != ins_start) continue;
+            // phase-aware filter: only when --haplotypes is on; phased ALT (var.hap > 0) only counts reads with matching HP tag
+            if (core->opt.haplotypes && var.hap > 0 && haplotype != var.hap) continue;
+
+            uint16_t offset = want_ins ? (uint16_t)ins_offset : REF_OFFSET(out_pos, var.pos);
+            if (core->opt.subtool == VARVIEW) {
+                add_varview_entry(db->varview_maps[bam_i], tname, out_pos, offset, mod_code, strand, haplotype, mod_prob, fastq_read_pos, var);
+            } else {
+                int is_called = 1, is_mod = 0;
+                if (probs) {
+                    double mod_prob_dbl = THRESH_UINT8_TO_DBL(mod_prob);
+                    double thresh = req_mods[m]->thresh;
+                    if (mod_prob_dbl >= thresh) is_mod = 1;
+                    else if (mod_prob_dbl > 1 - thresh) continue; // ambiguous, not called
+                }
+                update_varfreq_map(db->varfreq_maps[bam_i], tname, out_pos, offset, mod_code, strand, haplotype, is_called, is_mod, var.ref_allele, var.alt_allele, var.gt, var.var_id, var.pos);
+            }
+        }
+    }
+}
+
 void varviewfreq_single(core_t * core, db_t *db, int32_t bam_i) {
     bam1_t *record = db->bam_recs[bam_i];
     int8_t rev = bam_is_rev(record);
@@ -832,13 +894,11 @@ void varviewfreq_single(core_t * core, db_t *db, int32_t bam_i) {
     const char *tname = (tid >= 0) ? hdr->target_name[tid] : "*";
     uint8_t *seq = bam_get_seq(record);
     uint32_t seq_len = record->core.l_qseq;
-    char strand = rev ? '-' : '+';
     const char *mm_string = db->mm[bam_i];
     uint8_t *ml = db->ml[bam_i];
     // phase-aware processing only when --haplotypes is specified with phased VCF and BAM
     uint8_t read_hp = core->opt.haplotypes ? get_hp_tag(record) : 0;
     int haplotype = core->opt.haplotypes ? (int)read_hp : -1;
-    int *aln_pairs = db->aln[bam_i];
 
     ref_t *ref = get_ref(tname);
     ASSERT_MSG(ref != NULL, "Contig %s not found in reference provided\n", tname);
@@ -987,73 +1047,16 @@ void varviewfreq_single(core_t * core, db_t *db, int32_t bam_i) {
             }
         }
 
-        int ml_idx = ml_start_idx;
+        
         int base_rank = -1; // 0-based rank
-        for(int c=0; c<skip_counts_len; c++) {
+        for (int c = 0; c < skip_counts_len; c++) {
             base_rank += skip_counts[c] + 1;
-
-            int read_pos;
-
-            if (modbase == 'N') {
-                read_pos = rev ? (int)(seq_len - base_rank - 1) : base_rank;
-            } else {
-                read_pos = rev ? bases_pos[idx][bases_pos_lens[idx] - base_rank - 1] : bases_pos[idx][base_rank];
-            }
-
-            ASSERT_MSG(read_pos >= 0 && read_pos < (int)seq_len, "Read pos cannot exceed seq len. read_pos: %d seq_len: %d\n", read_pos, seq_len);
-
-            int fastq_read_pos = rev ? (int)(seq_len - read_pos - 1) : read_pos;
-            int ref_pos = aln_pairs[fastq_read_pos];
-            int ins_start = db->ins[bam_i][fastq_read_pos];
-            int ins_offset = db->ins_offset[bam_i][fastq_read_pos];
-
-            if (ref_pos == -1 && ins_start == -1) {
-                if (mod_codes_len > 0) {
-                    ml_idx = ml_start_idx + c * mod_codes_len + mod_codes_len - 1;
-                }
-                continue;
-            }
-
-            for (int m = 0; m < mod_codes_len; m++) {
-                ml_idx = ml_start_idx + c * mod_codes_len + m;
-
-                if (!req_mod_valid[m]) continue;
-
-                char *mod_code = has_nums ? mod_codes : &mod_codes[m];
-                modcodem_t *req_mod = req_mods[m];
-
-                if (vars) {
-                    int want_ins = (ref_pos == -1);
-                    int lookup_pos = want_ins ? (ins_start + ins_offset) : ref_pos;
-                    int out_pos = want_ins ? ins_start : ref_pos;
-
-                    int ei = lower_bound_cg(vars->cg_entries, vars->cg_entries_len, lookup_pos);
-                    for (; ei < vars->cg_entries_len && vars->cg_entries[ei].ref_cg_pos == lookup_pos; ei++) {
-                        if (vars->cg_entries[ei].is_insertion_only != want_ins) continue;
-                        if (vars->cg_entries[ei].is_compound && !core->opt.haplotypes) continue;
-                        if (vars->cg_entries[ei].strand != strand) continue;
-                        var_t var = vars->vars[vars->cg_entries[ei].var_idx];
-                        if (want_ins && var.pos != ins_start) continue;
-                        // phase-aware filter: only when --haplotypes is on; phased ALT (var.hap > 0) only counts reads with matching HP tag
-                        if (core->opt.haplotypes && var.hap > 0 && (int)read_hp != var.hap) continue;
-                        uint8_t mod_prob = ml[ml_idx];
-                        uint16_t offset = want_ins ? (uint16_t)ins_offset : REF_OFFSET(out_pos, var.pos);
-                        if (core->opt.subtool == VARVIEW) {
-                            add_varview_entry(db->varview_maps[bam_i], tname, out_pos, offset, mod_code, strand, haplotype, mod_prob, fastq_read_pos, var);
-                        } else {
-                            double mod_prob_dbl = THRESH_UINT8_TO_DBL(mod_prob);
-                            double thresh = req_mod->thresh;
-                            int is_called = 0, is_mod = 0;
-                            if (mod_prob_dbl >= thresh) { is_called = 1; is_mod = 1; }
-                            else if (mod_prob_dbl <= 1 - thresh) { is_called = 1; }
-                            else continue;
-                            update_varfreq_map(db->varfreq_maps[bam_i], tname, out_pos, offset, mod_code, strand, haplotype, is_called, is_mod, var.ref_allele, var.alt_allele, var.gt, var.var_id, var.pos);
-                        }
-                    }
-                }
-            }
+            int read_pos = rank_to_read_pos(modbase, rev, seq_len, bases_pos, bases_pos_lens, idx, base_rank);
+            uint8_t *probs = &ml[ml_start_idx + c * mod_codes_len];
+            emit_var_entries(core, db, bam_i, tname, vars, seq_len, rev, haplotype,
+                             mod_codes, mod_codes_len, has_nums, req_mod_valid, req_mods, read_pos, probs);
         }
-        if (skip_counts_len > 0) ml_start_idx = ml_idx + 1;
+        ml_start_idx += skip_counts_len * mod_codes_len;
 
         // Skipped bases (mod_prob = 0, status_flag == '.')
         if (status_flag == '.') {
@@ -1063,95 +1066,18 @@ void varviewfreq_single(core_t * core, db_t *db, int32_t bam_i) {
                 skip_base_rank += skip_counts[c] + 1;
 
                 for (int s = prev_skip_base_rank + 1; s < skip_base_rank; s++) {
-                    int skip_read_pos;
-                    if (modbase == 'N') {
-                        skip_read_pos = rev ? (int)(seq_len - s - 1) : s;
-                    } else {
-                        skip_read_pos = rev ? bases_pos[idx][bases_pos_lens[idx] - s - 1] : bases_pos[idx][s];
-                    }
-
-                    ASSERT_MSG(skip_read_pos >= 0 && skip_read_pos < (int)seq_len, "Read pos cannot exceed seq len. read_pos: %d seq_len: %d\n", skip_read_pos, seq_len);
-
-                    int skip_fastq_read_pos = rev ? (int)(seq_len - skip_read_pos - 1) : skip_read_pos;
-                    int skip_ref_pos = aln_pairs[skip_fastq_read_pos];
-                    int skip_ins_start = db->ins[bam_i][skip_fastq_read_pos];
-                    int skip_ins_offset = db->ins_offset[bam_i][skip_fastq_read_pos];
-
-                    if (skip_ref_pos == -1 && skip_ins_start == -1) continue;
-
-                    for (int m = 0; m < mod_codes_len; m++) {
-                        if (!req_mod_valid[m]) continue;
-                        char *mod_code = has_nums ? mod_codes : &mod_codes[m];
-
-                        if (vars) {
-                            int want_ins = (skip_ref_pos == -1);
-                            int lookup_pos = want_ins ? (skip_ins_start + skip_ins_offset) : skip_ref_pos;
-                            int out_pos = want_ins ? skip_ins_start : skip_ref_pos;
-
-                            int ei = lower_bound_cg(vars->cg_entries, vars->cg_entries_len, lookup_pos);
-                            for (; ei < vars->cg_entries_len && vars->cg_entries[ei].ref_cg_pos == lookup_pos; ei++) {
-                                if (vars->cg_entries[ei].is_insertion_only != want_ins) continue;
-                                if (vars->cg_entries[ei].is_compound && !core->opt.haplotypes) continue;
-                                if (vars->cg_entries[ei].strand != strand) continue;
-                                var_t var = vars->vars[vars->cg_entries[ei].var_idx];
-                                if (want_ins && var.pos != skip_ins_start) continue;
-                                if (core->opt.haplotypes && var.hap > 0 && (int)read_hp != var.hap) continue;
-                                uint16_t offset = want_ins ? (uint16_t)skip_ins_offset : REF_OFFSET(out_pos, var.pos);
-                                if (core->opt.subtool == VARVIEW) {
-                                    add_varview_entry(db->varview_maps[bam_i], tname, out_pos, offset, mod_code, strand, haplotype, 0, skip_fastq_read_pos, var);
-                                } else {
-                                    update_varfreq_map(db->varfreq_maps[bam_i], tname, out_pos, offset, mod_code, strand, haplotype, 1, 0, var.ref_allele, var.alt_allele, var.gt, var.var_id, var.pos);
-                                }
-                            }
-                        }
-                    }
+                    int read_pos = rank_to_read_pos(modbase, rev, seq_len, bases_pos, bases_pos_lens, idx, s);
+                    emit_var_entries(core, db, bam_i, tname, vars, seq_len, rev, haplotype,
+                                     mod_codes, mod_codes_len, has_nums, req_mod_valid, req_mods, read_pos, NULL);
                 }
                 prev_skip_base_rank = skip_base_rank;
             }
 
             // handle skipped bases after the last skip count
-            for(int s=prev_skip_base_rank+1; s<bases_pos_lens[idx]; s++) {
-                int skip_read_pos;
-                if (modbase == 'N') {
-                    skip_read_pos = rev ? (int)(seq_len - s - 1) : s;
-                } else {
-                    skip_read_pos = rev ? bases_pos[idx][bases_pos_lens[idx] - s - 1] : bases_pos[idx][s];
-                }
-
-                ASSERT_MSG(skip_read_pos >= 0 && skip_read_pos < (int)seq_len, "Read pos cannot exceed seq len. read_pos: %d seq_len: %d\n", skip_read_pos, seq_len);
-
-                int skip_fastq_read_pos = rev ? (int)(seq_len - skip_read_pos - 1) : skip_read_pos;
-                int skip_ref_pos = aln_pairs[skip_fastq_read_pos];
-                int skip_ins_start = db->ins[bam_i][skip_fastq_read_pos];
-                int skip_ins_offset = db->ins_offset[bam_i][skip_fastq_read_pos];
-
-                if (skip_ref_pos == -1 && skip_ins_start == -1) continue;
-
-                for (int m = 0; m < mod_codes_len; m++) {
-                    if (!req_mod_valid[m]) continue;
-                    char *mod_code = has_nums ? mod_codes : &mod_codes[m];
-
-                    if (vars) {
-                        int want_ins = (skip_ref_pos == -1);
-                        int lookup_pos = want_ins ? (skip_ins_start + skip_ins_offset) : skip_ref_pos;
-                        int out_pos = want_ins ? skip_ins_start : skip_ref_pos;
-
-                        int ei = lower_bound_cg(vars->cg_entries, vars->cg_entries_len, lookup_pos);
-                        for (; ei < vars->cg_entries_len && vars->cg_entries[ei].ref_cg_pos == lookup_pos; ei++) {
-                            if (vars->cg_entries[ei].is_insertion_only != want_ins) continue;
-                            if (vars->cg_entries[ei].is_compound && !core->opt.haplotypes) continue;
-                            if (vars->cg_entries[ei].strand != strand) continue;
-                            var_t var = vars->vars[vars->cg_entries[ei].var_idx];
-                            if (want_ins && var.pos != skip_ins_start) continue;
-                            uint16_t offset = want_ins ? (uint16_t)skip_ins_offset : REF_OFFSET(out_pos, var.pos);
-                            if (core->opt.subtool == VARVIEW) {
-                                add_varview_entry(db->varview_maps[bam_i], tname, out_pos, offset, mod_code, strand, haplotype, 0, skip_fastq_read_pos, var);
-                            } else {
-                                update_varfreq_map(db->varfreq_maps[bam_i], tname, out_pos, offset, mod_code, strand, haplotype, 1, 0, var.ref_allele, var.alt_allele, var.gt, var.var_id, var.pos);
-                            }
-                        }
-                    }
-                }
+            for (int s = prev_skip_base_rank + 1; s < bases_pos_lens[idx]; s++) {
+                int read_pos = rank_to_read_pos(modbase, rev, seq_len, bases_pos, bases_pos_lens, idx, s);
+                emit_var_entries(core, db, bam_i, tname, vars, seq_len, rev, haplotype,
+                                 mod_codes, mod_codes_len, has_nums, req_mod_valid, req_mods, read_pos, NULL);
             }
         }
     }
