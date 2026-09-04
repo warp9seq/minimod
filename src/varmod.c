@@ -214,6 +214,46 @@ static int alt_not_derivable(const char *alt, int alt_len) {
     return 0;
 }
 
+static inline int var_supports_read(const var_t *var, const char *qname) {
+    if (var->rnames == NULL) return 1;
+    return kh_get(rnamem, var->rnames, qname) != kh_end(var->rnames);
+}
+
+// parse a comma separated INFO/RNAMES
+static khash_t(rnamem) *parse_rnames(const char *s) {
+    if (s == NULL || s[0] == '\0' || (s[0] == '.' && s[1] == '\0')) return NULL;
+
+    khash_t(rnamem) *h = kh_init(rnamem);
+    const char *beg = s;
+    for (const char *p = s; ; p++) {
+        if (*p == ',' || *p == '\0') {
+            int len = (int)(p - beg);
+            if (len > 0) {
+                char *name = (char*)malloc(len + 1);
+                MALLOC_CHK(name);
+                memcpy(name, beg, len);
+                name[len] = '\0';
+                int ret;
+                khint_t k = kh_put(rnamem, h, name, &ret);
+                if (ret == 0) free(name); // already there
+                else kh_key(h, k) = name;
+            }
+            beg = p + 1;
+            if (*p == '\0') break;
+        }
+    }
+    if (kh_size(h) == 0) { kh_destroy(rnamem, h); return NULL; }
+    return h;
+}
+
+static void destroy_rnames(khash_t(rnamem) *h) {
+    if (h == NULL) return;
+    for (khint_t k = kh_begin(h); k != kh_end(h); ++k) {
+        if (kh_exist(h, k)) free((char*)kh_key(h, k));
+    }
+    kh_destroy(rnamem, h);
+}
+
 void load_var_map(const char* vcf_file, const char* sample_name, khash_t(varm)* var_map, int haplotypes) {
 
     htsFile *vcf_fp = hts_open(vcf_file, "r");
@@ -248,12 +288,16 @@ void load_var_map(const char* vcf_file, const char* sample_name, khash_t(varm)* 
     int32_t *gt_arr = NULL;
     int n_gt_arr = 0;
 
+    char *rnames_str = NULL;
+    int n_rnames_str = 0;
+    int64_t records_with_rnames = 0;
+
     // track records with non-derivable ALT alleles
     int64_t total_records = 0;
     int64_t skipped_records = 0;
 
     while(bcf_read(vcf_fp, vcf_hdr, rec) == 0) {
-        bcf_unpack(rec, BCF_UN_STR | BCF_UN_FMT);
+        bcf_unpack(rec, BCF_UN_STR | BCF_UN_INFO | BCF_UN_FMT);
         total_records++;
 
         const char *contig = bcf_hdr_id2name(vcf_hdr, rec->rid);
@@ -267,6 +311,10 @@ void load_var_map(const char* vcf_file, const char* sample_name, khash_t(varm)* 
 
         // ID field. "." when absent
         const char *var_id = (rec->d.id != NULL && rec->d.id[0] != '\0') ? rec->d.id : ".";
+
+        // reads this record names as carrying the ALT. shared by every ALT of the record.
+        int has_rnames = (bcf_get_info_string(vcf_hdr, rec, "RNAMES", &rnames_str, &n_rnames_str) > 0);
+        if (has_rnames) records_with_rnames++;
 
         // assign haplotype of ALT alleles from the chosen sample's GT
         // -1 : ALT not present in this sample, skip
@@ -415,6 +463,8 @@ void load_var_map(const char* vcf_file, const char* sample_name, khash_t(varm)* 
             var.var_id = (char*)malloc(strlen(var_id) + 1);
             MALLOC_CHK(var.var_id);
             strcpy(var.var_id, var_id);
+            // one set per ALT: the record's list applies to every ALT it carries
+            var.rnames = has_rnames ? parse_rnames(rnames_str) : NULL;
             vars->vars[vars->vars_len++] = var;
 
             // build CG-position index for O(log N) lookup during processing
@@ -468,6 +518,12 @@ void load_var_map(const char* vcf_file, const char* sample_name, khash_t(varm)* 
 
     }
 
+    if (records_with_rnames > 0) {
+        INFO("%lld of %lld VCF records name their supporting reads in INFO/RNAMES; only those "
+             "reads will be counted at those variants.",
+             (long long)records_with_rnames, (long long)total_records);
+    }
+
     if (skipped_records > 0) {
         if (total_records > 0 && skipped_records * 10 >= total_records * 9) {
             WARNING("%lld of %lld VCF records have ALT alleles whose sequence cannot be derived - symbolic "
@@ -484,6 +540,7 @@ void load_var_map(const char* vcf_file, const char* sample_name, khash_t(varm)* 
     }
 
     free(gt_arr);
+    free(rnames_str);
     bcf_destroy(rec);
     bcf_hdr_destroy(vcf_hdr);
     hts_close(vcf_fp);
@@ -680,6 +737,7 @@ void destroy_var_map(khash_t(varm)* var_map) {
                 free(vars->vars[i].alt_allele);
                 free(vars->vars[i].gt);
                 free(vars->vars[i].var_id);
+                destroy_rnames(vars->vars[i].rnames);
                 free(vars->vars[i].cg_offsets);
             }
             free(vars->vars);
@@ -856,7 +914,7 @@ static inline int rank_to_read_pos(char modbase, int8_t rev, uint32_t seq_len, i
 static void emit_var_entries(core_t *core, db_t *db, int32_t bam_i, const char *tname, vars_t *vars,
                              uint8_t *seq, uint32_t seq_len, int8_t rev, int haplotype,
                              char *mod_codes, int mod_codes_len, int has_nums, int *req_mod_valid, modcodem_t **req_mods,
-                             int read_pos, const uint8_t *probs) {
+                             int read_pos, const uint8_t *probs, const char *qname) {
     if (vars == NULL) return;
 
     char strand = rev ? '-' : '+';
@@ -908,6 +966,8 @@ static void emit_var_entries(core_t *core, db_t *db, int32_t bam_i, const char *
             }
             // phase-aware filter: only when --haplotypes is on; phased ALT (var.hap > 0) only counts reads with matching HP tag
             if (core->opt.haplotypes && var.hap > 0 && haplotype != var.hap) continue;
+            // when the VCF names its supporting reads, only those reads carry the ALT
+            if (!var_supports_read(&var, qname)) continue;
 
             // report the VCF position, so it is the same for every read
             int out_pos = want_ins ? var.pos : ref_pos;
@@ -942,6 +1002,8 @@ void varviewfreq_single(core_t * core, db_t *db, int32_t bam_i) {
     // phase-aware processing only when --haplotypes is specified with phased VCF and BAM
     uint8_t read_hp = core->opt.haplotypes ? get_hp_tag(record) : 0;
     int haplotype = core->opt.haplotypes ? (int)read_hp : -1;
+
+    const char *qname = bam_get_qname(record);
 
     ref_t *ref = get_ref(tname);
     ASSERT_MSG(ref != NULL, "Contig %s not found in reference provided\n", tname);
@@ -1097,7 +1159,7 @@ void varviewfreq_single(core_t * core, db_t *db, int32_t bam_i) {
             int read_pos = rank_to_read_pos(modbase, rev, seq_len, bases_pos, bases_pos_lens, idx, base_rank);
             uint8_t *probs = &ml[ml_start_idx + c * mod_codes_len];
             emit_var_entries(core, db, bam_i, tname, vars, seq, seq_len, rev, haplotype,
-                             mod_codes, mod_codes_len, has_nums, req_mod_valid, req_mods, read_pos, probs);
+                             mod_codes, mod_codes_len, has_nums, req_mod_valid, req_mods, read_pos, probs, qname);
         }
         ml_start_idx += skip_counts_len * mod_codes_len;
 
@@ -1111,7 +1173,7 @@ void varviewfreq_single(core_t * core, db_t *db, int32_t bam_i) {
                 for (int s = prev_skip_base_rank + 1; s < skip_base_rank; s++) {
                     int read_pos = rank_to_read_pos(modbase, rev, seq_len, bases_pos, bases_pos_lens, idx, s);
                     emit_var_entries(core, db, bam_i, tname, vars, seq, seq_len, rev, haplotype,
-                                     mod_codes, mod_codes_len, has_nums, req_mod_valid, req_mods, read_pos, NULL);
+                                     mod_codes, mod_codes_len, has_nums, req_mod_valid, req_mods, read_pos, NULL, qname);
                 }
                 prev_skip_base_rank = skip_base_rank;
             }
@@ -1120,7 +1182,7 @@ void varviewfreq_single(core_t * core, db_t *db, int32_t bam_i) {
             for (int s = prev_skip_base_rank + 1; s < bases_pos_lens[idx]; s++) {
                 int read_pos = rank_to_read_pos(modbase, rev, seq_len, bases_pos, bases_pos_lens, idx, s);
                 emit_var_entries(core, db, bam_i, tname, vars, seq, seq_len, rev, haplotype,
-                                 mod_codes, mod_codes_len, has_nums, req_mod_valid, req_mods, read_pos, NULL);
+                                 mod_codes, mod_codes_len, has_nums, req_mod_valid, req_mods, read_pos, NULL, qname);
             }
         }
     }

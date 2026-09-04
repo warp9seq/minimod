@@ -56,6 +56,9 @@ SOFTWARE.
 #define  MOD_CODE_LEN 10 // maximum length of modification codes string
 #define N_BASES 6 // A, C, G, T, N, U
 
+/* set of read names, for INFO/RNAMES */
+KHASH_SET_INIT_STR(rnamem)
+
 /* input modification code structure */
 typedef struct {
     int index;
@@ -89,6 +92,7 @@ typedef struct {
     int8_t hap; //haplotype of ALT. 0 = any (unphased, hom-alt, or no GT info)
     char *gt; //genotype from VCF. "." when no GT info
     char *var_id; //ID field from VCF. "." when no ID
+    khash_t(rnamem) *rnames; //INFO/RNAMES read names supporting this ALT. NULL when absent,every read is allowed
 } var_t;
 
 typedef struct {
