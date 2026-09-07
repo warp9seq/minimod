@@ -102,7 +102,7 @@ def varfreq_load(fn):
                 continue
 
             # check if CG is in the ALT allele
-            if alt_allele[cpg_key - 1:cpg_key] != "CG" and alt_allele[cpg_key - 1:cpg_key] != "cg":
+            if alt_allele[cpg_key - 1:cpg_key + 1].upper() != "CG":
                 continue
 
             key = (contig, var_pos, ref_allele, alt_allele, hap, mod_code)
