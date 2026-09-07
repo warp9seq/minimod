@@ -60,7 +60,7 @@ def freq_load(fn):
             contig, mod_code, strand, hap = parts[0], parts[3], parts[5], parts[11]
             pos, n_called, freq = int(parts[1]), int(parts[4]), float(parts[10])
 
-            if hap == "*":
+            if hap == "*" or hap == "0":
                 continue
 
             site_pos = pos if strand == "+" else pos - 1
@@ -96,7 +96,7 @@ def varfreq_load(fn):
                 continue
             offset = int(parts[16])
 
-            if hap == "*":
+            if hap == "*" or hap == "0":
                 continue
 
             cpg_key = cpg_key_offset(pos, offset, strand, var_pos, len(ref_allele), len(alt_allele))
