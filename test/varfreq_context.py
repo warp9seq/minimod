@@ -91,6 +91,9 @@ def varfreq_load(fn):
             contig, mod_code, strand, hap = parts[0], parts[3], parts[5], parts[17]
             pos, n_called, freq = int(parts[1]), int(parts[4]), float(parts[10])
             var_pos, ref_allele, alt_allele = int(parts[12]), parts[14], parts[15]
+            offset_str = parts[16]
+            if offset_str == "*":
+                continue
             offset = int(parts[16])
 
             if hap == "*":
