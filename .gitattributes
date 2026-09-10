@@ -14,3 +14,14 @@ License text eol=lf
 *.awk text eol=lf
 *.md text eol=lf
 *.yml text eol=lf
+*.yaml text eol=lf
+*.bed text eol=lf
+*.bedmethyl text eol=lf
+*.tsv text eol=lf
+*.vcf text eol=lf
+*.fa text eol=lf
+*.fai text eol=lf
+
+*.bam binary
+*.bai binary
+*.png binary

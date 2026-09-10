@@ -37,6 +37,8 @@ extern uint8_t get_hp_tag(bam1_t *record);
 #define REF_OFFSET(ref_pos, var_pos) (((ref_pos) < (var_pos)) ? OFFSET_NEG1 : (uint16_t)((ref_pos) - (var_pos)))
 // convert stored offset to signed int for output
 #define OFFSET_TO_INT(x) ((x) == OFFSET_NEG1 ? -1 : (int)(x))
+// allowed shift between the read's insertion and the VCF's
+#define INS_SHIFT_MAX 10
 
 
 // zero-allocation comparator
@@ -212,6 +214,46 @@ static int alt_not_derivable(const char *alt, int alt_len) {
     return 0;
 }
 
+static inline int var_supports_read(const var_t *var, const char *qname) {
+    if (var->rnames == NULL) return 1;
+    return kh_get(rnamem, var->rnames, qname) != kh_end(var->rnames);
+}
+
+// parse a comma separated INFO/RNAMES
+static khash_t(rnamem) *parse_rnames(const char *s) {
+    if (s == NULL || s[0] == '\0' || (s[0] == '.' && s[1] == '\0')) return NULL;
+
+    khash_t(rnamem) *h = kh_init(rnamem);
+    const char *beg = s;
+    for (const char *p = s; ; p++) {
+        if (*p == ',' || *p == '\0') {
+            int len = (int)(p - beg);
+            if (len > 0) {
+                char *name = (char*)malloc(len + 1);
+                MALLOC_CHK(name);
+                memcpy(name, beg, len);
+                name[len] = '\0';
+                int ret;
+                khint_t k = kh_put(rnamem, h, name, &ret);
+                if (ret == 0) free(name); // already there
+                else kh_key(h, k) = name;
+            }
+            beg = p + 1;
+            if (*p == '\0') break;
+        }
+    }
+    if (kh_size(h) == 0) { kh_destroy(rnamem, h); return NULL; }
+    return h;
+}
+
+static void destroy_rnames(khash_t(rnamem) *h) {
+    if (h == NULL) return;
+    for (khint_t k = kh_begin(h); k != kh_end(h); ++k) {
+        if (kh_exist(h, k)) free((char*)kh_key(h, k));
+    }
+    kh_destroy(rnamem, h);
+}
+
 void load_var_map(const char* vcf_file, const char* sample_name, khash_t(varm)* var_map, int haplotypes) {
 
     htsFile *vcf_fp = hts_open(vcf_file, "r");
@@ -246,12 +288,16 @@ void load_var_map(const char* vcf_file, const char* sample_name, khash_t(varm)* 
     int32_t *gt_arr = NULL;
     int n_gt_arr = 0;
 
+    char *rnames_str = NULL;
+    int n_rnames_str = 0;
+    int64_t records_with_rnames = 0;
+
     // track records with non-derivable ALT alleles
     int64_t total_records = 0;
     int64_t skipped_records = 0;
 
     while(bcf_read(vcf_fp, vcf_hdr, rec) == 0) {
-        bcf_unpack(rec, BCF_UN_STR | BCF_UN_FMT);
+        bcf_unpack(rec, BCF_UN_STR | BCF_UN_INFO | BCF_UN_FMT);
         total_records++;
 
         const char *contig = bcf_hdr_id2name(vcf_hdr, rec->rid);
@@ -265,6 +311,10 @@ void load_var_map(const char* vcf_file, const char* sample_name, khash_t(varm)* 
 
         // ID field. "." when absent
         const char *var_id = (rec->d.id != NULL && rec->d.id[0] != '\0') ? rec->d.id : ".";
+
+        // reads this record names as carrying the ALT. shared by every ALT of the record.
+        int has_rnames = (bcf_get_info_string(vcf_hdr, rec, "RNAMES", &rnames_str, &n_rnames_str) > 0);
+        if (has_rnames) records_with_rnames++;
 
         // assign haplotype of ALT alleles from the chosen sample's GT
         // -1 : ALT not present in this sample, skip
@@ -413,6 +463,8 @@ void load_var_map(const char* vcf_file, const char* sample_name, khash_t(varm)* 
             var.var_id = (char*)malloc(strlen(var_id) + 1);
             MALLOC_CHK(var.var_id);
             strcpy(var.var_id, var_id);
+            // one set per ALT: the record's list applies to every ALT it carries
+            var.rnames = has_rnames ? parse_rnames(rnames_str) : NULL;
             vars->vars[vars->vars_len++] = var;
 
             // build CG-position index for O(log N) lookup during processing
@@ -421,16 +473,16 @@ void load_var_map(const char* vcf_file, const char* sample_name, khash_t(varm)* 
                 int o_val = cg_offsets[o];
                 int8_t is_ins = (o_val > ref_len && o_val <= alt_len) ? 1 : 0;
 
+                // reference positions of the two bases of the CG
+                int c_idx = (after_site[o_val] == 'C' || after_site[o_val] == 'c') ? o_val : o_val - 1;
+                int g_idx = c_idx + 1;
+                int c_rp = (c_idx > alt_len) ? pos + ref_len + (c_idx - alt_len - 1) : pos - 1 + c_idx;
+                int g_rp = (g_idx > alt_len) ? pos + ref_len + (g_idx - alt_len - 1) : pos - 1 + g_idx;
+                int c_in = (c_idx > ref_len && c_idx <= alt_len);
+                int g_in = (g_idx > ref_len && g_idx <= alt_len);
+
                 // skip if CG is a ref CG
-                {
-                    int c_idx = (after_site[o_val] == 'C' || after_site[o_val] == 'c') ? o_val : o_val - 1;
-                    int g_idx = c_idx + 1;
-                    int c_rp = (c_idx > alt_len) ? pos + ref_len + (c_idx - alt_len - 1) : pos - 1 + c_idx;
-                    int g_rp = (g_idx > alt_len) ? pos + ref_len + (g_idx - alt_len - 1) : pos - 1 + g_idx;
-                    int c_in = (c_idx > ref_len && c_idx <= alt_len);
-                    int g_in = (g_idx > ref_len && g_idx <= alt_len);
-                    if (is_reference_cpg(ref_seq, ref->ref_seq_length, c_rp, g_rp, c_in, g_in)) continue;
-                }
+                if (is_reference_cpg(ref_seq, ref->ref_seq_length, c_rp, g_rp, c_in, g_in)) continue;
 
                 if (vars->cg_entries_len >= vars->cg_entries_cap) {
                     vars->cg_entries_cap *= 2;
@@ -443,6 +495,12 @@ void load_var_map(const char* vcf_file, const char* sample_name, khash_t(varm)* 
                     : pos - 1 + o_val;
                 vars->cg_entries[vars->cg_entries_len].ref_cg_pos = ref_cg_pos;
                 vars->cg_entries[vars->cg_entries_len].var_idx = var_idx;
+                // 1-based position within the inserted bases
+                vars->cg_entries[vars->cg_entries_len].ins_offset = is_ins ? (uint16_t)(o_val - ref_len) : 0;
+                // the other base of the CG
+                vars->cg_entries[vars->cg_entries_len].partner_ref_pos = (o_val == c_idx)
+                    ? (g_in ? -1 : g_rp)
+                    : (c_in ? -1 : c_rp);
                 vars->cg_entries[vars->cg_entries_len].is_insertion_only = is_ins;
                 vars->cg_entries[vars->cg_entries_len].is_compound = 0;
                 // o_val points at the C ('+' cytosine) or the G ('-' cytosine) of the CpG
@@ -458,6 +516,12 @@ void load_var_map(const char* vcf_file, const char* sample_name, khash_t(varm)* 
 
         if (record_skipped) skipped_records++;
 
+    }
+
+    if (records_with_rnames > 0) {
+        INFO("%lld of %lld VCF records name their supporting reads in INFO/RNAMES; only those "
+             "reads will be counted at those variants.",
+             (long long)records_with_rnames, (long long)total_records);
     }
 
     if (skipped_records > 0) {
@@ -476,6 +540,7 @@ void load_var_map(const char* vcf_file, const char* sample_name, khash_t(varm)* 
     }
 
     free(gt_arr);
+    free(rnames_str);
     bcf_destroy(rec);
     bcf_hdr_destroy(vcf_hdr);
     hts_close(vcf_fp);
@@ -599,11 +664,19 @@ void load_var_map(const char* vcf_file, const char* sample_name, khash_t(varm)* 
                 // each at its own reference coordinate so pileup matches the correct strand.
                 int    cg_pos[2]    = { hap_ref_pos[p], hap_ref_pos[p+1] };
                 int8_t cg_ins[2]    = { hap_is_ins[p],  hap_is_ins[p+1]  };
+                int    cg_owner[2]  = { hap_owner[p],   hap_owner[p+1]   };
                 char   cg_strand[2] = { '+', '-' };
                 for (int s = 0; s < 2; s++) {
                     int ref_cg_pos = cg_pos[s];
                     int8_t is_ins  = cg_ins[s];
                     char strand    = cg_strand[s];
+
+                    // 1-based position within the inserted bases
+                    uint16_t ins_offset = 0;
+                    if (is_ins && cg_owner[s] >= 0) {
+                        var_t *owner = &vars->vars[cg_owner[s]];
+                        ins_offset = (uint16_t)(ref_cg_pos - owner->pos - owner->ref_len + 1);
+                    }
 
                     // dedup against existing entries at same (ref_cg_pos, is_ins, strand) on this hap;
                     // for insertion entries also require matching var.pos (matches scan filter)
@@ -624,6 +697,9 @@ void load_var_map(const char* vcf_file, const char* sample_name, khash_t(varm)* 
                     }
                     vars->cg_entries[vars->cg_entries_len].ref_cg_pos = ref_cg_pos;
                     vars->cg_entries[vars->cg_entries_len].var_idx = attr;
+                    vars->cg_entries[vars->cg_entries_len].ins_offset = ins_offset;
+                    vars->cg_entries[vars->cg_entries_len].partner_ref_pos =
+                        cg_ins[1-s] ? -1 : cg_pos[1-s];
                     vars->cg_entries[vars->cg_entries_len].is_insertion_only = is_ins;
                     vars->cg_entries[vars->cg_entries_len].is_compound = 1;
                     vars->cg_entries[vars->cg_entries_len].strand = strand;
@@ -661,6 +737,7 @@ void destroy_var_map(khash_t(varm)* var_map) {
                 free(vars->vars[i].alt_allele);
                 free(vars->vars[i].gt);
                 free(vars->vars[i].var_id);
+                destroy_rnames(vars->vars[i].rnames);
                 free(vars->vars[i].cg_offsets);
             }
             free(vars->vars);
@@ -835,12 +912,23 @@ static inline int rank_to_read_pos(char modbase, int8_t rev, uint32_t seq_len, i
 }
 
 static void emit_var_entries(core_t *core, db_t *db, int32_t bam_i, const char *tname, vars_t *vars,
-                             uint32_t seq_len, int8_t rev, int haplotype,
+                             uint8_t *seq, uint32_t seq_len, int8_t rev, int haplotype,
                              char *mod_codes, int mod_codes_len, int has_nums, int *req_mod_valid, modcodem_t **req_mods,
-                             int read_pos, const uint8_t *probs) {
+                             int read_pos, const uint8_t *probs, const char *qname) {
     if (vars == NULL) return;
 
     char strand = rev ? '-' : '+';
+
+    // the CG must be in the read. read_pos is the C on + strand and the G on -
+    int c_read_pos = (strand == '+') ? read_pos : read_pos - 1;
+    if (c_read_pos < 0 || c_read_pos + 1 >= (int)seq_len) return;
+    if (seq_nt16_str[bam_seqi(seq, c_read_pos)] != 'C') return;
+    if (seq_nt16_str[bam_seqi(seq, c_read_pos + 1)] != 'G') return;
+
+    // ref positions of the two CG bases in the read. -1 if inserted
+    int c_aln = db->aln[bam_i][rev ? (int)(seq_len - c_read_pos - 1) : c_read_pos];
+    int g_aln = db->aln[bam_i][rev ? (int)(seq_len - c_read_pos - 2) : c_read_pos + 1];
+
     int fastq_read_pos = rev ? (int)(seq_len - read_pos - 1) : read_pos;
     int ref_pos = db->aln[bam_i][fastq_read_pos];
     int ins_start = db->ins[bam_i][fastq_read_pos];
@@ -848,10 +936,12 @@ static void emit_var_entries(core_t *core, db_t *db, int32_t bam_i, const char *
 
     if (ref_pos == -1 && ins_start == -1) return; // neither aligned nor an insertion
 
+    // the aligner can shift an insertion, so scan a window of positions
     int want_ins = (ref_pos == -1);
     int lookup_pos = want_ins ? (ins_start + ins_offset) : ref_pos;
-    int out_pos = want_ins ? ins_start : ref_pos;
-    int ei_start = lower_bound_cg(vars->cg_entries, vars->cg_entries_len, lookup_pos);
+    int lookup_lo = want_ins ? lookup_pos - INS_SHIFT_MAX : lookup_pos;
+    int lookup_hi = want_ins ? lookup_pos + INS_SHIFT_MAX : lookup_pos;
+    int ei_start = lower_bound_cg(vars->cg_entries, vars->cg_entries_len, lookup_lo);
 
     for (int m = 0; m < mod_codes_len; m++) {
         if (!req_mod_valid[m]) continue;
@@ -859,16 +949,29 @@ static void emit_var_entries(core_t *core, db_t *db, int32_t bam_i, const char *
         char *mod_code = has_nums ? mod_codes : &mod_codes[m];
         uint8_t mod_prob = probs ? probs[m] : 0;
 
-        for (int ei = ei_start; ei < vars->cg_entries_len && vars->cg_entries[ei].ref_cg_pos == lookup_pos; ei++) {
+        for (int ei = ei_start; ei < vars->cg_entries_len && vars->cg_entries[ei].ref_cg_pos <= lookup_hi; ei++) {
             if (vars->cg_entries[ei].is_insertion_only != want_ins) continue;
             if (vars->cg_entries[ei].is_compound && !core->opt.haplotypes) continue;
             if (vars->cg_entries[ei].strand != strand) continue;
             var_t var = vars->vars[vars->cg_entries[ei].var_idx];
-            if (want_ins && var.pos != ins_start) continue;
+            if (want_ins) {
+                // same position within the insertion, anchor may be shifted
+                if (vars->cg_entries[ei].ins_offset != (uint16_t)ins_offset) continue;
+                if (var.pos < ins_start - INS_SHIFT_MAX || var.pos > ins_start + INS_SHIFT_MAX) continue;
+            } else {
+                // the other CG base must be where the ALT puts it. tells a deletion carrier
+                // from a reference carrier, as both have a C at the same position
+                int partner_aln = (strand == '+') ? g_aln : c_aln;
+                if (partner_aln != vars->cg_entries[ei].partner_ref_pos) continue;
+            }
             // phase-aware filter: only when --haplotypes is on; phased ALT (var.hap > 0) only counts reads with matching HP tag
             if (core->opt.haplotypes && var.hap > 0 && haplotype != var.hap) continue;
+            // when the VCF names its supporting reads, only those reads carry the ALT
+            if (!var_supports_read(&var, qname)) continue;
 
-            uint16_t offset = want_ins ? (uint16_t)ins_offset : REF_OFFSET(out_pos, var.pos);
+            // report the VCF position, so it is the same for every read
+            int out_pos = want_ins ? var.pos : ref_pos;
+            uint16_t offset = want_ins ? vars->cg_entries[ei].ins_offset : REF_OFFSET(out_pos, var.pos);
             if (core->opt.subtool == VARVIEW) {
                 add_varview_entry(db->varview_maps[bam_i], tname, out_pos, offset, mod_code, strand, haplotype, mod_prob, fastq_read_pos, var);
             } else {
@@ -899,6 +1002,8 @@ void varviewfreq_single(core_t * core, db_t *db, int32_t bam_i) {
     // phase-aware processing only when --haplotypes is specified with phased VCF and BAM
     uint8_t read_hp = core->opt.haplotypes ? get_hp_tag(record) : 0;
     int haplotype = core->opt.haplotypes ? (int)read_hp : -1;
+
+    const char *qname = bam_get_qname(record);
 
     ref_t *ref = get_ref(tname);
     ASSERT_MSG(ref != NULL, "Contig %s not found in reference provided\n", tname);
@@ -1053,8 +1158,8 @@ void varviewfreq_single(core_t * core, db_t *db, int32_t bam_i) {
             base_rank += skip_counts[c] + 1;
             int read_pos = rank_to_read_pos(modbase, rev, seq_len, bases_pos, bases_pos_lens, idx, base_rank);
             uint8_t *probs = &ml[ml_start_idx + c * mod_codes_len];
-            emit_var_entries(core, db, bam_i, tname, vars, seq_len, rev, haplotype,
-                             mod_codes, mod_codes_len, has_nums, req_mod_valid, req_mods, read_pos, probs);
+            emit_var_entries(core, db, bam_i, tname, vars, seq, seq_len, rev, haplotype,
+                             mod_codes, mod_codes_len, has_nums, req_mod_valid, req_mods, read_pos, probs, qname);
         }
         ml_start_idx += skip_counts_len * mod_codes_len;
 
@@ -1067,8 +1172,8 @@ void varviewfreq_single(core_t * core, db_t *db, int32_t bam_i) {
 
                 for (int s = prev_skip_base_rank + 1; s < skip_base_rank; s++) {
                     int read_pos = rank_to_read_pos(modbase, rev, seq_len, bases_pos, bases_pos_lens, idx, s);
-                    emit_var_entries(core, db, bam_i, tname, vars, seq_len, rev, haplotype,
-                                     mod_codes, mod_codes_len, has_nums, req_mod_valid, req_mods, read_pos, NULL);
+                    emit_var_entries(core, db, bam_i, tname, vars, seq, seq_len, rev, haplotype,
+                                     mod_codes, mod_codes_len, has_nums, req_mod_valid, req_mods, read_pos, NULL, qname);
                 }
                 prev_skip_base_rank = skip_base_rank;
             }
@@ -1076,8 +1181,8 @@ void varviewfreq_single(core_t * core, db_t *db, int32_t bam_i) {
             // handle skipped bases after the last skip count
             for (int s = prev_skip_base_rank + 1; s < bases_pos_lens[idx]; s++) {
                 int read_pos = rank_to_read_pos(modbase, rev, seq_len, bases_pos, bases_pos_lens, idx, s);
-                emit_var_entries(core, db, bam_i, tname, vars, seq_len, rev, haplotype,
-                                 mod_codes, mod_codes_len, has_nums, req_mod_valid, req_mods, read_pos, NULL);
+                emit_var_entries(core, db, bam_i, tname, vars, seq, seq_len, rev, haplotype,
+                                 mod_codes, mod_codes_len, has_nums, req_mod_valid, req_mods, read_pos, NULL, qname);
             }
         }
     }

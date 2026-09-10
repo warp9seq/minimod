@@ -56,6 +56,9 @@ SOFTWARE.
 #define  MOD_CODE_LEN 10 // maximum length of modification codes string
 #define N_BASES 6 // A, C, G, T, N, U
 
+/* set of read names, for INFO/RNAMES */
+KHASH_SET_INIT_STR(rnamem)
+
 /* input modification code structure */
 typedef struct {
     int index;
@@ -89,11 +92,14 @@ typedef struct {
     int8_t hap; //haplotype of ALT. 0 = any (unphased, hom-alt, or no GT info)
     char *gt; //genotype from VCF. "." when no GT info
     char *var_id; //ID field from VCF. "." when no ID
+    khash_t(rnamem) *rnames; //INFO/RNAMES read names supporting this ALT. NULL when absent,every read is allowed
 } var_t;
 
 typedef struct {
     int ref_cg_pos;       // var.pos - 1 + cg_offsets[o]
     int var_idx;          // index into vars->vars[]
+    uint16_t ins_offset;  // for an inserted base, its 1-based position within the inserted bases
+    int partner_ref_pos;  // reference position of the other base of the CG, -1 if it is inserted
     int8_t is_insertion_only; // (cg_offsets[o] > ref_len && cg_offsets[o] <= alt_len)
     int8_t is_compound;       // 1 if CG spans >=2 variants on the same hap (phase-only)
     char strand;              // '+' for the C cytosine, '-' for the G (reverse-strand) cytosine
