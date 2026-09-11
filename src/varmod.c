@@ -37,8 +37,24 @@ extern uint8_t get_hp_tag(bam1_t *record);
 #define REF_OFFSET(ref_pos, var_pos) (((ref_pos) < (var_pos)) ? OFFSET_NEG1 : (uint16_t)((ref_pos) - (var_pos)))
 // convert stored offset to signed int for output
 #define OFFSET_TO_INT(x) ((x) == OFFSET_NEG1 ? -1 : (int)(x))
+
+// from ksw2_gg.c. not including ksw2.h as it redefines khash's kmalloc etc. km=NULL uses malloc
+int ksw_gg(void *km, int qlen, const uint8_t *query, int tlen, const uint8_t *target, int8_t m,
+           const int8_t *mat, int8_t gapo, int8_t gape, int w,
+           int *m_cigar_, int *n_cigar_, uint32_t **cigar_);
+#define KSW_CIGAR_MATCH 0
+#define KSW_CIGAR_INS   1
+#define KSW_CIGAR_DEL   2
+
 // allowed shift between the read's insertion and the VCF's
 #define INS_SHIFT_MAX 10
+// read insertion to ALT insertion alignment
+#define INS_ALN_BAND 256         // extra band on top of the length difference
+#define INS_ALN_MIN_LEN 30       // shorter than this, offsets cannot drift and gaps in repeats are ambiguous
+#define INS_ALN_MAX_LEN 100000   // too long to align
+#define INS_ALN_MAX_MEM 67108864 // 64MB cap on the traceback matrix
+#define INS_ALN_MIN_RATIO 0.5    // lengths too different, e.g. read ends inside the insertion
+#define INS_ALN_MAX_RATIO 2.0
 
 
 // zero-allocation comparator
@@ -214,47 +230,86 @@ static int alt_not_derivable(const char *alt, int alt_len) {
     return 0;
 }
 
-static inline int var_supports_read(const var_t *var, const char *qname) {
-    if (var->rnames == NULL) return 1;
-    return kh_get(rnamem, var->rnames, qname) != kh_end(var->rnames);
+// NULL if the read is in no RNAMES
+static inline varrefs_t *get_read_vars(khash_t(rnamevarm) *rname_map, const char *qname) {
+    khiter_t k = kh_get(rnamevarm, rname_map, qname);
+    if(k == kh_end(rname_map)) return NULL;
+    return kh_value(rname_map, k);
 }
 
-// parse a comma separated INFO/RNAMES
-static khash_t(rnamem) *parse_rnames(const char *s) {
-    if (s == NULL || s[0] == '\0' || (s[0] == '.' && s[1] == '\0')) return NULL;
+// only reads named in RNAMES carry the ALT
+static inline int var_supports_read(const var_t *var, vars_t *vars, int var_idx, const varrefs_t *read_vars) {
+    if(!var->has_rnames) return 1; // no read names given for this variant, every read is allowed
+    if(read_vars == NULL) return 0;
+    for(int i = 0; i < read_vars->refs_len; i++) {
+        if(read_vars->refs[i].vars == vars && read_vars->refs[i].var_idx == var_idx) return 1;
+    }
+    return 0;
+}
 
-    khash_t(rnamem) *h = kh_init(rnamem);
+// add read name -> variant
+static void add_read_var(khash_t(rnamevarm) *rname_map, const char *name, int name_len, vars_t *vars, int var_idx) {
+    char * key = (char *)malloc(name_len + 1);
+    MALLOC_CHK(key);
+    memcpy(key, name, name_len);
+    key[name_len] = '\0';
+
+    int ret;
+    khiter_t k = kh_put(rnamevarm, rname_map, key, &ret);
+    varrefs_t * read_vars;
+    if (ret == 0) { // read already seen
+        free(key);
+        read_vars = kh_value(rname_map, k);
+    } else {
+        read_vars = (varrefs_t *)malloc(sizeof(varrefs_t));
+        MALLOC_CHK(read_vars);
+        read_vars->refs_len = 0;
+        read_vars->refs_cap = 1;
+        read_vars->refs = (varref_t *)malloc(sizeof(varref_t) * read_vars->refs_cap);
+        MALLOC_CHK(read_vars->refs);
+        kh_value(rname_map, k) = read_vars;
+    }
+
+    if(read_vars->refs_len >= read_vars->refs_cap) {
+        read_vars->refs_cap *= 2;
+        read_vars->refs = (varref_t *)realloc(read_vars->refs, sizeof(varref_t) * read_vars->refs_cap);
+        MALLOC_CHK(read_vars->refs);
+    }
+    read_vars->refs[read_vars->refs_len].vars = vars;
+    read_vars->refs[read_vars->refs_len].var_idx = var_idx;
+    read_vars->refs_len++;
+}
+
+// index a comma separated RNAMES
+static void index_rnames(khash_t(rnamevarm) *rname_map, const char *s, vars_t *vars, int var_idx) {
     const char *beg = s;
     for (const char *p = s; ; p++) {
         if (*p == ',' || *p == '\0') {
             int len = (int)(p - beg);
-            if (len > 0) {
-                char *name = (char*)malloc(len + 1);
-                MALLOC_CHK(name);
-                memcpy(name, beg, len);
-                name[len] = '\0';
-                int ret;
-                khint_t k = kh_put(rnamem, h, name, &ret);
-                if (ret == 0) free(name); // already there
-                else kh_key(h, k) = name;
-            }
+            if (len > 0) add_read_var(rname_map, beg, len, vars, var_idx);
             beg = p + 1;
             if (*p == '\0') break;
         }
     }
-    if (kh_size(h) == 0) { kh_destroy(rnamem, h); return NULL; }
-    return h;
 }
 
-static void destroy_rnames(khash_t(rnamem) *h) {
-    if (h == NULL) return;
-    for (khint_t k = kh_begin(h); k != kh_end(h); ++k) {
-        if (kh_exist(h, k)) free((char*)kh_key(h, k));
+void destroy_rname_map(khash_t(rnamevarm)* rname_map) {
+    for (khint_t k = kh_begin(rname_map); k != kh_end(rname_map); ++k) {
+        if (kh_exist(rname_map, k)) {
+            free((char *) kh_key(rname_map, k));
+            free(kh_value(rname_map, k)->refs);
+            free(kh_value(rname_map, k));
+        }
     }
-    kh_destroy(rnamem, h);
+    kh_destroy(rnamevarm, rname_map);
 }
 
-void load_var_map(const char* vcf_file, const char* sample_name, khash_t(varm)* var_map, int haplotypes) {
+void load_var_map(core_t* core, const char* vcf_file) {
+
+    const char* sample_name = core->opt.sample;
+    int haplotypes = core->opt.haplotypes;
+    khash_t(varm)* var_map = core->var_map;
+    khash_t(rnamevarm)* rname_map = core->rname_map;
 
     htsFile *vcf_fp = hts_open(vcf_file, "r");
     if(vcf_fp == NULL) {
@@ -463,12 +518,14 @@ void load_var_map(const char* vcf_file, const char* sample_name, khash_t(varm)* 
             var.var_id = (char*)malloc(strlen(var_id) + 1);
             MALLOC_CHK(var.var_id);
             strcpy(var.var_id, var_id);
-            // one set per ALT: the record's list applies to every ALT it carries
-            var.rnames = has_rnames ? parse_rnames(rnames_str) : NULL;
+            var.has_rnames = has_rnames;
             vars->vars[vars->vars_len++] = var;
 
             // build CG-position index for O(log N) lookup during processing
             int var_idx = vars->vars_len - 1;
+
+            // RNAMES is per record, so it applies to every ALT
+            if(has_rnames) index_rnames(rname_map, rnames_str, vars, var_idx);
             for (int o = 0; o < n_cg_offsets; o++) {
                 int o_val = cg_offsets[o];
                 int8_t is_ins = (o_val > ref_len && o_val <= alt_len) ? 1 : 0;
@@ -518,10 +575,13 @@ void load_var_map(const char* vcf_file, const char* sample_name, khash_t(varm)* 
 
     }
 
+    // every record had RNAMES, so a read in none of them can be skipped
+    core->all_rnames = (total_records > 0 && records_with_rnames == total_records);
+
     if (records_with_rnames > 0) {
         INFO("%lld of %lld VCF records name their supporting reads in INFO/RNAMES; only those "
-             "reads will be counted at those variants.",
-             (long long)records_with_rnames, (long long)total_records);
+             "reads will be counted at those variants. %u reads named in total.",
+             (long long)records_with_rnames, (long long)total_records, kh_size(rname_map));
     }
 
     if (skipped_records > 0) {
@@ -737,7 +797,6 @@ void destroy_var_map(khash_t(varm)* var_map) {
                 free(vars->vars[i].alt_allele);
                 free(vars->vars[i].gt);
                 free(vars->vars[i].var_id);
-                destroy_rnames(vars->vars[i].rnames);
                 free(vars->vars[i].cg_offsets);
             }
             free(vars->vars);
@@ -911,10 +970,116 @@ static inline int rank_to_read_pos(char modbase, int8_t rev, uint32_t seq_len, i
     return read_pos;
 }
 
+/* maps a read's insertion offsets onto the ALT's, cached per read */
+typedef struct {
+    int valid;
+    int ins_start; //key: where the read's insertion is anchored
+    int var_idx; //key: variant it was aligned against
+    int qlen;
+    int *map; //map[q] = offset into the ALT's inserted bases, -1 if unmapped
+    int map_cap;
+} ins_aln_t;
+
+static inline uint8_t nt4(char c) {
+    switch (c) {
+        case 'A': case 'a': return 0;
+        case 'C': case 'c': return 1;
+        case 'G': case 'g': return 2;
+        case 'T': case 't': case 'U': case 'u': return 3;
+        default: return 4;
+    }
+}
+
+static void ins_aln_free(ins_aln_t *ca) {
+    free(ca->map);
+    ca->map = NULL;
+    ca->map_cap = 0;
+    ca->valid = 0;
+}
+
+// align the read's insertion to the ALT's and fill ca->map. returns 0 if not aligned, then
+// the caller compares the raw offsets instead
+static int ins_aln_get(ins_aln_t *ca, uint8_t *seq, uint32_t seq_len,
+                       int ins_start, int q_begin, int qlen,
+                       const var_t *var, int var_idx) {
+    if (ca->valid && ca->ins_start == ins_start && ca->var_idx == var_idx) return 1;
+    ca->valid = 0;
+
+    int alt_len = (int)strlen(var->alt_allele);
+    int tlen = alt_len - var->ref_len; // the ALT's inserted bases
+    if (qlen <= 0 || tlen <= 0) return 0;
+    if (qlen < INS_ALN_MIN_LEN && tlen < INS_ALN_MIN_LEN) return 0;
+    if (qlen > INS_ALN_MAX_LEN || tlen > INS_ALN_MAX_LEN) return 0;
+    if ((double)qlen < INS_ALN_MIN_RATIO * tlen || (double)qlen > INS_ALN_MAX_RATIO * tlen) return 0;
+    if (q_begin < 0 || q_begin + qlen > (int)seq_len) return 0;
+
+    // band must cover the length difference, else ksw2 reads past its traceback matrix
+    int diff = qlen > tlen ? qlen - tlen : tlen - qlen;
+    int w = diff + INS_ALN_BAND;
+    int n_col = qlen < 2 * w + 1 ? qlen : 2 * w + 1;
+    if ((int64_t)n_col * tlen > INS_ALN_MAX_MEM) return 0; // traceback matrix too large
+
+    uint8_t *q = (uint8_t*)malloc(qlen);
+    MALLOC_CHK(q);
+    uint8_t *t = (uint8_t*)malloc(tlen);
+    MALLOC_CHK(t);
+
+    // SEQ is reference forward and the insertion runs 1..qlen in it on both strands
+    for (int i = 0; i < qlen; i++) q[i] = nt4(seq_nt16_str[bam_seqi(seq, q_begin + i)]);
+    for (int i = 0; i < tlen; i++) t[i] = nt4(var->alt_allele[var->ref_len + i]);
+
+    static const int8_t mat[25] = {  2, -4, -4, -4, 0,
+                                    -4,  2, -4, -4, 0,
+                                    -4, -4,  2, -4, 0,
+                                    -4, -4, -4,  2, 0,
+                                     0,  0,  0,  0, 0 };
+    int m_cigar = 0, n_cigar = 0;
+    uint32_t *cigar = NULL;
+    ksw_gg(NULL, qlen, q, tlen, t, 5, mat, 4, 2, w, &m_cigar, &n_cigar, &cigar);
+    free(q);
+    free(t);
+    if (cigar == NULL || n_cigar == 0) {
+        free(cigar);
+        return 0;
+    }
+
+    if (qlen > ca->map_cap) {
+        ca->map_cap = qlen;
+        ca->map = (int*)realloc(ca->map, sizeof(int) * ca->map_cap);
+        MALLOC_CHK(ca->map);
+    }
+    for (int i = 0; i < qlen; i++) ca->map[i] = -1;
+
+    // M consumes both, I the read only, D the ALT only
+    int qi = 0, ti = 0;
+    for (int c = 0; c < n_cigar; c++) {
+        int op = cigar[c] & 0xf;
+        int len = (int)(cigar[c] >> 4);
+        if (op == KSW_CIGAR_MATCH) {
+            for (int x = 0; x < len; x++) {
+                if (qi < qlen && ti < tlen) ca->map[qi] = ti;
+                qi++;
+                ti++;
+            }
+        } else if (op == KSW_CIGAR_INS) {
+            qi += len;
+        } else if (op == KSW_CIGAR_DEL) {
+            ti += len;
+        }
+    }
+    free(cigar);
+
+    ca->valid = 1;
+    ca->ins_start = ins_start;
+    ca->var_idx = var_idx;
+    ca->qlen = qlen;
+    return 1;
+}
+
 static void emit_var_entries(core_t *core, db_t *db, int32_t bam_i, const char *tname, vars_t *vars,
                              uint8_t *seq, uint32_t seq_len, int8_t rev, int haplotype,
                              char *mod_codes, int mod_codes_len, int has_nums, int *req_mod_valid, modcodem_t **req_mods,
-                             int read_pos, const uint8_t *probs, const char *qname) {
+                             int read_pos, const uint8_t *probs, const varrefs_t *read_vars, ins_aln_t *ca) {
     if (vars == NULL) return;
 
     char strand = rev ? '-' : '+';
@@ -938,9 +1103,23 @@ static void emit_var_entries(core_t *core, db_t *db, int32_t bam_i, const char *
 
     // the aligner can shift an insertion, so scan a window of positions
     int want_ins = (ref_pos == -1);
-    int lookup_pos = want_ins ? (ins_start + ins_offset) : ref_pos;
-    int lookup_lo = want_ins ? lookup_pos - INS_SHIFT_MAX : lookup_pos;
-    int lookup_hi = want_ins ? lookup_pos + INS_SHIFT_MAX : lookup_pos;
+    int q_begin = 0, q_len = 0;
+    int lookup_lo, lookup_hi;
+    if (want_ins) {
+        q_begin = read_pos - (ins_offset - 1);
+        if (q_begin >= 0) { // else q_len stays 0 and the alignment is skipped
+            while (q_begin + q_len < (int)seq_len) {
+                int f = rev ? (int)(seq_len - (q_begin + q_len) - 1) : (q_begin + q_len);
+                if (db->ins[bam_i][f] != ins_start) break;
+                q_len++;
+            }
+        }
+        // the read's offset drifts from the ALT's, so scan the whole insertion
+        lookup_lo = ins_start - INS_SHIFT_MAX;
+        lookup_hi = ins_start + INS_SHIFT_MAX + ins_offset + (int)(INS_ALN_MAX_RATIO * q_len) + 1;
+    } else {
+        lookup_lo = lookup_hi = ref_pos;
+    }
     int ei_start = lower_bound_cg(vars->cg_entries, vars->cg_entries_len, lookup_lo);
 
     for (int m = 0; m < mod_codes_len; m++) {
@@ -955,9 +1134,18 @@ static void emit_var_entries(core_t *core, db_t *db, int32_t bam_i, const char *
             if (vars->cg_entries[ei].strand != strand) continue;
             var_t var = vars->vars[vars->cg_entries[ei].var_idx];
             if (want_ins) {
-                // same position within the insertion, anchor may be shifted
-                if (vars->cg_entries[ei].ins_offset != (uint16_t)ins_offset) continue;
+                // anchor may be shifted
                 if (var.pos < ins_start - INS_SHIFT_MAX || var.pos > ins_start + INS_SHIFT_MAX) continue;
+                // the read's insertion differs from the ALT by indels, so map the offset first.
+                // one alignment maps a read base to at most one ALT base, so no double counting
+                uint16_t want_off = (uint16_t)ins_offset;
+                if (ins_aln_get(ca, seq, seq_len, ins_start, q_begin, q_len,
+                                &vars->vars[vars->cg_entries[ei].var_idx], vars->cg_entries[ei].var_idx)) {
+                    int qi = ins_offset - 1;
+                    if (qi < 0 || qi >= ca->qlen || ca->map[qi] < 0) continue;
+                    want_off = (uint16_t)(ca->map[qi] + 1);
+                }
+                if (vars->cg_entries[ei].ins_offset != want_off) continue;
             } else {
                 // the other CG base must be where the ALT puts it. tells a deletion carrier
                 // from a reference carrier, as both have a C at the same position
@@ -967,7 +1155,7 @@ static void emit_var_entries(core_t *core, db_t *db, int32_t bam_i, const char *
             // phase-aware filter: only when --haplotypes is on; phased ALT (var.hap > 0) only counts reads with matching HP tag
             if (core->opt.haplotypes && var.hap > 0 && haplotype != var.hap) continue;
             // when the VCF names its supporting reads, only those reads carry the ALT
-            if (!var_supports_read(&var, qname)) continue;
+            if (!var_supports_read(&var, vars, vars->cg_entries[ei].var_idx, read_vars)) continue;
 
             // report the VCF position, so it is the same for every read
             int out_pos = want_ins ? var.pos : ref_pos;
@@ -1005,8 +1193,18 @@ void varviewfreq_single(core_t * core, db_t *db, int32_t bam_i) {
 
     const char *qname = bam_get_qname(record);
 
+    // variants this read supports, looked up once
+    varrefs_t *read_vars = get_read_vars(core->rname_map, qname);
+
+    // read is in no RNAMES, so it supports no variant and has nothing to output
+    if(core->all_rnames && read_vars == NULL) return;
+
     ref_t *ref = get_ref(tname);
     ASSERT_MSG(ref != NULL, "Contig %s not found in reference provided\n", tname);
+
+    // insertion alignment cache, reused across this read's modified bases
+    ins_aln_t ins_aln;
+    memset(&ins_aln, 0, sizeof(ins_aln));
 
     get_aln(core, db, hdr, record, bam_i);
 
@@ -1159,7 +1357,7 @@ void varviewfreq_single(core_t * core, db_t *db, int32_t bam_i) {
             int read_pos = rank_to_read_pos(modbase, rev, seq_len, bases_pos, bases_pos_lens, idx, base_rank);
             uint8_t *probs = &ml[ml_start_idx + c * mod_codes_len];
             emit_var_entries(core, db, bam_i, tname, vars, seq, seq_len, rev, haplotype,
-                             mod_codes, mod_codes_len, has_nums, req_mod_valid, req_mods, read_pos, probs, qname);
+                             mod_codes, mod_codes_len, has_nums, req_mod_valid, req_mods, read_pos, probs, read_vars, &ins_aln);
         }
         ml_start_idx += skip_counts_len * mod_codes_len;
 
@@ -1173,7 +1371,7 @@ void varviewfreq_single(core_t * core, db_t *db, int32_t bam_i) {
                 for (int s = prev_skip_base_rank + 1; s < skip_base_rank; s++) {
                     int read_pos = rank_to_read_pos(modbase, rev, seq_len, bases_pos, bases_pos_lens, idx, s);
                     emit_var_entries(core, db, bam_i, tname, vars, seq, seq_len, rev, haplotype,
-                                     mod_codes, mod_codes_len, has_nums, req_mod_valid, req_mods, read_pos, NULL, qname);
+                                     mod_codes, mod_codes_len, has_nums, req_mod_valid, req_mods, read_pos, NULL, read_vars, &ins_aln);
                 }
                 prev_skip_base_rank = skip_base_rank;
             }
@@ -1182,10 +1380,12 @@ void varviewfreq_single(core_t * core, db_t *db, int32_t bam_i) {
             for (int s = prev_skip_base_rank + 1; s < bases_pos_lens[idx]; s++) {
                 int read_pos = rank_to_read_pos(modbase, rev, seq_len, bases_pos, bases_pos_lens, idx, s);
                 emit_var_entries(core, db, bam_i, tname, vars, seq, seq_len, rev, haplotype,
-                                 mod_codes, mod_codes_len, has_nums, req_mod_valid, req_mods, read_pos, NULL, qname);
+                                 mod_codes, mod_codes_len, has_nums, req_mod_valid, req_mods, read_pos, NULL, read_vars, &ins_aln);
             }
         }
     }
+
+    ins_aln_free(&ins_aln);
 }
 
 

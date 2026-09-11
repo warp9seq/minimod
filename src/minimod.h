@@ -56,9 +56,6 @@ SOFTWARE.
 #define  MOD_CODE_LEN 10 // maximum length of modification codes string
 #define N_BASES 6 // A, C, G, T, N, U
 
-/* set of read names, for INFO/RNAMES */
-KHASH_SET_INIT_STR(rnamem)
-
 /* input modification code structure */
 typedef struct {
     int index;
@@ -92,7 +89,7 @@ typedef struct {
     int8_t hap; //haplotype of ALT. 0 = any (unphased, hom-alt, or no GT info)
     char *gt; //genotype from VCF. "." when no GT info
     char *var_id; //ID field from VCF. "." when no ID
-    khash_t(rnamem) *rnames; //INFO/RNAMES read names supporting this ALT. NULL when absent,every read is allowed
+    int8_t has_rnames; //1 if INFO/RNAMES was given. 0 means every read is allowed
 } var_t;
 
 typedef struct {
@@ -114,6 +111,19 @@ typedef struct {
     int cg_entries_len;
     int cg_entries_cap;
 } vars_t;
+
+/* one variant, as its contig and its index in that contig */
+typedef struct {
+    vars_t *vars;
+    int var_idx;
+} varref_t;
+
+/* the variants a read supports */
+typedef struct {
+    varref_t *refs;
+    int refs_len;
+    int refs_cap;
+} varrefs_t;
 
 typedef struct {
     uint32_t n_called;
@@ -142,6 +152,9 @@ KHASH_MAP_INIT_STR(summarym, int);
 
 /* variant map */
 KHASH_MAP_INIT_STR(varm, vars_t *);
+
+/* map of read name to the variants it supports */
+KHASH_MAP_INIT_STR(rnamevarm, varrefs_t *);
 
 /* frequency map */
 KHASH_MAP_INIT_STR(varfreqm, varfreq_t *);
@@ -262,6 +275,8 @@ typedef struct {
 
     khash_t(freqm)* freq_map;
     khash_t(varm)* var_map;
+    khash_t(rnamevarm)* rname_map; //read name -> variants it supports
+    int all_rnames; //1 if every VCF record had RNAMES
     khash_t(varfreqm)* varfreq_map;
     khash_t(varviewm)* varview_map;
 

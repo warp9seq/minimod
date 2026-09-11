@@ -134,9 +134,11 @@ core_t* init_core(opt_t opt,double realtime0) {
         core->freq_map = kh_init(freqm);
     } else if (opt.subtool == VARVIEW) {
         core->var_map = kh_init(varm);
+        core->rname_map = kh_init(rnamevarm);
         core->varview_map = kh_init(varviewm);
     } else if (opt.subtool == VARFREQ) {
         core->var_map = kh_init(varm);
+        core->rname_map = kh_init(rnamevarm);
         core->varfreq_map = kh_init(varfreqm);
     }
     

@@ -306,7 +306,7 @@ int varfreq_main(int argc, char* argv[]) {
 
     double realtime3 = realtime();
     fprintf(stderr, "[%s] Loading VCF file %s\n", __func__, vcf_file);
-    load_var_map(vcf_file, opt.sample, core->var_map, opt.haplotypes);
+    load_var_map(core, vcf_file);
     fprintf(stderr, "[%s] VCF file loaded in %.3f sec\n", __func__, realtime()-realtime3);
 
     int32_t counter=0;
@@ -437,6 +437,7 @@ int varfreq_main(int argc, char* argv[]) {
     output_core(core);
 
     destroy_var_map(core->var_map);
+    destroy_rname_map(core->rname_map);
     destroy_ref_wo_context(opt.n_mods);
 
     fprintf(stderr, "[%s] total entries: %ld", __func__,(long)core->total_reads);
