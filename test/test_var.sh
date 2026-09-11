@@ -206,6 +206,25 @@ echo -e "${BLUE}${testname}${NC}"
 ex test/varfreq_context.py test/tmp/varmod/varmod_all_chr1.mh.freq.bedmethyl test/tmp/varmod/varmod_all_chr1.mh.varfreq.bedmethyl 1000 --bed test/tmp/varmod/varmod_all_chr1.mh.varfreq.context.bed > /dev/null 2>&1 || die "${testname} failed"
 # diff -q test/tmp/varmod/varmod_all_chr1.mh.varfreq.context.bed test/expected/varmod/varmod_all_chr1.mh.varfreq.context.bed || die "${testname} failed: output does not match expected output"
 
+# HG03902 CHM13 fixture. Unlike the regions.tsv fixtures below, the reference is a
+# truncated contig committed alongside the BAM (a full CHM13 chr1 is too large to
+# download), so the contig is renamed to make the truncation obvious. Covers Sniffles
+# SV calls with INFO/RNAMES: two phased insertions 28 bp apart on opposite haplotypes,
+# whose CpGs sit deep inside the inserted sequence.
+hg03902_ref=test/data/varmod/chm13_chr1_0_410k.fa
+hg03902_bam=test/data/varmod/region_hg03902_chm13_chr1_0_410k.bam
+hg03902_vcf=test/data/varmod/region_hg03902_chm13_chr1_0_410k.vcf
+
+testname="varfreq --haplotypes region:hg03902_chm13_chr1_0_410k"
+echo -e "${BLUE}${testname}${NC}"
+ex ./minimod varfreq --haplotypes -c "m" "$hg03902_ref" "$hg03902_bam" "$hg03902_vcf" > test/tmp/varmod/region_hg03902_chm13_chr1_0_410k.m.varfreq.tsv || die "${testname} failed"
+diff -q test/tmp/varmod/region_hg03902_chm13_chr1_0_410k.m.varfreq.tsv test/expected/varmod/region_hg03902_chm13_chr1_0_410k.m.varfreq.tsv || die "${testname} failed: output does not match expected output"
+
+testname="varview --haplotypes region:hg03902_chm13_chr1_0_410k"
+echo -e "${BLUE}${testname}${NC}"
+ex ./minimod varview --haplotypes -c "m" "$hg03902_ref" "$hg03902_bam" "$hg03902_vcf" > test/tmp/varmod/region_hg03902_chm13_chr1_0_410k.m.varview.tsv || die "${testname} failed"
+diff -q test/tmp/varmod/region_hg03902_chm13_chr1_0_410k.m.varview.tsv test/expected/varmod/region_hg03902_chm13_chr1_0_410k.m.varview.tsv || die "${testname} failed: output does not match expected output"
+
 # Region-based regression tests. Each entry in test/regions/regions.tsv is sliced
 # by test/regions/extract.sh into a BAM + VCF (original chrom names + absolute
 # coordinates preserved, so the fixtures load directly in IGV). The reference
