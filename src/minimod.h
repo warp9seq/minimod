@@ -128,6 +128,7 @@ typedef struct {
 typedef struct {
     uint32_t n_called;
     uint32_t n_mod;
+    uint32_t n_ambig;
     const char *ref_allele;
     const char *alt_allele;
     const char *gt; //genotype string from var_t.gt

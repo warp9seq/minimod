@@ -103,7 +103,14 @@ static int cmp_key_fast(const char *key_a, const char *key_b) {
     if (!mc_end_a || !mc_end_b) return 0;
     int off_a = atoi(mc_end_a + 1);
     int off_b = atoi(mc_end_b + 1);
-    return (off_a > off_b) - (off_a < off_b);
+    if (off_a != off_b) return (off_a > off_b) - (off_a < off_b);
+
+    const char *hp_a = strchr(mc_end_a + 1, '\t');
+    const char *hp_b = strchr(mc_end_b + 1, '\t');
+    if (!hp_a || !hp_b) return 0;
+    int h_a = atoi(hp_a + 1);
+    int h_b = atoi(hp_b + 1);
+    return (h_a > h_b) - (h_a < h_b);
 }
 
 #define varfreq_kv_lt(a, b) (cmp_key_fast((a).key, (b).key) < 0)
@@ -912,7 +919,7 @@ static void get_aln(core_t * core, db_t *db, bam_hdr_t *hdr, bam1_t *record, int
 }
 
 
-void update_varfreq_map(khash_t(varfreqm) *varfreq_map, const char *tname, int ref_pos, int ins_offset, char *mod_code, char strand, int haplotype, int is_called, int is_mod, const char *ref_allele, const char *alt_allele, const char *gt, const char *var_id, int var_pos) {
+void update_varfreq_map(khash_t(varfreqm) *varfreq_map, const char *tname, int ref_pos, int ins_offset, char *mod_code, char strand, int haplotype, int is_called, int is_mod, int is_ambig, const char *ref_allele, const char *alt_allele, const char *gt, const char *var_id, int var_pos) {
     char * key = make_key(tname, ref_pos, ins_offset, mod_code, strand, haplotype);
     khiter_t k = kh_get(varfreqm, varfreq_map, key);
     if (k == kh_end(varfreq_map)) { // not found, add
@@ -920,6 +927,7 @@ void update_varfreq_map(khash_t(varfreqm) *varfreq_map, const char *tname, int r
         MALLOC_CHK(varfreq);
         varfreq->n_called = is_called;
         varfreq->n_mod = is_mod;
+        varfreq->n_ambig = is_ambig;
         varfreq->ref_allele = ref_allele;
         varfreq->alt_allele = alt_allele;
         varfreq->gt = gt;
@@ -932,8 +940,9 @@ void update_varfreq_map(khash_t(varfreqm) *varfreq_map, const char *tname, int r
         varfreq_t * varfreq = kh_value(varfreq_map, k);
         varfreq->n_called += is_called;
         varfreq->n_mod += is_mod;
+        varfreq->n_ambig += is_ambig;
         // check if varfreq->n_called overflows
-        if(varfreq->n_called == 0){
+        if(is_called && varfreq->n_called == 0){
             ERROR("n_called overflowed for key %s. Please report this issue.", key);
             exit(EXIT_FAILURE);
         }
@@ -1163,14 +1172,14 @@ static void emit_var_entries(core_t *core, db_t *db, int32_t bam_i, const char *
             if (core->opt.subtool == VARVIEW) {
                 add_varview_entry(db->varview_maps[bam_i], tname, out_pos, offset, mod_code, strand, haplotype, mod_prob, fastq_read_pos, var);
             } else {
-                int is_called = 1, is_mod = 0;
+                int is_called = 1, is_mod = 0, is_ambig = 0;
                 if (probs) {
                     double mod_prob_dbl = THRESH_UINT8_TO_DBL(mod_prob);
                     double thresh = req_mods[m]->thresh;
                     if (mod_prob_dbl >= thresh) is_mod = 1;
-                    else if (mod_prob_dbl > 1 - thresh) continue; // ambiguous, not called
+                    else if (mod_prob_dbl > 1 - thresh) { is_called = 0; is_ambig = 1; } // ambiguous
                 }
-                update_varfreq_map(db->varfreq_maps[bam_i], tname, out_pos, offset, mod_code, strand, haplotype, is_called, is_mod, var.ref_allele, var.alt_allele, var.gt, var.var_id, var.pos);
+                update_varfreq_map(db->varfreq_maps[bam_i], tname, out_pos, offset, mod_code, strand, haplotype, is_called, is_mod, is_ambig, var.ref_allele, var.alt_allele, var.gt, var.var_id, var.pos);
             }
         }
     }
@@ -1523,6 +1532,7 @@ void merge_varfreq_maps(core_t* core, db_t* db) {
                     varfreq_t *core_varfreq = kh_value(core_map, core_k);
                     core_varfreq->n_called += db_varfreq->n_called;
                     core_varfreq->n_mod += db_varfreq->n_mod;
+                    core_varfreq->n_ambig += db_varfreq->n_ambig;
                 } else {
                     kh_value(core_map, core_k) = db_varfreq;
                     kh_del(varfreqm, rec_map, k);
@@ -1547,7 +1557,7 @@ void print_varfreq_header(core_t* core) {
     char * common = "contig\tstart\tend\tstrand\tn_called\tn_mod\tfreq\tmod_code\tvar_id\tvar_pos\tvar_gt\tref_allele\talt_allele";
     char * hp_str = "";
     if(core->opt.haplotypes) hp_str = "\thaplotype";
-    fprintf(core->opt.output_fp, "%s\toffset%s\n", common, hp_str);
+    fprintf(core->opt.output_fp, "%s\toffset%s\tn_ambig\n", common, hp_str);
 }
 
 void print_varfreq_output(core_t* core) {
@@ -1562,6 +1572,7 @@ void print_varfreq_output(core_t* core) {
     int size = 0;
     for (khint_t k = kh_begin(varfreq_map); k != kh_end(varfreq_map); k++) {
         if (kh_exist(varfreq_map, k)) {
+            if (kh_value(varfreq_map, k)->n_called == 0) continue; // only ambiguous calls
             sorted_arr[size].key = (char *)kh_key(varfreq_map, k);
             sorted_arr[size].freq = kh_value(varfreq_map, k);
             size++;
@@ -1581,7 +1592,7 @@ void print_varfreq_output(core_t* core) {
     uint16_t agg_ins_offset = 0;
     char agg_strand = 0;
     char *agg_mod_code = NULL;
-    uint64_t agg_n_called = 0, agg_n_mod = 0;
+    uint64_t agg_n_called = 0, agg_n_mod = 0, agg_n_ambig = 0;
     int agg_count = 0;
     varfreq_t *agg_ref = NULL;
 
@@ -1623,8 +1634,9 @@ void print_varfreq_output(core_t* core) {
                     agg_ref->ref_allele ? agg_ref->ref_allele : ".",
                     agg_ref->alt_allele ? agg_ref->alt_allele : ".");
                 // haplotypes on: real offset + haplotype=* ; off: offset=*
-                if (do_haplotypes) fprintf(out_fp, "%d\t*\n", OFFSET_TO_INT(agg_ins_offset));
-                else fputs("*\n", out_fp);
+                if (do_haplotypes) fprintf(out_fp, "%d\t*", OFFSET_TO_INT(agg_ins_offset));
+                else fputs("*", out_fp);
+                fprintf(out_fp, "\t%llu\n", (unsigned long long)agg_n_ambig);
             } else {
                 fprintf(out_fp, "%s\t%d\t%d\t%c\t%llu\t%llu\t%f\t%s\t%s\t%d\t%s\t%s\t%s\t",
                     agg_chrom, agg_pos, agg_pos + 1, agg_strand,
@@ -1635,8 +1647,9 @@ void print_varfreq_output(core_t* core) {
                     agg_ref->gt ? agg_ref->gt : ".",
                     agg_ref->ref_allele ? agg_ref->ref_allele : ".",
                     agg_ref->alt_allele ? agg_ref->alt_allele : ".");
-                if (do_haplotypes) fprintf(out_fp, "%d\t*\n", OFFSET_TO_INT(agg_ins_offset));
-                else fputs("*\n", out_fp);
+                if (do_haplotypes) fprintf(out_fp, "%d\t*", OFFSET_TO_INT(agg_ins_offset));
+                else fputs("*", out_fp);
+                fprintf(out_fp, "\t%llu\n", (unsigned long long)agg_n_ambig);
             }
         }
 
@@ -1647,10 +1660,11 @@ void print_varfreq_output(core_t* core) {
             free(agg_mod_code); agg_mod_code = mod_code; mod_code = NULL;
             agg_pos = ref_pos; agg_strand = strand;
             agg_ins_offset = ins_offset;
-            agg_n_called = 0; agg_n_mod = 0; agg_count = 0; agg_ref = varfreq;
+            agg_n_called = 0; agg_n_mod = 0; agg_n_ambig = 0; agg_count = 0; agg_ref = varfreq;
         }
         agg_n_called += varfreq->n_called;
         agg_n_mod += varfreq->n_mod;
+        agg_n_ambig += varfreq->n_ambig;
         agg_count++;
 
         double freq_value = (double)varfreq->n_mod / varfreq->n_called;
@@ -1669,6 +1683,7 @@ void print_varfreq_output(core_t* core) {
                 if (haplotype == -1) fputs("\t*", out_fp);
                 else fprintf(out_fp, "\t%d", haplotype);
             }
+            fprintf(out_fp, "\t%u", varfreq->n_ambig);
             fputc('\n', out_fp);
         } else {
             fprintf(out_fp, "%s\t%d\t%d\t%c\t%d\t%d\t%f\t%s\t%s\t%d\t%s\t%s\t%s\t%d",
@@ -1684,6 +1699,7 @@ void print_varfreq_output(core_t* core) {
                 if (haplotype == -1) fputs("\t*", out_fp);
                 else fprintf(out_fp, "\t%d", haplotype);
             }
+            fprintf(out_fp, "\t%u", varfreq->n_ambig);
             fputc('\n', out_fp);
         }
         free(contig);
