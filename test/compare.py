@@ -87,9 +87,9 @@ def load_bedmethyl(filename):
         contig = fields[0]
         start = int(fields[1])
         strand = fields[5]
-        num_reads = float(fields[9])
+        num_reads = int(fields[9])
         percent_methylated = float(fields[10])
-        methylated_reads = int( (percent_methylated / 100) * num_reads)
+        methylated_reads = round((percent_methylated / 100) * num_reads)
         key = ""
 
         # accumulate on forward strand
