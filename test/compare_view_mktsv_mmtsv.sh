@@ -1,13 +1,13 @@
 #!/usr/bin/env bash
 #
-# Usage: ./compare_view_mkbed_mkbed.sh file1.bedmethyl file2.tsv output_dir
+# Usage: ./compare_view_mktsv_mmtsv.sh file1.tsv file2.tsv output_dir
 #
 # This script compares two files based on a constructed key and outputs
 # the matched records, records with large differences, and records
 # missing in either file.
 
 usage() {
-    echo "Usage: $0 file1.bedmethyl file2.bedmethyl output_dir"
+    echo "Usage: $0 file1.tsv file2.tsv output_dir"
     echo "Options:"
     echo "  -y : Overwrite existing output files without prompt."
 }
@@ -37,18 +37,14 @@ fi
 f1="$1"
 f2="$2"
 out_dir=$3
-# Check if extension of files are correct. file1 should be .bed or .bedmethyl and file2 should be .bed or .bedmethyl
-if [[ "$f1" != *.bed  && "$f1" != *.bedmethyl ]] || [[ "$f2" != *.bed  && "$f2" != *.bedmethyl ]]; then
-    echo "Error: file1 should have .bed or .bedmethyl extension and file2 should have .bed or .bedmethyl extension."
+# Check if extension of files are correct. both files should be .tsv
+if [[ "$f1" != *.tsv ]] || [[ "$f2" != *.tsv ]]; then
+    echo "Error: file1 should have .tsv extension and file2 should have .tsv extension."
     exit 1
 fi
 # Extract base names without extension
-base1=$(basename "$f1" .bedmethyl)
-base2=$(basename "$f2" .bedmethyl)
-
-if [[ "$f1" == *.bed ]]; then
-    base1=$(basename "$f1" .bed)
-fi
+base1=$(basename "$f1" .tsv)
+base2=$(basename "$f2" .tsv)
 
 mkdir -p "$out_dir"
 script_name=$(basename "$0" .sh)
@@ -103,24 +99,24 @@ awk -F'\t' -v tol="$TOLERANCE" \
         if (FNR == 1) next
         for (i=1; i<=NF; i++) $i = clean($i)
         # Construct the key from file2 columns in the order that matches file1
-        key1 = $4 "\t" $3 "\t" $6 "\t" $1 "\t" $2 "\t" $14
+        key1 = $1 "\t" $2 "\t" $3 "\t" $4 "\t" $5 "\t" $6
         if (key1 in prob) {
             # Key found in both files: calculate the difference
-            diff = prob[key1] - $13
+            diff = prob[key1] - $7
             if (diff < 0) diff = -diff # Absolute difference
             if (diff <= tol) {
                 # Difference is within tolerance: write to matched.tsv
                 print key1 "\t" prob[key1] "\t" diff > out_match
             } else {
                 # Difference is too large: write to large_prob_diff.tsv
-                print key1 "\t" prob[key1] "\t" $13 "\t" diff > out_large_diff
+                print key1 "\t" prob[key1] "\t" $7 "\t" diff > out_large_diff
             }
             # Delete the key from the array to mark it as found.
             # At the end, only keys from file1 not in file2 will remain.
             delete prob[key1]
         } else {
             # Key is in file2 but was not in file1
-            print key1 "\t" $13 > out_missing1
+            print key1 "\t" $7 > out_missing1
         }
     }
     # END block: runs after all lines from all files have been processed

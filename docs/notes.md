@@ -15,15 +15,15 @@ Tool versions we used for comparisons are modkit 0.5.1 and minimod 0.5.0
 Following pair of commands using minimod v0.5.0 and modkit 0.5.1 should give the same output. Let's assume reads.bam contains mapped and unmapped, primary, secondary and supplementary alignments.
 
 > **_NOTE:_**<br>
-> ``` test/compare_view_mkbed_mmtsv.sh modkit_extract.bed minimod_view.tsv```script takes modkit's extract bed and minimod's view tsv and creates four files in the out_dir.
+> ``` test/compare_view_mktsv_mmtsv.sh modkit_extract.tsv minimod_view.tsv```script takes modkit's extract tsv and minimod's view tsv and creates four files in the out_dir.
 > - **in_both.tsv**            : found in both files and probability difference is <= 0.002
 > - **large_prob_diff.tsv**    : found in both files and probability difference is > 0.002
-> - **missing_in_file1.tsv**   : missing in file1 which is modkit_extract.bed
+> - **missing_in_file1.tsv**   : missing in file1 which is modkit_extract.tsv
 > - **missing_in_file2.tsv**   : missing in file2 which is minimod_view.tsv
 >
 > There are similar scripts we provide for view comparison between different file formats.
-> - test/compare_view_mkbed_mmtsv.sh
-> - test/compare_view_mkbed_mkbed.sh
+> - test/compare_view_mktsv_mmtsv.sh
+> - test/compare_view_mktsv_mktsv.sh
 > - test/compare_view_mmtsv_mmtsv.sh
 
 <br>
@@ -32,41 +32,41 @@ When the context and modification type is unknown
 ```bash
 minimod view -c '*' --skip-supplementary  ref.fa reads.bam > mm_view.tsv
 
-modkit extract full --mapped-only reads.bam mk_extract.bed
+modkit extract full --mapped-only reads.bam mk_extract.tsv
 
-test/compare_view_mkbed_mmtsv.sh mk_extract.bed mm_view.tsv out_dir
+test/compare_view_mktsv_mmtsv.sh mk_extract.tsv mm_view.tsv out_dir
 ```
 
 When the context is known and modification type is unknown
 ```bash
 minimod view -c '*[A]' --skip-supplementary ref.fa reads.bam > mm_view_A.tsv
 
-modkit extract full --motif A 0 --mapped-only --reference ref.fa reads.bam mk_extract_A.bed
+modkit extract full --motif A 0 --mapped-only --reference ref.fa reads.bam mk_extract_A.tsv
 
-test/compare_view_mkbed_mmtsv.sh mk_extract_A.bed mm_view_A.tsv out_dir
+test/compare_view_mktsv_mmtsv.sh mk_extract_A.tsv mm_view_A.tsv out_dir
 ```
 
 ```bash
 # alternative way to filter context from modkit output using awk instead of using --motif A 0 
-modkit extract full --mapped-only --kmer-size 1 --reference ref.fa reads.bam mk_extract.bed
-awk -F '\t' 'function c(b){b=toupper(b);return b=="A"?"T":b=="T"?"A":b=="C"?"G":b=="G"?"C":b} NR==1 || ( $21==16 ? c($16)=="A" && toupper($16)==c($17) : toupper($16)=="A" && toupper($16)==toupper($17) )' mk_extract.bed > mk_extract_A.bed
+modkit extract full --mapped-only --kmer-size 1 --reference ref.fa reads.bam mk_extract.tsv
+awk -F '\t' 'function c(b){b=toupper(b);return b=="A"?"T":b=="T"?"A":b=="C"?"G":b=="G"?"C":b} NR==1 || ( $21==16 ? c($16)=="A" && toupper($16)==c($17) : toupper($16)=="A" && toupper($16)==toupper($17) )' mk_extract.tsv > mk_extract_A.tsv
 ```
 
 When the context and modification type is known
 ```bash
 minimod view -c 'a[A]' --skip-supplementary ref.fa reads.bam > mm_view_aA.tsv
 
-modkit extract full --motif A 0 --mapped-only --reference ref.fa reads.bam mk_extract_A.bed
-awk 'NR==1 || $14=="a"' mk_extract_A.bed > mk_extract_aA.bed
+modkit extract full --motif A 0 --mapped-only --reference ref.fa reads.bam mk_extract_A.tsv
+awk 'NR==1 || $14=="a"' mk_extract_A.tsv > mk_extract_aA.tsv
 
-test/compare_view_mkbed_mmtsv.sh mk_extract_aA.bed mm_view_aA.tsv out_dir
+test/compare_view_mktsv_mmtsv.sh mk_extract_aA.tsv mm_view_aA.tsv out_dir
 ```
 
 ```bash
 # alternative way to filter context from modkit output using awk instead of using --motif A 0 
-modkit extract full --mapped-only --kmer-size 1 --reference ref.fa reads.bam mk_extract.bed
-awk 'NR==1 || $14=="a"' mk_extract.bed > mk_extract_a.bed
-awk -F '\t' 'function c(b){b=toupper(b);return b=="A"?"T":b=="T"?"A":b=="C"?"G":b=="G"?"C":b} NR==1 || ( $21==16 ? c($16)=="A" && toupper($16)==c($17) : toupper($16)=="A" && toupper($16)==toupper($17) )' mk_extract_a.bed > mk_extract_aA.bed
+modkit extract full --mapped-only --kmer-size 1 --reference ref.fa reads.bam mk_extract.tsv
+awk 'NR==1 || $14=="a"' mk_extract.tsv > mk_extract_a.tsv
+awk -F '\t' 'function c(b){b=toupper(b);return b=="A"?"T":b=="T"?"A":b=="C"?"G":b=="G"?"C":b} NR==1 || ( $21==16 ? c($16)=="A" && toupper($16)==c($17) : toupper($16)=="A" && toupper($16)==toupper($17) )' mk_extract_a.tsv > mk_extract_aA.tsv
 ```
 
 ## Minimod freq vs Modkit pileup
