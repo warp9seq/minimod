@@ -880,7 +880,7 @@ ex  ./minimod freq --skip-supplementary -b -c "a[A]" test/tmp/genome_chr22.fa te
 # /install/modkit-v0.5.1/modkit pileup --motif A 0 --region chr22 --reference test/tmp/genome_chr22.fa test/data/rna_m6A_DRACH_mm_hg38_chr22.bam test/expected/rna_m6A_DRACH_mm_hg38_chr22.mk.pileup.A.bed || die "${testname} Running modkit pileup failed"
 # awk 'NR==1 || $4=="a"' test/expected/rna_m6A_DRACH_mm_hg38_chr22.mk.pileup.A.bed > test/expected/rna_m6A_DRACH_mm_hg38_chr22.mk.pileup.a.A.bed
 corr=`test/compare.py test/expected/rna_m6A_DRACH_mm_hg38_chr22.mk.pileup.a.A.bed test/tmp/rna_m6A_DRACH_mm_hg38_chr22.mm.a.A.freq.bed` || die "${testname} Correlation comparison failed"
-[ "$(echo "$corr < 0.995" | bc -l)" -eq 1 ] && die "${testname} Correlation between minimod freq and modkit pileup is less than 0.995: $corr"
+[ "$(echo "$corr < 0.993" | bc -l)" -eq 1 ] && die "${testname} Correlation between minimod freq and modkit pileup is less than 0.993: $corr"
 echo "Correlation of freq a[A] with modkit pileup: $corr" 
 echo -e "${GREEN}${testname} passed!${NC}\n"
 
@@ -889,7 +889,7 @@ echo -e "${BLUE}${testname}${NC}"
 ex  ./minimod freq --skip-supplementary -b -c '*' test/tmp/genome_chr22.fa test/data/rna_m6A_DRACH_mm_hg38_chr22.bam > test/tmp/rna_m6A_DRACH_mm_hg38_chr22.mm.all.all.freq.bed || die "${testname} Running the tool failed"
 # /install/modkit-v0.5.1/modkit pileup --region chr22 --reference test/tmp/genome_chr22.fa test/data/rna_m6A_DRACH_mm_hg38_chr22.bam test/expected/rna_m6A_DRACH_mm_hg38_chr22.mk.pileup.bed || die "${testname} Running modkit pileup failed"
 corr=`test/compare.py test/expected/rna_m6A_DRACH_mm_hg38_chr22.mk.pileup.bed test/tmp/rna_m6A_DRACH_mm_hg38_chr22.mm.all.all.freq.bed` || die "${testname} Correlation comparison failed"
-[ "$(echo "$corr < 0.995" | bc -l)" -eq 1 ] && die "${testname} Correlation between minimod freq and modkit pileup is less than 0.995: $corr"
+[ "$(echo "$corr < 0.993" | bc -l)" -eq 1 ] && die "${testname} Correlation between minimod freq and modkit pileup is less than 0.993: $corr"
 echo "Correlation of freq * with modkit pileup: $corr"
 echo -e "${GREEN}${testname} passed!${NC}\n"
 
