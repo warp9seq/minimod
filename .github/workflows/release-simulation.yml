@@ -19,6 +19,7 @@
           volumes:
             - /node20217:/node20217:rw,rshared
             - /node20217:/__e/node20:ro,rshared
+            - /node20217:/__e/node24:ro,rshared
         steps:
           - name: install git
             run: sudo apt-get install -y software-properties-common && sudo add-apt-repository ppa:git-core/ppa && sudo apt-get update -y && sudo apt-get install git -y
