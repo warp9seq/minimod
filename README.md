@@ -142,7 +142,7 @@ chr22	19979948	+	m84088_230609_030819_s1/55512555/ccs	98	m	0.623529
 | 5. read_pos | int | position (0-based) of the base in read |
 | 6. mod_code | char | base modification code as in [SAMtags: 1.7 Base modifications](https://github.com/samtools/hts-specs/blob/master/SAMtags.pdf)  |
 | 7. mod_prob | float | probability (0.0-1.0) of base modification |
-| 8. ins_offset | int | 1-based offset of an inserted base from `ref_pos`; `0` means the base is not in an insertion. Per read value - see [Enable insertions](#enable-insertions) (only output when --insertions is specified) |
+| 8. ins_offset | int | offset of inserted base from ref_pos (only output when --insertions is specified) |
 | 9. haplotype | int | haplotype of the read (only output when --haplotypes is specified) |
 
 # minimod freq
