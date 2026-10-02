@@ -142,7 +142,7 @@ chr22	19979948	+	m84088_230609_030819_s1/55512555/ccs	98	m	0.623529
 | 5. read_pos | int | position (0-based) of the base in read |
 | 6. mod_code | char | base modification code as in [SAMtags: 1.7 Base modifications](https://github.com/samtools/hts-specs/blob/master/SAMtags.pdf)  |
 | 7. mod_prob | float | probability (0.0-1.0) of base modification |
-| 8. ins_offset | int | offset of inserted base from ref_pos (only output when --insertions is specified) |
+| 8. ins_offset | int | 1-based offset of an inserted base from `ref_pos`; `0` means the base is not in an insertion. Per read value - see [Enable insertions](#enable-insertions) (only output when --insertions is specified) |
 | 9. haplotype | int | haplotype of the read (only output when --haplotypes is specified) |
 
 # minimod freq
@@ -163,13 +163,15 @@ basic options:
    -h                         help
    -p INT                     print progress every INT seconds (0: per batch) [0]
    -o FILE                    output file [stdout]
-   --insertions               output modifications in insertions [no]
+   --insertions               output modifications in insertions (deprecated) [no]
    --haplotypes               output haplotypes [no]
    --verbose INT              verbosity level [4]
    --version                  print version
    --allow-secondary          allow output secondary alignments [no]
    --skip-supplementary       skip supplementary alignments [no]
 ```
+
+- **`--insertions` is deprecated for `freq`** and should not be used.
 
 **Sample modfreqs.tsv output**
 The output entries are sorted by reference contig, reference position, strand, and modification code.
@@ -196,7 +198,7 @@ chr22	19971259	19971259	+	1	1	1.000000	m
 | 6. n_mod | int | number of reads with base modification |
 | 7. freq | float | n_mod/n_called ratio |
 | 8. mod_code | char | base modification code as in [SAMtags: 1.7 Base modifications](https://github.com/samtools/hts-specs/blob/master/SAMtags.pdf) |
-| 9. ins_offset | int | offset of inserted base from ref_pos (only output when --insertions is specified) |
+| 9. ins_offset | int | **Deprecated**  (only output when --insertions is specified) |
 | 10. haplotype | int | haplotype of the read (only output when --haplotypes is specified) |
 
 **Sample modfreqs.bedmethyl output**
@@ -404,11 +406,16 @@ Base modification threshold can be set for freq tool using -m option.
 > ```
 
 # Enable insertions
-minimod can handle inserted modified bases (where canonical base in not in reference) by specifying --insertions flag for both freq and view tools.
+minimod `view` subtool can report base modifications that fall inside insertions by specifying --insertions flag. When `--insertions` is specified, `view` adds an extra `ins_offset` column:
+- `ins_offset` is 1-based: the first inserted base after the anchor is `1`, the next is `2`, and so on, counting in increasing reference coordinate on both strands.
+- `ins_offset` of `0` means the base is not in an insertion.
+- `ref_pos` of an inserted base is the anchor. As an inserted base has no reference position of its own, `ins_offset` is only meaningful relative to that anchor.
 
-Specifying --insertions will add an extra ins_offset column(**only in tsv output**) which is the position of modified base within the inserted region.
+`ins_offset` describes a single read. The same `(ref_pos, ins_offset)` pair in two different reads does not necessarily refer to the same inserted base, so insertion rows must not be  piled up by position.
 
-The context matching and base matching are ignored when reporting modified bases in inserted region due to the lack of a aligned reference site.
+Context matching and base matching are ignored when reporting modified bases in an inserted region, due to the lack of an aligned reference site.
+
+**`--insertions` is deprecated for `minimod freq` and should not be used.** The flag is still accepted, but the frequencies it produces are not meaningful.
 
 **Sample output of view with --insertions**
 
@@ -424,19 +431,7 @@ chr22	19968390	+	89870c83-8790-419f-acf8-8a8e93a0f3c9	1885	m	0.960784	0
 chr22	19968435	+	89870c83-8790-419f-acf8-8a8e93a0f3c9	1930	m	0.917647	0
 ```
 
-**Sample output of freq with --insertions**
-```bash
-$ minimod freq --insertions ref.fa reads.bam
-
-contig	start	end	strand	n_called	n_mod	freq	mod_code	ins_offset
-chr22	19981825	19981825	-	1	1	1.000000	m	0
-# chr22	19968083	19968083	+	1	0	0.000000	m	2
-chr22	20014485	20014485	+	1	1	1.000000	m	0
-chr22	20017214	20017214	-	1	0	0.000000	m	0
-chr22	20004425	20004425	+	2	2	1.000000	m	0
-chr22	20016700	20016700	-	4	0	0.000000	m	0
-```
-Highlighted line corresponds to a 5mC modification within an insertion (A mC G) at position 19968083
+Highlighted line corresponds to a 5mC modification within an insertion (A mC G) anchored at position 19968083, two bases into the insertion.
 
 # Enable haplotypes
 minimod can output the haplotype in a separate integer column (**only in tsv output**) by specifying --haplotypes flag for both view and freq tools. minimod does **not** compute or infer haplotypes. Instead, it uses haplotype assignments already present in the input BAM, if the BAM is phased and contains the [`HP` (Haplotype)](https://samtools.github.io/hts-specs/SAMtags.pdf) tag.
