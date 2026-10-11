@@ -503,13 +503,15 @@ Minimod uses [klib](https://github.com/attractivechaos/klib). Some code snippets
 
 # Citation
 
-> Samarasinghe, S., Deveson, I., Gamaarachchi, H., 2025. Base modification analysis in long read sequencing data using Minimod. https://doi.org/10.1101/2025.07.16.665072
+> Samarasinghe, S., Robinson, C.M., Goke, J., Deveson, I., Gamaarachchi, H., 2025. Base modification analysis in long read sequencing data using Minimod. https://doi.org/10.1101/2025.07.16.665072
 
 ```
-@article{samarasinghe_base_2025,
-  title = {Base modification analysis in long read sequencing data using {Minimod}},
-  author = {Samarasinghe, Suneth and Deveson, Ira and Gamaarachchi, Hasindu},
+@article{samarasinghe2025base,
+  title={Base modification analysis in long-read sequencing data using minimod},
+  author={Samarasinghe, Suneth and Robinson, Clare M and G{\"o}ke, Jonathan and Deveson, Ira W and Gamaarachchi, Hasindu},
+  journal={bioRxiv},
+  pages={2025--07},
   year={2025},
-  publisher={bioRxiv}
+  publisher={Cold Spring Harbor Laboratory}
 }
 ```
