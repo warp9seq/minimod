@@ -65,11 +65,11 @@ Usage: minimod <command> [options]
 
 command:
          view       view base modifications
-         freq       output base modifications frequencies
+         freq       output base modification frequencies
          summary    output summary
 ```
 
-Note: <i>freq</i> was previously <i>mod-freq</i> which still works but will be deprecated soon.
+Note: <i>freq</i> was previously <i>mod-freq</i>, which is now deprecated.
 
 # Examples
 ```bash
@@ -83,7 +83,7 @@ minimod freq ref.fa reads.bam > modfreqs.tsv
 minimod freq -b ref.fa reads.bam > modfreqs.bedmethyl
 
 # modification frequencies of multiple types ( m (5-methylcytosine) and h (5-hydroxymethylcytosine) in CG context with thresholds 0.8 and 0.7 respectively )
-minimod freq -c m[CG],h[CG] -m 0.8,0.7 ref.fa reads.bam > mods.tsv
+minimod freq -c m[CG],h[CG] -m 0.8,0.7 ref.fa reads.bam > modfreqs.tsv
 
 # summary of available modifications and counts
 minimod summary reads.bam > summary.tsv
@@ -167,11 +167,13 @@ basic options:
    --haplotypes               output haplotypes [no]
    --verbose INT              verbosity level [4]
    --version                  print version
-   --allow-secondary          allow output secondary alignments [no]
+   --allow-secondary          allow secondary alignments [no]
    --skip-supplementary       skip supplementary alignments [no]
 ```
 
 - **`--insertions` is deprecated for `freq`** and should not be used.
+
+## freq TSV output
 
 **Sample modfreqs.tsv output**
 The output entries are sorted by reference contig, reference position, strand, and modification code.
@@ -201,6 +203,8 @@ chr22	19971259	19971259	+	1	1	1.000000	m
 | 9. ins_offset | int | **Deprecated**  (only output when --insertions is specified) |
 | 10. haplotype | int | haplotype of the read (only output when --haplotypes is specified) |
 
+## freq bedmethyl output
+
 **Sample modfreqs.bedmethyl output**
 
 ```bash
@@ -222,12 +226,12 @@ chr22	19982787	19982788	m	1	+	19982787	19982788	255,0,0	1	0.000000
 | 2. start | int | position (0-based, inclusive) of the base |
 | 3. end   | int | position (0-based, not inclusive) of the base |
 | 4. mod_code | char | base modification code as in [SAMtags: 1.7 Base modifications](https://github.com/samtools/hts-specs/blob/master/SAMtags.pdf) |
-| 5. n_mod | int | number of reads called for base modification |
+| 5. n_called | int | number of reads called for base modification |
 | 6. strand | char | strand (+/-) of the read |
 | 7. start | int | = field 2 (for compatibility) |
 | 8. end   | int | = field 3 (for compatibility) |
 | 9. color | str | always 255,0,0 (for compatibility) |
-| 10. n_mod | int | = field 5 (for compatibility) |
+| 10. n_called | int | = field 5 (for compatibility) |
 | 11. freq | float | n_mod/n_called as a percentage |
 
 # minimod summary
@@ -256,19 +260,19 @@ advanced options:
    --profile-cpu=yes|no       process section by section
 ```
 
-**Sample mods.tsv output**
+**Sample summary.tsv output**
 ```bash
 read_id	 modifications
-491fb526-314e-4c18-9690-eb6930d780ea	A|17596|. C|m|. A|a|. C|19228|. T|19227|. A|69426|. G|19229|. T|17802|. 
-52b66d0d-a21e-4334-be1b-f72486d9f9bf	A|17596|. C|m|. A|a|. C|19228|. T|19227|. A|69426|. G|19229|. T|17802|. 
-cb481f14-7651-448c-945b-b4f5b2e8b70c	A|17596|. C|m|. A|a|. C|19228|. T|19227|. A|69426|. G|19229|. T|17802|. 
-2cab7053-9008-47eb-8e57-c33fda56c2ec	A|17596|. C|m|. A|a|. C|19228|. T|19227|. A|69426|. G|19229|. T|17802|. 
-37bf1305-8d8b-4973-9a0b-930303067306	A|17596|. C|m|. A|a|. C|19228|. T|19227|. A|69426|. G|19229|. T|17802|. 
-164e336f-568d-44d5-882d-7669bbe67654	A|17596|. C|m|. A|a|. C|19228|. T|19227|. A|69426|. G|19229|. T|17802|. 
-229bbbb9-abf9-4825-af30-a583a19864eb	A|17596|. C|m|. A|a|. C|19228|. T|19227|. A|69426|. G|19229|. T|17802|. 
-adbaba61-604d-4897-99cc-f9a934f3e2c8	A|17596|. C|m|. A|a|. C|19228|. T|19227|. A|69426|. G|19229|. T|17802|. 
-093bc2c6-2ae5-437d-a17c-be2755c3c689	A|17596|. C|m|. A|a|. C|19228|. T|19227|. A|69426|. G|19229|. T|17802|. 
-92fc0cc5-b2d8-4cb1-bf25-8f8b88088f23	A|17596|. C|m|. A|a|. C|19228|. T|19227|. A|69426|. G|19229|. T|17802|. 
+491fb526-314e-4c18-9690-eb6930d780ea	A|17596|. C|m|. A|a|. C|19228|. T|19227|. A|69426|. G|19229|. T|17802|.
+52b66d0d-a21e-4334-be1b-f72486d9f9bf	A|17596|. C|m|. A|a|. C|19228|. T|19227|. A|69426|. G|19229|. T|17802|.
+cb481f14-7651-448c-945b-b4f5b2e8b70c	A|17596|. C|m|. A|a|. C|19228|. T|19227|. A|69426|. G|19229|. T|17802|.
+2cab7053-9008-47eb-8e57-c33fda56c2ec	A|17596|. C|m|. A|a|. C|19228|. T|19227|. A|69426|. G|19229|. T|17802|.
+37bf1305-8d8b-4973-9a0b-930303067306	A|17596|. C|m|. A|a|. C|19228|. T|19227|. A|69426|. G|19229|. T|17802|.
+164e336f-568d-44d5-882d-7669bbe67654	A|17596|. C|m|. A|a|. C|19228|. T|19227|. A|69426|. G|19229|. T|17802|.
+229bbbb9-abf9-4825-af30-a583a19864eb	A|17596|. C|m|. A|a|. C|19228|. T|19227|. A|69426|. G|19229|. T|17802|.
+adbaba61-604d-4897-99cc-f9a934f3e2c8	A|17596|. C|m|. A|a|. C|19228|. T|19227|. A|69426|. G|19229|. T|17802|.
+093bc2c6-2ae5-437d-a17c-be2755c3c689	A|17596|. C|m|. A|a|. C|19228|. T|19227|. A|69426|. G|19229|. T|17802|.
+92fc0cc5-b2d8-4cb1-bf25-8f8b88088f23	A|17596|. C|m|. A|a|. C|19228|. T|19227|. A|69426|. G|19229|. T|17802|.
 ```
 The output is ordered in the same as reads appear in the input BAM file. First column of the output are the read_id the second column contains all available modifications in that read as space separated entries. Each entry has the following format.
 ```
@@ -280,7 +284,7 @@ Status flag describes how skipped bases should be interpreted by downstream tool
 - **?** : there is no information about the modification status of skipped bases
 
 # How skipped bases are handled
-Modified base positions are encoded in MM tag as a series of integers each indicating how many bases to be skipped before the next modified base. For an example, if the MM tag starts with **C+m.**, the skipped bases should be considered to have low probability. Otherwise, if the MM tag starts with **C+m?**,  the probability of skipped bases are unknown. 
+Modified base positions are encoded in MM tag as a series of integers each indicating how many bases to be skipped before the next modified base. For an example, if the MM tag starts with **C+m.**, the skipped bases should be considered to have low probability. Otherwise, if the MM tag starts with **C+m?**,  the probability of skipped bases are unknown.
 
 Minimod ignores skipped bases with unknown probability while considering each skipped bases with low probability to have mod_prob value of 0.001953125. This value is derived from (N+0.5)/256 where N equals to 0 as explained [Modification probability](#modification-probability) section.
 
@@ -294,7 +298,7 @@ Here are the possible context formats.
 - **a[*]** : type a modifications regardless of the context in reference or read sequences. no modified read base to reference base matching.
 - **\*[CG]** : all types of modifications in CG context. the modified read base should match the corresponding reference base. the whole context may not match between read sequence and reference sequence.
 - **17802[T]** : pseU modifications in T context (modification code is given as ChEBI code). the modified read base should match the corresponding reference base. the whole context may not match between read sequence and reference sequence.
-- **\*** :  any type of modifications in any context. no modified read base to reference base matching. 
+- **\*** :  any type of modifications in any context. no modified read base to reference base matching.
 
 Here are some example commands.
 ```bash
@@ -302,7 +306,7 @@ minimod view -c a[A],h[CG],m ref.fa reads.bam
 minimod freq -c a[A],h[CG],m ref.fa reads.bam
 minimod freq -c "*[CG]" ref.fa reads.bam
 minimod freq -c "*" ref.fa reads.bam
-minimof freq -c "17802[T]" ref.fa reads.bam
+minimod freq -c "17802[T]" ref.fa reads.bam
 ```
 
 If the context is not specified in square brackets along with modification code, minimod will consider following default contexts. Following table is an extension of the modification codes table in ([SAMtags: 1.7 Base modifications](https://github.com/samtools/hts-specs/blob/master/SAMtags.pdf)).
@@ -362,9 +366,9 @@ Note that we have done whole genome testing on 5mC and 6mA and some limited test
 > Note: Be mindful when working with modification types and context combinations that we have not tested and please feel free to open an [issue](https://github.com/warp9seq/minimod/issues), if you experience any problem.
 
 # Modification probability
-According to [SAMtags: 1.7 Base modifications: ML](https://github.com/samtools/hts-specs/blob/master/SAMtags.pdf), modifcation probabilities given in ML tag is a 8-bit unsigned integer. It maps 0.0 to 1.0 continuous probability range to discrete integers range 0-255. A discrete value N represents a continuous probability range N/256 to (N+1)/256. Therefore, as it is reasonable to choose the mid point of that range, Minimod computes the continuous probability, p when the 9-bit unsigned interger is N as follows.
+According to [SAMtags: 1.7 Base modifications: ML](https://github.com/samtools/hts-specs/blob/master/SAMtags.pdf), modification probabilities given in ML tag is a 8-bit unsigned integer. It maps 0.0 to 1.0 continuous probability range to discrete integers range 0-255. A discrete value N represents a continuous probability range N/256 to (N+1)/256. Therefore, as it is reasonable to choose the mid point of that range, Minimod computes the continuous probability, p when the 8-bit unsigned integer is N as follows.
 
-$p=(N+0.5)/256 $ 
+$p=(N+0.5)/256 $
 
 
 # Modification threshold
@@ -384,7 +388,7 @@ Base modification threshold can be set for freq tool using -m option.
 > freq(5mC) = total_modified(5mC)/total_called(5mC)
 > ```
 
-03. 5mC and 5hmC base modification(default context :CG) frequencies with thresholds 0.8, 0.7 respectively
+02. 5mC and 5hmC base modification(default context :CG) frequencies with thresholds 0.8, 0.7 respectively
 > ```
 >   minimod freq -c m,h -m 0.8,0.7 ref.fa reads.bam
 > ```
@@ -392,7 +396,7 @@ Base modification threshold can be set for freq tool using -m option.
 > ```
 > If p(5mC)  >=  0.8 (threshold),      called(5mC) and modified(5mC)
 > If p(5mC)  <=  0.2 (1-threshold),    called(5mC)
-> else,                                ambiguous
+> else,                                ignored as ambiguous
 >
 > freq(5mC) = total_modified(5mC)/total_called(5mC)
 > ```
